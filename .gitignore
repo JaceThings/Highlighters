@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+*.tgz
+.vitest/
+.turbo/
+
+# planning / process docs — kept local, never committed
+blueprint.md
+CONTRACT.md
+BUILD_REPORT.md
