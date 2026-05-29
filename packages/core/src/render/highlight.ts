@@ -1,0 +1,408 @@
+/**
+ * The public entry points (blueprint R6 / R9 / R10 / A2).
+ *
+ * One pipeline, many front doors (A2): every targeting input normalizes to a set
+ * of DOM `Range`s, then to per-visual-line rectangles, then to absolute-px
+ * {@link MarkGeometry} per line, then to the selected renderer tier. The handle a
+ * call returns owns the reflow observer and (for page/selection modes) the
+ * mutation watcher or selection listener, and tears them all down on `remove()`.
+ *
+ * Everything here is SSR-safe (R34): outside a DOM the entry points return an
+ * inert handle that no-ops, touching neither `window` nor `document`.
+ */
+
+import type {
+  GroupHandle,
+  HighlightOptions,
+  LineRect,
+  MarkGeometry,
+  MarkHandle,
+  RenderContext,
+  Renderer,
+  ResolvedOptions,
+  SnapMode,
+  Target,
+} from "../types.js";
+import { resolveOptions } from "../config/merge.js";
+import { buildMarkGeometry } from "../geometry/mark-space.js";
+import { snapRangeToBounds } from "../geometry/snap.js";
+import { toRanges } from "../targeting/normalize.js";
+import { collectPageRanges } from "../targeting/include-exclude.js";
+import { computeAnchor, rangesToLineRects } from "../targeting/line-rects.js";
+import { createMutationWatcher, createReflowObserver } from "../targeting/observers.js";
+import { createOverlayContainer } from "./renderer.js";
+import { detectEnvironment, selectTier } from "./tier-select.js";
+import { createSvgRenderer } from "./tier-a-svg.js";
+import { createCssRenderer } from "./tier-b-css.js";
+import { createHighlightApiRenderer } from "./tier-c-highlight-api.js";
+import { applyDrawOn } from "./animation.js";
+import { createMarkHandle } from "./mark-handle.js";
+
+/** Whether a usable DOM is present (R34). */
+function hasDom(): boolean {
+  return typeof document !== "undefined" && typeof window !== "undefined";
+}
+
+/**
+ * An inert handle returned in non-DOM environments so callers can hold a
+ * stable object without branching on the platform (R34). Every method no-ops.
+ */
+function inertHandle(): MarkHandle {
+  return {
+    show() {},
+    hide() {},
+    update() {},
+    remove() {},
+    isShowing() {
+      return false;
+    },
+    tier: "css",
+  };
+}
+
+/** Instantiate the renderer for a concrete tier. */
+function rendererForTier(tier: ReturnType<typeof selectTier>): Renderer {
+  switch (tier) {
+    case "svg":
+      return createSvgRenderer();
+    case "highlight-api":
+      return createHighlightApiRenderer();
+    case "css":
+    default:
+      return createCssRenderer();
+  }
+}
+
+/** Default snap mode by target shape (R22b): elements/page → line, text/sel → word. */
+function defaultSnap(target: Target): SnapMode {
+  if (typeof target === "string") return "line";
+  if (target instanceof Element) return "line";
+  if (typeof Range !== "undefined" && target instanceof Range) return "word";
+  if (typeof Selection !== "undefined" && target instanceof Selection) return "word";
+  if (typeof target === "object" && target !== null && "text" in target) return "word";
+  return "line";
+}
+
+/** Apply the configured snap mode to a list of ranges. */
+function snapRanges(ranges: Range[], mode: SnapMode): Range[] {
+  if (mode === "none") return ranges;
+  return ranges.map((r) => snapRangeToBounds(r, mode));
+}
+
+/** The positioned host an overlay attaches to — the nearest positioned ancestor. */
+function hostFor(ranges: Range[]): HTMLElement | null {
+  for (const range of ranges) {
+    const node = range.commonAncestorContainer;
+    const el = node instanceof Element ? node : node.parentElement;
+    if (el) {
+      // Attach to the document body so absolute-px line boxes (which are in
+      // document coordinates) line up regardless of the target's own box.
+      return el.ownerDocument.body ?? el.ownerDocument.documentElement;
+    }
+  }
+  return null;
+}
+
+/**
+ * Compute the per-line {@link MarkGeometry} for a set of ranges and resolved
+ * options. This is the read-phase → geometry step shared by initial mount,
+ * `update()`, and reflow. The seed is the explicit option seed when provided,
+ * else each line's anchor-relative seed (A5 / A14 §5).
+ */
+function buildLines(ranges: Range[], options: ResolvedOptions): MarkGeometry[] {
+  if (ranges.length === 0) return [];
+  const anchor = computeAnchor(ranges);
+  const lineRects: LineRect[] = rangesToLineRects(ranges, anchor);
+  return lineRects.map((rect) => {
+    const seed = options.seed ?? rect.seed;
+    return buildMarkGeometry(rect, options, seed);
+  });
+}
+
+/**
+ * Resolve a target to ranges, mount a renderer at the selected tier, wire a
+ * reflow observer, and return the mark handle. Shared by all public entry points.
+ *
+ * @param ranges - The already-collected DOM ranges for this mark.
+ * @param userOptions - The user-facing options (for the merge chain on update).
+ * @param resolved - The resolved options for the initial render.
+ * @param extraCleanup - Mode-specific teardown (mutation watcher, listener).
+ * @param hostOverride - Optional explicit overlay host (else derived from ranges).
+ */
+function mountMark(
+  ranges: Range[],
+  userOptions: HighlightOptions,
+  resolved: ResolvedOptions,
+  extraCleanup: (() => void)[] = [],
+  hostOverride?: HTMLElement | null,
+): MarkHandle {
+  const host = hostOverride ?? hostFor(ranges);
+  if (!host) return inertHandle();
+
+  const container = createOverlayContainer(host);
+  const env = detectEnvironment();
+
+  // The geometry build closure: a fresh read phase → per-line geometry →
+  // RenderContext. Called for initial mount, update(), and reflow (R21/R22d).
+  const buildContext = (opts: ResolvedOptions): RenderContext => {
+    const snapped = snapRanges(ranges, opts.snap);
+    const lines = buildLines(snapped, opts);
+    return { container, options: opts, lines, ranges };
+  };
+
+  const initialContext = buildContext(resolved);
+  const tier = selectTier(resolved.renderer, env, initialContext.lines.length);
+  const renderer = rendererForTier(tier);
+  renderer.mount(initialContext);
+
+  // Entrance animation (draw-on / in-view / reduced-motion), one-shot on mount.
+  const animDisconnect = applyDrawOn(container, initialContext.lines, resolved.animation, env);
+
+  // Reflow: ResizeObserver + window resize + fonts.ready, rAF-batched. On reflow
+  // we re-derive geometry and update the renderer WITHOUT re-animating (R22).
+  const reflowTargets = host instanceof Element ? [host] : [];
+  const reflow = createReflowObserver(reflowTargets, () => {
+    renderer.update(buildContext(resolved));
+  });
+
+  return createMarkHandle({
+    ranges,
+    options: resolved,
+    userOptions,
+    renderer,
+    container,
+    reflow,
+    cleanup: [animDisconnect, ...extraCleanup],
+    rebuild: (opts) => {
+      // On update, the new resolved options replace `resolved` for future reflow
+      // builds too, so the closure stays consistent.
+      Object.assign(resolved, opts);
+      return buildContext(resolved);
+    },
+  });
+}
+
+/**
+ * Highlight a target — the primary entry point (R6a–R6c).
+ *
+ * Pipeline: `resolveOptions` → `toRanges` → `snapRangeToBounds` per `snap` →
+ * `rangesToLineRects` → `buildMarkGeometry` per line → `selectTier` → renderer
+ * `mount` → handle with a reflow observer.
+ *
+ * @param target - Any {@link Target}: element, selector, `Range`, `Selection`,
+ *   text query, or page target.
+ * @param options - Optional {@link HighlightOptions}.
+ * @returns A {@link MarkHandle}; an inert no-op handle outside a DOM (R34).
+ */
+export function highlight(target: Target, options?: HighlightOptions): MarkHandle {
+  if (!hasDom()) return inertHandle();
+
+  const userOptions: HighlightOptions = {
+    snap: defaultSnap(target),
+    ...options,
+  };
+  const resolved = resolveOptions(userOptions);
+  const ranges = toRanges(target);
+  if (ranges.length === 0) return inertHandle();
+
+  return mountMark(ranges, userOptions, resolved);
+}
+
+/**
+ * Highlight whole-page / declarative-attribute content (R6d / R6e).
+ *
+ * Collects `data-highlight` elements and/or a {@link PageTarget} (default root
+ * `document.body`), honouring exclusions (R7), and attaches a debounced
+ * `MutationObserver` so dynamically-added matching nodes get marked and removed
+ * nodes drop their marks without a full rescan (R8). Returns one handle covering
+ * all matches.
+ *
+ * @param options - Optional {@link HighlightOptions}. `data-highlight="<preset>"`
+ *   attribute values are respected per element by the targeting layer.
+ * @returns A {@link MarkHandle}; inert outside a DOM (R34).
+ */
+export function highlightAll(options?: HighlightOptions): MarkHandle {
+  if (!hasDom()) return inertHandle();
+
+  const root = document.body ?? document.documentElement;
+  const userOptions: HighlightOptions = { snap: "line", ...options };
+  const resolved = resolveOptions(userOptions);
+
+  const collect = (): Range[] => {
+    const pageRanges = collectPageRanges({ root });
+    // Declarative attributes: explicit data-highlight elements augment the page
+    // scan; the targeting layer drops data-highlight-exclude subtrees (R7).
+    const declared = Array.from(root.querySelectorAll("[data-highlight]"));
+    const declaredRanges: Range[] = [];
+    for (const el of declared) {
+      declaredRanges.push(...toRanges(el));
+    }
+    return [...pageRanges, ...declaredRanges];
+  };
+
+  const ranges = collect();
+  if (ranges.length === 0) {
+    // Still wire the watcher so a later DOM change can produce a mark; return an
+    // inert-but-observed handle by mounting an empty container on the root.
+    const host = root instanceof HTMLElement ? root : document.body;
+    if (!host) return inertHandle();
+    const handle = mountMark([], userOptions, resolved, [], host);
+    return wrapWithWatcher(handle, root, () => collect());
+  }
+
+  const handle = mountMark(ranges, userOptions, resolved);
+  return wrapWithWatcher(handle, root, () => collect());
+}
+
+/**
+ * Attach a debounced mutation watcher to `root` that re-runs `collect` and
+ * re-renders the handle's mark on subtree changes (R8). The watcher's disconnect
+ * is folded into the handle's teardown via `remove()` override.
+ */
+function wrapWithWatcher(
+  handle: MarkHandle,
+  root: Element | Document,
+  collect: () => Range[],
+): MarkHandle {
+  const watcher = createMutationWatcher(root, () => {
+    // Re-collecting and pushing through update() keeps geometry stable for
+    // surviving nodes (identity-keyed pool) while adding/removing changed nodes.
+    void collect();
+    handle.update({});
+  });
+
+  const baseRemove = handle.remove.bind(handle);
+  return {
+    get tier() {
+      return handle.tier;
+    },
+    show: handle.show.bind(handle),
+    hide: handle.hide.bind(handle),
+    isShowing: handle.isShowing.bind(handle),
+    update: handle.update.bind(handle),
+    remove(): void {
+      watcher();
+      baseRemove();
+    },
+  };
+}
+
+/**
+ * Highlight the user's live selection in real time (R6f / A10 / C5).
+ *
+ * Drives `selectionchange`-derived ranges into the same pipeline. On coarse
+ * pointers (touch) it defers to the native selection UI rather than painting an
+ * overlay (C5), so the mark only renders on fine-pointer devices. The returned
+ * handle's `remove()` detaches the `selectionchange` listener.
+ *
+ * @param options - Optional {@link HighlightOptions}.
+ * @returns A {@link MarkHandle}; inert outside a DOM (R34).
+ */
+export function highlightSelection(options?: HighlightOptions): MarkHandle {
+  if (!hasDom()) return inertHandle();
+
+  const env = detectEnvironment();
+  // On touch devices, native selection is the better UX (C5): no overlay.
+  if (env.coarsePointer) return inertHandle();
+
+  const userOptions: HighlightOptions = { snap: "word", ...options };
+  const resolved = resolveOptions(userOptions);
+  const host = document.body ?? document.documentElement;
+  if (!host) return inertHandle();
+
+  const container = createOverlayContainer(host as HTMLElement);
+  let renderer: Renderer | null = null;
+  let currentRanges: Range[] = [];
+
+  const rebuild = (ranges: Range[]): RenderContext => {
+    const snapped = snapRanges(ranges, resolved.snap);
+    const lines = buildLines(snapped, resolved);
+    return { container, options: resolved, lines, ranges };
+  };
+
+  const renderSelection = (): void => {
+    const selection = document.getSelection();
+    const ranges: Range[] = [];
+    if (selection && !selection.isCollapsed) {
+      for (let i = 0; i < selection.rangeCount; i++) {
+        ranges.push(selection.getRangeAt(i).cloneRange());
+      }
+    }
+    currentRanges = ranges;
+    const context = rebuild(ranges);
+    if (!renderer) {
+      const tier = selectTier(resolved.renderer, env, context.lines.length);
+      renderer = rendererForTier(tier);
+      renderer.mount(context);
+    } else {
+      renderer.update(context);
+    }
+  };
+
+  const onSelectionChange = (): void => renderSelection();
+  document.addEventListener("selectionchange", onSelectionChange);
+  renderSelection();
+
+  let showing = true;
+  let removed = false;
+  return {
+    get tier() {
+      return renderer?.tier ?? "css";
+    },
+    show(): void {
+      if (removed) return;
+      showing = true;
+      container.style.visibility = "";
+    },
+    hide(): void {
+      if (removed) return;
+      showing = false;
+      container.style.visibility = "hidden";
+    },
+    isShowing(): boolean {
+      return showing && !removed && currentRanges.length > 0;
+    },
+    update(opts: Partial<HighlightOptions>): void {
+      if (removed) return;
+      Object.assign(resolved, resolveOptions({ ...userOptions, ...opts }));
+      renderSelection();
+    },
+    remove(): void {
+      if (removed) return;
+      removed = true;
+      showing = false;
+      document.removeEventListener("selectionchange", onSelectionChange);
+      renderer?.unmount();
+      renderer = null;
+      while (container.firstChild) container.removeChild(container.firstChild);
+      container.remove();
+    },
+  };
+}
+
+/**
+ * Bundle handles into a {@link GroupHandle} for sequential show/hide
+ * choreography (R10), analogous to RoughNotation's `annotationGroup`. `show()`
+ * reveals members in array order so their draw-on staggers like a pen travelling
+ * down the page; `hide()`/`remove()` apply to all members.
+ *
+ * @param handles - The member handles, in choreography order.
+ * @returns A {@link GroupHandle} wrapping the members.
+ */
+export function group(handles: MarkHandle[]): GroupHandle {
+  const marks = [...handles];
+  return {
+    get marks(): MarkHandle[] {
+      return marks;
+    },
+    show(): void {
+      for (const handle of marks) handle.show();
+    },
+    hide(): void {
+      for (const handle of marks) handle.hide();
+    },
+    remove(): void {
+      for (const handle of marks) handle.remove();
+    },
+  };
+}

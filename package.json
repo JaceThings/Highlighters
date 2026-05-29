@@ -1,0 +1,74 @@
+{
+  "name": "highlighters",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "pnpm -r --filter=\"./packages/*\" build",
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck",
+    "clean": "pnpm -r clean",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish",
+    "consumer-smoke": "bash scripts/consumer-smoke.sh",
+    "size": "size-limit",
+    "knip": "knip --reporter compact",
+    "coverage": "vitest run --coverage"
+  },
+  "size-limit": [
+    {
+      "name": "@highlighters/core (ESM, brotli)",
+      "path": "packages/core/dist/index.js",
+      "limit": "14 KB"
+    },
+    {
+      "name": "@highlighters/core/path (ESM, brotli)",
+      "path": "packages/core/dist/path.js",
+      "limit": "5 KB"
+    },
+    {
+      "name": "@highlighters/react",
+      "path": "packages/react/dist/index.js",
+      "limit": "15 KB",
+      "ignore": [
+        "react",
+        "react-dom"
+      ]
+    },
+    {
+      "name": "@highlighters/vue",
+      "path": "packages/vue/dist/index.js",
+      "limit": "15 KB",
+      "ignore": [
+        "vue"
+      ]
+    },
+    {
+      "name": "@highlighters/svelte",
+      "path": "packages/svelte/dist/index.js",
+      "limit": "13 KB",
+      "ignore": [
+        "svelte"
+      ]
+    }
+  ],
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.2",
+    "@changesets/cli": "^2.27.0",
+    "@size-limit/preset-small-lib": "^12.1.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "happy-dom": "^20.6.0",
+    "knip": "^6.14.2",
+    "publint": "^0.3.21",
+    "size-limit": "^12.1.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.8.1",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
+  }
+}

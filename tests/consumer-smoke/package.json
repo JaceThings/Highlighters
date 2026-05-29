@@ -1,0 +1,16 @@
+{
+  "name": "highlighters-consumer-smoke",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Installs highlighters tarballs and runs ESM/CJS/subpath/SSR import smokes. @highlighters/* deps are added at install time by scripts/consumer-smoke.sh against the just-packed tarballs — do not pin them here, version drift will break the script.",
+  "type": "module",
+  "scripts": {
+    "smoke": "node esm-smoke.mjs && node cjs-smoke.cjs && node subpath-smoke.mjs && node ssr-smoke.mjs"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "vue": "^3.5.28",
+    "svelte": "^5.0.0"
+  }
+}

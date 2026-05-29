@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "paths": {
+      "@highlighters/core": ["../core/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}
