@@ -61,3 +61,29 @@ export const SHOW_TEXT = 0x4;
 export const FILTER_ACCEPT = 1;
 /** `NodeFilter.FILTER_REJECT` — drop the node and its subtree. */
 export const FILTER_REJECT = 2;
+
+/** Tag names whose text content never renders as visible page content. */
+const NON_RENDERED_TAGS = new Set([
+  "SCRIPT",
+  "STYLE",
+  "TEMPLATE",
+  "NOSCRIPT",
+  "HEAD",
+  "TITLE",
+]);
+
+/**
+ * Whether `node` sits inside a subtree whose text is never rendered as page
+ * content (`<script>`/`<style>`/`<template>`/`<noscript>`/`<head>`/`<title>`).
+ * The text-collecting `TreeWalker`s reject such nodes so a query never matches
+ * CSS/JS source or document metadata — and, because the check walks ancestors,
+ * so a match can't straddle from non-rendered source into adjacent visible text.
+ */
+export function isInNonRenderedSubtree(node: Node): boolean {
+  let el = node.parentElement;
+  while (el) {
+    if (NON_RENDERED_TAGS.has(el.tagName)) return true;
+    el = el.parentElement;
+  }
+  return false;
+}

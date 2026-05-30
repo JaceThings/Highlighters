@@ -25,6 +25,7 @@ import type {
 } from "../types.js";
 import { resolveOptions } from "../config/merge.js";
 import { buildMarkGeometry } from "../geometry/mark-space.js";
+import { hashU32 } from "../geometry/rng.js";
 import { snapRangeToBounds } from "../geometry/snap.js";
 import { toRanges } from "../targeting/normalize.js";
 import { collectPageRanges } from "../targeting/include-exclude.js";
@@ -119,7 +120,13 @@ function buildLines(
   // offset, so this is correct for `body` and for any positioned host alike.
   const origin = container.getBoundingClientRect();
   return lineRects.map((rect) => {
-    const seed = options.seed ?? rect.seed;
+    // An explicit `options.seed` must still yield a DISTINCT per-line seed, or a
+    // wrapped (multi-line) mark would key every line's pooled wrapper to the same
+    // value — collapsing all lines onto one node (only the last survives) and
+    // aliasing the draw-on. Mix the explicit seed with the line's anchor-relative
+    // `rect.seed` through `hashU32` so adjacent lines never alias, while staying
+    // fully deterministic (same seed + same layout → same per-line seeds).
+    const seed = options.seed == null ? rect.seed : hashU32(options.seed + rect.seed);
     const local: LineRect = {
       ...rect,
       left: rect.left - origin.left,

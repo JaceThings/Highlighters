@@ -237,6 +237,42 @@ describe("resolveOptions", () => {
     expect(r.edge.roughness).toBe(0);
   });
 
+  // --- input hardening (correctness audit) ---
+
+  it("a user palette wins over a preset's own color object (palette-only)", () => {
+    // The default `mild` preset ships a color object; a palette-only call must
+    // still draw the requested palette's default, not mild's yellow.
+    expect(resolveOptions({ palette: "calm" }).color).toBe(defaultSwatch("calm"));
+    expect(
+      resolveOptions({ preset: "classic-yellow", palette: "calm" }).color,
+    ).toBe(defaultSwatch("calm"));
+    // An explicit color still wins over a palette.
+    expect(resolveOptions({ color: "#abcabc", palette: "calm" }).color).toBe("#abcabc");
+  });
+
+  it("treats an empty/whitespace color as unset", () => {
+    expect(resolveOptions({ color: "" }).color).toBe(DEFAULT_OPTIONS.color);
+    expect(resolveOptions({ color: "   " }).color).toBe(DEFAULT_OPTIONS.color);
+    expect(resolveOptions({ color: "", palette: "calm" }).color).toBe(defaultSwatch("calm"));
+  });
+
+  it("substitutes the default for a non-finite or non-positive duration", () => {
+    const dflt = DEFAULT_OPTIONS.animation.duration;
+    expect(resolveOptions({ animation: { duration: Infinity } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: NaN } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: 0 } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: -5 } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: 250 } }).animation.duration).toBe(250);
+  });
+
+  it("substitutes the default for NaN/Infinity numeric knobs", () => {
+    expect(resolveOptions({ opacity: NaN }).opacity).toBe(DEFAULT_OPTIONS.opacity);
+    expect(resolveOptions({ ink: { flow: NaN } }).ink.flow).toBe(DEFAULT_OPTIONS.ink.flow);
+    expect(resolveOptions({ edge: { radius: Infinity } }).edge.radius).toBe(DEFAULT_OPTIONS.edge.radius);
+    // A valid value still passes through.
+    expect(resolveOptions({ opacity: 0.42 }).opacity).toBe(0.42);
+  });
+
   it("honors an explicit seed and the shape synonym", () => {
     expect(resolveOptions({ seed: 42 }).seed).toBe(42);
     expect(resolveOptions().seed).toBeNull();

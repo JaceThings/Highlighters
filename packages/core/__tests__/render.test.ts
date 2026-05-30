@@ -14,6 +14,7 @@ import {
 import { applyDrawOn, prefersReducedMotion } from "../src/render/animation.js";
 import { createCssRenderer, poolGradientToCss } from "../src/render/tier-b-css.js";
 import { createSvgRenderer } from "../src/render/tier-a-svg.js";
+import { createHighlightApiRenderer } from "../src/render/tier-c-highlight-api.js";
 import { createMarkHandle } from "../src/render/mark-handle.js";
 import { highlight, group } from "../src/render/highlight.js";
 import { resolveOptions } from "../src/config/merge.js";
@@ -81,6 +82,20 @@ function geometry(seed: number): MarkGeometry {
 
 function resolved(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions {
   return { ...resolveOptions(), ...overrides };
+}
+
+/** A DOMRect-ish for stubbing Range.getClientRects in happy-dom. */
+function dr(left: number, top: number, width: number, height: number): DOMRect {
+  return { x: left, y: top, width, height, left, top, right: left + width, bottom: top + height, toJSON: () => ({}) } as DOMRect;
+}
+function domRectList(rects: DOMRect[]): DOMRectList {
+  const list = {
+    length: rects.length,
+    item: (i: number) => rects[i] ?? null,
+    [Symbol.iterator]: () => rects[Symbol.iterator](),
+  } as unknown as DOMRectList & Record<number, DOMRect>;
+  for (let i = 0; i < rects.length; i++) list[i] = rects[i];
+  return list;
 }
 
 // ---------------------------------------------------------------------------
@@ -741,6 +756,53 @@ describe("highlight", () => {
     const handle = highlight(".does-not-exist");
     expect(handle.isShowing()).toBe(false);
     expect(() => handle.remove()).not.toThrow();
+  });
+
+  it("an explicit seed still gives each visual line its OWN wrapper (no collapse)", () => {
+    // Two stacked line rects + an explicit seed. Pre-fix every line got the same
+    // seed, collapsing the seed-keyed pool to one wrapper (only the last line
+    // painted); now each line keeps a distinct deterministic seed.
+    const twoLines = domRectList([dr(10, 100, 200, 18), dr(10, 124, 200, 18)]);
+    const spy = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(twoLines);
+    try {
+      const handle = highlight(target, { seed: 42, renderer: "css", animation: { draw: false } });
+      const overlay = document.body.querySelector("[data-highlighters-overlay]")!;
+      expect(overlay.children.length).toBe(2);
+      const clipsA = Array.from(overlay.children).map((w) => (w as HTMLElement).style.clipPath);
+      // Distinct seeds → distinct wave geometry per line (not two identical clips).
+      expect(clipsA[0]).not.toBe(clipsA[1]);
+      handle.remove();
+      // Determinism: same seed + same layout → byte-identical per-line geometry.
+      const handle2 = highlight(target, { seed: 42, renderer: "css", animation: { draw: false } });
+      const overlay2 = document.body.querySelector("[data-highlighters-overlay]")!;
+      const clipsB = Array.from(overlay2.children).map((w) => (w as HTMLElement).style.clipPath);
+      expect(clipsB).toEqual(clipsA);
+      handle2.remove();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("Tier C (Custom Highlight API)", () => {
+  afterEach(() => {
+    document.getElementById("highlighters-highlight-api-styles")?.remove();
+  });
+
+  it("folds opacity into the fill via color-mix so coverage matches A/B (R28)", () => {
+    const host = document.createElement("p");
+    document.body.appendChild(host);
+    const container = createOverlayContainer(host);
+    const renderer = createHighlightApiRenderer();
+    const options = resolved({ color: "#ff0000", opacity: 0.5 });
+    renderer.mount({ container, options, lines: [], ranges: [] });
+    const css = document.getElementById("highlighters-highlight-api-styles")?.textContent ?? "";
+    expect(css).toContain("color-mix");
+    expect(css).toContain("50%");
+    // Not a bare, fully-opaque fill.
+    expect(css).not.toContain("background-color: #ff0000;");
+    renderer.unmount();
+    host.remove();
   });
 });
 

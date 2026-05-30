@@ -238,6 +238,12 @@ describe("include/exclude — structural exclusion precedence (R7)", () => {
     const ranges = collectPageRanges({});
     expect(ranges.map(rangeText)).toEqual(["body text"]);
   });
+
+  it("collectPageRanges skips text in non-rendered subtrees (<script>/<style>)", () => {
+    const root = setBody(`<style>.x{color:red}</style><p>visible</p><script>var x=1</script>`);
+    const ranges = collectPageRanges({ root });
+    expect(ranges.map(rangeText)).toEqual(["visible"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -301,6 +307,22 @@ describe("findTextRanges — matches across inline boundaries (R6c)", () => {
     const body = setBody(`<p>abc</p>`);
     expect(findTextRanges(body, "")).toEqual([]);
     expect(findTextRanges(body, "zzz")).toEqual([]);
+  });
+
+  it("matches every occurrence even for a sticky (`y`) RegExp", () => {
+    // Sticky anchors `exec` to lastIndex; adding `g` doesn't override it, so a
+    // naive scan would stop at the first gap and under-match. The flag is stripped.
+    expect(findTextRanges(setBody(`<p>x_x_x</p>`), /x/y)).toHaveLength(3);
+    expect(findTextRanges(setBody(`<p>aXbXc</p>`), /X/y)).toHaveLength(2);
+    // A plain global pattern is unaffected.
+    expect(findTextRanges(setBody(`<p>x_x_x</p>`), /x/g)).toHaveLength(3);
+  });
+
+  it("never matches text inside non-rendered subtrees (<script>/<style>)", () => {
+    const body = setBody(`<style>.foo{}</style><p>foo</p><script>var foo=1</script>`);
+    const ranges = findTextRanges(body, "foo");
+    expect(ranges).toHaveLength(1);
+    expect(rangeText(ranges[0])).toBe("foo"); // only the visible <p>
   });
 });
 

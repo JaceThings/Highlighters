@@ -12,7 +12,13 @@
  * in different text nodes.
  */
 
-import { hasDomWithRange, SHOW_TEXT } from "../internal/dom.js";
+import {
+  FILTER_ACCEPT,
+  FILTER_REJECT,
+  hasDomWithRange,
+  isInNonRenderedSubtree,
+  SHOW_TEXT,
+} from "../internal/dom.js";
 
 /** A single character's provenance: the owning text node and its in-node index. */
 interface CharSlot {
@@ -30,7 +36,12 @@ function collectText(root: Node): { text: string; slots: CharSlot[] } {
   const slots: CharSlot[] = [];
   let text = "";
 
-  const walker = document.createTreeWalker(root, SHOW_TEXT);
+  // Skip text inside non-rendered subtrees (<script>/<style>/<head>/…) so a query
+  // never matches CSS/JS source or metadata, and a match can't straddle from it
+  // into adjacent visible text.
+  const walker = document.createTreeWalker(root, SHOW_TEXT, {
+    acceptNode: (n) => (isInNonRenderedSubtree(n) ? FILTER_REJECT : FILTER_ACCEPT),
+  });
   let node = walker.nextNode() as Text | null;
   while (node) {
     const value = node.data;
@@ -97,8 +108,13 @@ export function findTextRanges(
     return ranges;
   }
 
-  // RegExp: always scan globally, but leave the caller's pattern untouched.
-  const flags = query.flags.includes("g") ? query.flags : query.flags + "g";
+  // RegExp: always scan globally, but leave the caller's pattern untouched. The
+  // sticky `y` flag is stripped first: with `y` set, `exec` only matches at
+  // `lastIndex` (anchored), so adding `g` does not override it and the scan would
+  // stop at the first gap, silently under-matching. Stripping `y` restores
+  // "every occurrence" while keeping case sensitivity (`i`) and the rest.
+  const base = query.flags.replace("y", "");
+  const flags = base.includes("g") ? base : base + "g";
   const re = new RegExp(query.source, flags);
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {

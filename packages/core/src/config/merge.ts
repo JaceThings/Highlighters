@@ -59,6 +59,21 @@ const QUALITY_BUNDLES: Record<QualityTier, Partial<HighlightOptions>> = {
   },
 };
 
+/**
+ * A finite number, else `fallback`. `??` only substitutes for `undefined`, so a
+ * caller passing `NaN` or `±Infinity` (e.g. `parseFloat("")`) would otherwise leak
+ * a non-finite value through resolve into geometry/CSS, painting a broken or
+ * invisible mark. Every resolved numeric scalar funnels through this.
+ */
+function finiteOr(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/** A finite, strictly-positive number, else `fallback` — for durations. */
+function positiveOr(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
 /** The namespaced option groups that are merged field-wise rather than replaced. */
 const GROUP_KEYS = ["tip", "ink", "edge", "paper", "glow", "animation"] as const;
 
@@ -118,7 +133,10 @@ function resolveColor(
   palette: HighlightOptions["palette"],
   fallback: ColorValue,
 ): ColorValue {
-  if (typeof color === "string") {
+  // An empty/whitespace string (e.g. a controlled input before a swatch is
+  // chosen) is treated as unset, so it falls back to the palette/default rather
+  // than emitting an empty colour token into the gradient.
+  if (typeof color === "string" && color.trim() !== "") {
     return color;
   }
   if (color && typeof color === "object") {
@@ -169,53 +187,61 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
 
   const tip: ResolvedTip = {
     type: merged.tip?.type ?? d.tip.type,
-    width: merged.tip?.width ?? d.tip.width,
-    thickness: merged.tip?.thickness ?? d.tip.thickness,
-    angle: merged.tip?.angle ?? d.tip.angle,
-    overshoot: merged.tip?.overshoot ?? d.tip.overshoot,
-    overshootJitter: merged.tip?.overshootJitter ?? d.tip.overshootJitter,
+    width: finiteOr(merged.tip?.width, d.tip.width),
+    thickness: finiteOr(merged.tip?.thickness, d.tip.thickness),
+    angle: finiteOr(merged.tip?.angle, d.tip.angle),
+    overshoot: finiteOr(merged.tip?.overshoot, d.tip.overshoot),
+    overshootJitter: finiteOr(merged.tip?.overshootJitter, d.tip.overshootJitter),
   };
 
   const ink: ResolvedInk = {
-    flow: merged.ink?.flow ?? d.ink.flow,
-    viscosity: merged.ink?.viscosity ?? d.ink.viscosity,
-    saturation: merged.ink?.saturation ?? d.ink.saturation,
-    feathering: merged.ink?.feathering ?? d.ink.feathering,
-    streakiness: merged.ink?.streakiness ?? d.ink.streakiness,
-    dryout: merged.ink?.dryout ?? d.ink.dryout,
-    startEndBuildup: merged.ink?.startEndBuildup ?? d.ink.startEndBuildup,
+    flow: finiteOr(merged.ink?.flow, d.ink.flow),
+    viscosity: finiteOr(merged.ink?.viscosity, d.ink.viscosity),
+    saturation: finiteOr(merged.ink?.saturation, d.ink.saturation),
+    feathering: finiteOr(merged.ink?.feathering, d.ink.feathering),
+    streakiness: finiteOr(merged.ink?.streakiness, d.ink.streakiness),
+    dryout: finiteOr(merged.ink?.dryout, d.ink.dryout),
+    startEndBuildup: finiteOr(merged.ink?.startEndBuildup, d.ink.startEndBuildup),
   };
 
   const edge: ResolvedEdge = {
-    waviness: merged.edge?.waviness ?? d.edge.waviness,
-    frequency: merged.edge?.frequency ?? d.edge.frequency,
-    roughness: merged.edge?.roughness ?? d.edge.roughness,
+    waviness: finiteOr(merged.edge?.waviness, d.edge.waviness),
+    frequency: finiteOr(merged.edge?.frequency, d.edge.frequency),
+    roughness: finiteOr(merged.edge?.roughness, d.edge.roughness),
     cap: merged.edge?.cap ?? d.edge.cap,
-    radius: merged.edge?.radius ?? d.edge.radius,
+    radius: finiteOr(merged.edge?.radius, d.edge.radius),
   };
 
   const paper: ResolvedPaper = {
-    absorbency: merged.paper?.absorbency ?? d.paper.absorbency,
+    absorbency: finiteOr(merged.paper?.absorbency, d.paper.absorbency),
   };
 
-  const color = resolveColor(merged.color, merged.palette, d.color);
+  // A user-supplied `palette` with no `color` draws that palette's default
+  // swatch — even when the active preset carries its own `color` object (which
+  // the shallow option spread would otherwise leave in place, silently ignoring
+  // the user's palette). An explicit `color` always wins; detect intent from the
+  // RAW input, not the preset-merged value.
+  const color =
+    input.color === undefined && input.palette !== undefined
+      ? defaultSwatch(input.palette)
+      : resolveColor(merged.color, merged.palette, d.color);
 
   const glow: ResolvedGlow = {
     enabled: merged.glow?.enabled ?? d.glow.enabled,
-    intensity: merged.glow?.intensity ?? d.glow.intensity,
-    spread: merged.glow?.spread ?? d.glow.spread,
+    intensity: finiteOr(merged.glow?.intensity, d.glow.intensity),
+    spread: finiteOr(merged.glow?.spread, d.glow.spread),
     // Falls back to the ink color so an enabled glow blooms in-hue by default.
     color: merged.glow?.color ?? (d.glow.color || color),
   };
 
   const animation: ResolvedAnimation = {
     draw: merged.animation?.draw ?? d.animation.draw,
-    duration: merged.animation?.duration ?? d.animation.duration,
+    duration: positiveOr(merged.animation?.duration, d.animation.duration),
     easing: merged.animation?.easing ?? d.animation.easing,
     direction: merged.animation?.direction ?? d.animation.direction,
-    stagger: merged.animation?.stagger ?? d.animation.stagger,
+    stagger: finiteOr(merged.animation?.stagger, d.animation.stagger),
     trigger: merged.animation?.trigger ?? d.animation.trigger,
-    threshold: merged.animation?.threshold ?? d.animation.threshold,
+    threshold: finiteOr(merged.animation?.threshold, d.animation.threshold),
     rootMargin: merged.animation?.rootMargin ?? d.animation.rootMargin,
     repeat: merged.animation?.repeat ?? d.animation.repeat,
   };
@@ -226,7 +252,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     markType: merged.markType ?? merged.shape ?? d.markType,
     color,
     gradient: merged.gradient ?? d.gradient,
-    opacity: merged.opacity ?? d.opacity,
+    opacity: finiteOr(merged.opacity, d.opacity),
     blendMode,
     tip,
     ink,

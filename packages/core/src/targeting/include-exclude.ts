@@ -13,6 +13,7 @@ import {
   FILTER_ACCEPT,
   FILTER_REJECT,
   hasDomWithRange,
+  isInNonRenderedSubtree,
   SHOW_TEXT,
 } from "../internal/dom.js";
 
@@ -94,6 +95,8 @@ export function collectPageRanges(target: PageTarget): Range[] {
     acceptNode(node) {
       const text = node as Text;
       if (text.data.trim().length === 0) return FILTER_REJECT;
+      // Never paint text that doesn't render (<script>/<style>/<head>/…).
+      if (isInNonRenderedSubtree(text)) return FILTER_REJECT;
       // Structural exclusion precedence (R7): drop the whole excluded subtree.
       if (isExcluded(text, exclude)) return FILTER_REJECT;
       if (!isIncluded(text, include)) return FILTER_REJECT;

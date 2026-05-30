@@ -173,8 +173,10 @@ export function rangesToLineRects(ranges: Range[], anchor: Anchor): LineRect[] {
   // Anchor-column filter: drop rects horizontally outside the content column
   // (sr-only text, decorative wrappers, content in other columns). The column
   // is bounded by the anchor's left and the widest rect's right, with slop so
-  // word-wrap on a trailing edge isn't clipped.
-  const maxRight = Math.max(...raw.map((r) => r.right));
+  // word-wrap on a trailing edge isn't clipped. A bounded loop (not
+  // `Math.max(...spread)`) so a huge full-page scan can't blow the call stack.
+  let maxRight = -Infinity;
+  for (const r of raw) if (r.right > maxRight) maxRight = r.right;
   const minLeft = anchor.left - COLUMN_SLOP;
   const maxRightBound = maxRight + COLUMN_SLOP;
   const columnRects = raw.filter(

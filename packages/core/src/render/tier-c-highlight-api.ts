@@ -68,15 +68,14 @@ export function createHighlightApiRenderer(): Renderer {
   /** Build the `::highlight()` rule body from resolved options. */
   function ruleFor(context: RenderContext): string {
     const { options } = context;
-    // Tier C is flat colour only; honour colour, opacity and blend so identity
-    // (colour) stays consistent with Tiers A/B even though edges/texture don't.
-    const decls = [
-      `background-color: ${options.color}`,
-      `color: inherit`,
-    ];
-    // The Highlight API exposes a limited set of paintable properties; blend
-    // mode is not among them, so opacity is folded into the colour via the
-    // pseudo's background only when the colour cannot already carry alpha.
+    // Tier C is flat colour only, but it must honour OPACITY so its coverage
+    // matches Tiers A/B (R28: degrade is fidelity-only — identity stays). The
+    // Highlight API exposes no `opacity` or `mix-blend-mode` on `::highlight()`,
+    // so fold opacity into the fill via `color-mix` toward transparent. Blend
+    // mode is unavoidably dropped (no paintable property for it).
+    const alpha = Math.max(0, Math.min(1, options.opacity));
+    const fill = `color-mix(in srgb, ${options.color} ${Math.round(alpha * 100)}%, transparent)`;
+    const decls = [`background-color: ${fill}`, `color: inherit`];
     return `::highlight(${name}) { ${decls.join("; ")}; }`;
   }
 
