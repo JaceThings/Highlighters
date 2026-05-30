@@ -8,13 +8,12 @@
  * All layout access here is reads only — no DOM writes (R21) — so the result can
  * be batched cleanly against a later write phase.
  *
- * The merge logic handles the realities of `getClientRects()`:
- * it returns one rect per text fragment, plus occasional
- * oversized "bbox artifacts" when a range crosses block boundaries. We drop the
- * artifacts (much taller than the median line), merge fragments that share a
- * vertical centre (hyphenation, inline `<em>`/`<a>` runs), and refuse to merge
- * across large horizontal gaps (so flex `justify-between` rows don't fuse into a
- * single ghost band).
+ * The merge logic handles the realities of `getClientRects()`: it returns one
+ * rect per text fragment, plus occasional oversized "bbox artifacts" when a
+ * range crosses block boundaries. We drop the artifacts (much taller than the
+ * median line), merge fragments that share a vertical centre (hyphenation, inline
+ * `<em>`/`<a>` runs), and refuse to merge across large horizontal gaps (so flex
+ * `justify-between` rows don't fuse into a single ghost band).
  */
 
 import type { Anchor, LineRect } from "../types.js";

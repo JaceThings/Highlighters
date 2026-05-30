@@ -183,10 +183,9 @@ export function usePointerDrag({
     applyPointer(e.clientX);
   };
 
-  // Mirrors Build UI's `onLostPointerCapture`: the snap fires whenever the
-  // browser hands pointer capture back, which covers pointerup, pointer
-  // leaving the element entirely, and forced-release on the OS. Doing it
-  // on pointerup alone misses the finger-flies-off-the-track case.
+  // Snap on capture-release rather than pointerup: this fires for pointerup,
+  // the pointer leaving the element entirely, and OS forced-release — covering
+  // the finger-flies-off-the-track case that a pointerup-only handler misses.
   const onLostPointerCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     if (pointerIdRef.current !== e.pointerId) return;
     draggingRef.current = false;

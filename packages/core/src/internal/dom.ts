@@ -16,8 +16,6 @@
  * Whether `document` and the `Range` constructor are both present — the guard
  * for the targeting collectors that build `Range`s over text nodes
  * (text-search, include-exclude, normalize, line-rects).
- *
- * @returns `true` when a `Range`-capable DOM is available.
  */
 export function hasDomWithRange(): boolean {
   return typeof document !== "undefined" && typeof Range !== "undefined";
@@ -26,8 +24,6 @@ export function hasDomWithRange(): boolean {
 /**
  * Whether both `document` and `window` are present — the guard for the render
  * entry points, which read layout and attach overlays.
- *
- * @returns `true` when a windowed DOM is available.
  */
 export function hasDom(): boolean {
   return typeof document !== "undefined" && typeof window !== "undefined";
@@ -36,8 +32,6 @@ export function hasDom(): boolean {
 /**
  * Whether `window` is present — the guard for the observer layer, which wires
  * `window`-level listeners and `ResizeObserver`s.
- *
- * @returns `true` when `window` is available.
  */
 export function hasWindow(): boolean {
   return typeof window !== "undefined";
@@ -46,8 +40,6 @@ export function hasWindow(): boolean {
 /**
  * Whether a DOM with media-query support (`window.matchMedia`) is present — the
  * guard for tier selection, which reads motion/data/pointer preferences.
- *
- * @returns `true` when `document`, `window`, and `window.matchMedia` are all available.
  */
 export function hasMediaQueries(): boolean {
   return (

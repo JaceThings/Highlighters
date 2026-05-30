@@ -14,11 +14,10 @@
  * `sin()`-based hash `frac(sin(seed * 9301 + 49297) * 233280) * 2 - 1`.
  *
  * This hash is documented in the anchored-grid doc §5, and is chosen because it
- * is pure, stateless, and stable across
- * server and client — there is no platform pseudo-random generator and no
- * wall-clock read anywhere in the chain. Adjacent integer seeds map to widely
- * scattered outputs, so the convention throughout the library is to draw
- * decorrelated values by offsetting the seed before hashing.
+ * is pure, stateless, and stable across server and client — there is no platform
+ * pseudo-random generator and no wall-clock read anywhere in the chain. Adjacent
+ * integer seeds map to widely scattered outputs, so the convention throughout the
+ * library is to draw decorrelated values by offsetting the seed before hashing.
  *
  * @param seed - An integer seed. Non-integers are accepted but callers should
  *   pass integers so that a given grid index / line always resolves identically.

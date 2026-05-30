@@ -104,10 +104,10 @@ export function useStaggerEntrance({
 
 export function Stagger({ index, children }: StaggerProps) {
   const props = useStaggerEntrance({ index });
-  // When the entrance is SKIPPED (initial === false), there is no animation
-  // to complete, so seed `done` true — revisits/instant renders get marks
-  // immediately. Otherwise wait for framer-motion to report the entrance
-  // (opacity/blur) finished, which is exactly when the text has fully arrived.
+  // When the entrance is SKIPPED (initial === false) there's no animation to
+  // complete, so seed `done` true — revisits/instant renders get marks
+  // immediately. Otherwise wait for framer-motion's onAnimationComplete, which
+  // fires exactly when opacity/blur finish and the text has fully arrived.
   const [done, setDone] = useState(props.initial === false);
   return (
     <motion.div {...props} onAnimationComplete={() => setDone(true)}>

@@ -11,17 +11,14 @@ import { RendererSection } from "./sections/RendererSection.tsx";
  * THE ADVANCED REFERENCE — the deep end of the playground.
  *
  * Everything a reader needs to BUILD a highlighter lives up top in the Basics
- * block (tip, ends, stack, colour). This section is the detailed, doc-style
- * reference for the remaining controls: the full ink-physics model, edge detail,
- * paper, material/effect, snapping, animation, and the renderer tiers. It reads
- * like reference material — a clear heading, an intro framing it as the advanced
- * surface, then each control group with an expanded description of exactly what
- * it does and how it interacts with the others.
+ * block (tip, ends, stack, colour). This is the doc-style reference for the
+ * remaining controls — the full ink-physics model, edge detail, paper,
+ * material/effect, snapping, animation, and the renderer tiers — each documented
+ * with what it does and how it interacts with the others.
  *
- * It renders as ONE cohesive document block: a heading + intro, then the advanced
- * sections at the same 48px section rhythm the page uses elsewhere. Each section
- * still carries the live <Preview /> exhibit, so every deep knob is demonstrated
- * on the same sample prose as the Basics.
+ * Renders as ONE cohesive document block (heading + intro, then the sections at
+ * the page's usual 48px rhythm). Each section carries the live <Preview /> so
+ * every deep knob is demonstrated on the same sample prose as the Basics.
  */
 export function AdvancedReference() {
   return (

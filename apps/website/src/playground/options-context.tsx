@@ -61,14 +61,14 @@ export const TIP_OVERSHOOT_DEFAULT = 2;
 export const TIP_OVERSHOOT_JITTER_DEFAULT = 1;
 
 /**
- * Lower the playground's superset options to exactly what `@highlighters/core`
- * consumes: translate `stack` into the ink compositing model and drop the
- * playground-only `stack` field. The `tip` group (overshoot knobs included) is a
- * native core group now, so it flows straight through.
+ * Lower the playground's superset to exactly what `@highlighters/core` consumes:
+ * translate `stack` into the ink compositing model and drop the playground-only
+ * `stack` field. The `tip` group (overshoot knobs included) is a native core
+ * group, so it flows straight through.
  *
  * `stack: true` ⇒ `multiply` (overlaps darken — real translucent ink).
- * `stack: false` ⇒ `normal` (overlapping same-colour marks merge into one
- * cohesive colour, no darkening where they cross).
+ * `stack: false` ⇒ `normal` (same-colour overlaps merge into one cohesive
+ * colour, no darkening).
  */
 export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
   const { stack, ...rest } = opts;
@@ -88,9 +88,6 @@ export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
  * shipped presets are exposed (in RecommendedLooks) only as one-shot starting
  * points you can COPY into this state via {@link applyRecipe}; after applying,
  * every control is freely editable and nothing stays "locked" to a recipe.
- *
- * The shape is the user-facing partial {@link HighlightOptions} — exactly what
- * `highlight()` / `<Highlight>` accept.
  */
 
 /**

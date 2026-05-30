@@ -47,13 +47,12 @@ function diffFromDefaults(live: PlaygroundOptions): HighlightOptions {
   const r = resolveOptions(toCoreOptions(live));
   const out: Record<string, unknown> = {};
 
-  // Top-level scalars worth emitting (skip the resolved-only `gradient`/`seed`
-  // /`contrastBackground` plumbing that the user never set here). `blendMode` is
+  // Top-level scalars worth emitting (skip the resolved-only `gradient`/`seed`/
+  // `contrastBackground` plumbing the user never set). `blendMode` is
   // intentionally NOT emitted — `stack` owns the compositing model now.
   if (r.markType !== DEFAULTS.markType) out.markType = r.markType;
   if (r.color !== DEFAULTS.color) out.color = r.color;
   if (r.opacity !== DEFAULTS.opacity) out.opacity = tidy(r.opacity);
-  // The phase-1 stack boolean, emitted only when it differs from the default.
   const stack = live.stack ?? STACK_DEFAULT;
   if (stack !== STACK_DEFAULT) out.stack = stack;
   if (r.colorant !== DEFAULTS.colorant) out.colorant = tidy(r.colorant);
@@ -112,7 +111,6 @@ export function CopyConfig() {
   const { options } = usePlaygroundOptions();
   const [copied, setCopied] = useState(false);
 
-  // Recompute the snippet whenever the live build changes.
   const snippet = useMemo(() => {
     const diff = diffFromDefaults(options);
     return [

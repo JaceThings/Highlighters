@@ -60,10 +60,10 @@ export function AnimationSection() {
     >
       <FigureCard>
         <Preview replayNonce={replayNonce} />
-        {/* Replay the draw-on stroke without a page refresh. Only meaningful
-            while draw-on is enabled, so it shares the Collapse with the
-            duration/trigger controls. Bumping `replayNonce` remounts the
-            preview marks → each stroke re-draws with the live settings. */}
+        {/* Replay the draw-on without a page refresh — bumping `replayNonce`
+            remounts the preview marks so each stroke redraws with the live
+            settings. Only meaningful while draw-on is enabled, so it shares the
+            Collapse with the duration/trigger controls. */}
         <Collapse show={draw}>
           <div className={`flex w-full items-center justify-center p-3 ${ROW_DIVIDER}`}>
             <button

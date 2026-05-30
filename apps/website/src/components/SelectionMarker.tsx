@@ -7,18 +7,18 @@ import { type HighlightOptions, highlightSelection } from "@highlighters/core";
  * On mount it wires the user's live selection into @highlighters core via
  * {@link highlightSelection}, so any selectable text — anywhere on any route —
  * gets painted with the brown {@link BROWN_SELECTION_OPTIONS} marker instead of
- * the browser's native blue band. It renders `null` and paints NOTHING until the
- * user actually selects text; the overlay only appears while a selection exists.
+ * the native blue band. Renders `null` and paints nothing until a selection
+ * exists.
  *
- * The companion `selection-marker-ready` class is added to `<html>` so the
+ * The companion `selection-marker-ready` class on `<html>` gates the
  * native-selection suppression in global.css (`::selection { background:
- * transparent }`) is gated on JS having loaded — if this never mounts, the
- * browser's own blue selection still works as a fallback.
+ * transparent }`) on JS having loaded — if this never mounts, the browser's
+ * own blue selection still works as a fallback.
  *
  * SEPARATION FROM THE EXHIBITS. The demonstration boxes (Preview.tsx and the
  * Home hero) are `select-none`, so the browser never creates a selection range
- * inside them — this document-wide marker therefore never touches their prose.
- * Their pre-highlighted, live-updating marks are left entirely alone.
+ * inside them — this document-wide marker never touches their prose, and their
+ * pre-highlighted, live-updating marks are left entirely alone.
  */
 
 // ── Lisse brown selection, mapped onto @highlighters ──────────────────────

@@ -55,12 +55,11 @@ export function Preview({ replayNonce = 0 }: PreviewProps) {
   // in, render the phrases as plain text; only paint marks once entered.
   const entered = useEntranceComplete();
 
-  // Wrap a phrase in a live <Highlight> once the entrance is done, otherwise
-  // render the SAME children as plain inline text. The text is byte-identical
-  // in both states and the mark is an overlay, so swapping has zero layout shift.
-  // Folding `replayNonce` into the `key` remounts the mark when the nonce
-  // changes, replaying its draw-on animation. The per-run `seed` keeps each
-  // mark's key distinct so they don't collide.
+  // Wrap a phrase in a live <Highlight> once entered, else render the SAME
+  // children as plain inline text. The text is byte-identical in both states and
+  // the mark is an overlay, so swapping has zero layout shift. Folding
+  // `replayNonce` into the `key` remounts the mark to replay its draw-on; the
+  // per-run `seed` keeps each mark's key distinct so they don't collide.
   const mark = (children: ReactNode, runOptions: HighlightOptions) =>
     entered ? (
       <Highlight as="span" options={runOptions} key={`${runOptions.seed}-${replayNonce}`}>
@@ -71,9 +70,9 @@ export function Preview({ replayNonce = 0 }: PreviewProps) {
     );
 
   // Lower the playground superset (stack / overshoot) to core options once per
-  // change, then give each run a distinct stable seed so it has its own
-  // deterministic ink texture (and the overlapping pair reads as two genuinely
-  // separate strokes that stack or merge per the live Stack control).
+  // change. Each run below gets a distinct stable seed so it has its own
+  // deterministic ink texture and the overlapping pair reads as two genuinely
+  // separate strokes that stack or merge per the live Stack control.
   const core = useMemo(() => toCoreOptions(previewOptions), [previewOptions]);
 
   // The Stack demonstration. The inner "pools" word is ALWAYS painted by a
