@@ -120,7 +120,10 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     opacity: 0.9,
     blendMode: "multiply",
     snap: "word",
-    quality: "premium",
+    // `standard` (the empty quality bundle): the premium bundle would re-inject
+    // feather/streak/dryout variance over the deliberate zeros below, so a
+    // "minimal" mark would render textured rather than flat (R18).
+    quality: "standard",
     ink: {
       flow: 0.4,
       saturation: 0.85,

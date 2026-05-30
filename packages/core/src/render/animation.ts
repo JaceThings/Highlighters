@@ -207,11 +207,21 @@ function showFull(items: DrawItem[]): void {
  */
 export type DrawOnHandle = Disconnect & {
   retarget: (lines: MarkGeometry[]) => void;
+  /**
+   * Replay the draw-on from the start — used by an explicit `handle.show()` so a
+   * re-shown mark re-animates (the {@link MarkHandle} `show` contract / R24). When
+   * motion is reduced or drawing is off, this just re-shows the full mark.
+   */
+  replay: () => void;
 };
 
-/** Attach a `retarget` to a disconnect function, forming a {@link DrawOnHandle}. */
-function asHandle(disconnect: Disconnect, retarget: DrawOnHandle["retarget"]): DrawOnHandle {
-  return Object.assign(disconnect, { retarget });
+/** Attach `retarget`/`replay` to a disconnect function, forming a {@link DrawOnHandle}. */
+function asHandle(
+  disconnect: Disconnect,
+  retarget: DrawOnHandle["retarget"],
+  replay: DrawOnHandle["replay"],
+): DrawOnHandle {
+  return Object.assign(disconnect, { retarget, replay });
 }
 
 /**
@@ -233,10 +243,10 @@ export function applyDrawOn(
   animation: ResolvedAnimation,
   env: RenderEnvironment,
 ): DrawOnHandle {
-  if (lines.length === 0) return asHandle(() => {}, () => {});
+  if (lines.length === 0) return asHandle(() => {}, () => {}, () => {});
 
   let items = drawItems(bandFor, lines, animation.stagger);
-  if (items.length === 0) return asHandle(() => {}, () => {});
+  if (items.length === 0) return asHandle(() => {}, () => {}, () => {});
 
   // Reduced motion / draw off / no rAF → instant full mark, no animation (R25/R34).
   if (
@@ -245,10 +255,12 @@ export function applyDrawOn(
     typeof requestAnimationFrame === "undefined"
   ) {
     showFull(items);
-    // A reflow just re-shows the corrected full mark — there is no animation to keep.
+    // A reflow just re-shows the corrected full mark — there is no animation to
+    // keep — and an explicit re-show likewise just re-asserts the full clip.
     return asHandle(
       () => {},
       (next) => showFull(drawItems(bandFor, next, animation.stagger)),
+      () => showFull(items),
     );
   }
 
@@ -336,14 +348,30 @@ export function applyDrawOn(
    */
   function retarget(next: MarkGeometry[]): void {
     items = drawItems(bandFor, next, animation.stagger);
-    if (raf === 0) showFull(items);
+    if (raf !== 0) return; // mid-draw: keep drawing on the corrected geometry
+    // Settled → re-show the corrected full clip. Armed in-view but not yet played
+    // → keep the band parked closed, so a reflow that lands before the mark enters
+    // view can't flash it fully-drawn (then restart when it finally plays).
+    if (played) showFull(items);
+    else for (const it of items) primeClosed(it);
   }
 
-  return asHandle(() => {
+  /** Replay the draw-on from the start (an explicit re-show re-animates, R24). */
+  function replay(): void {
     stop();
-    observer?.disconnect();
-    observer = null;
-    // Never strand a cancelled mid-draw as a truncated mark.
-    showFull(items);
-  }, retarget);
+    played = true;
+    play();
+  }
+
+  return asHandle(
+    () => {
+      stop();
+      observer?.disconnect();
+      observer = null;
+      // Never strand a cancelled mid-draw as a truncated mark.
+      showFull(items);
+    },
+    retarget,
+    replay,
+  );
 }

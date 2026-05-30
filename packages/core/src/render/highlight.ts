@@ -23,7 +23,7 @@ import type {
   SnapMode,
   Target,
 } from "../types.js";
-import { resolveOptions } from "../config/merge.js";
+import { mergeOptions, resolveOptions } from "../config/merge.js";
 import { buildMarkGeometry } from "../geometry/mark-space.js";
 import { hashU32 } from "../geometry/rng.js";
 import { snapRangeToBounds } from "../geometry/snap.js";
@@ -204,6 +204,8 @@ function mountMark(
     container,
     reflow,
     cleanup: [animDisconnect, ...extraCleanup],
+    // An explicit handle.show() replays the draw-on entrance (R24).
+    replay: () => animDisconnect.replay(),
     rebuild: (opts) => {
       // On update, the new resolved options replace `resolved` for future reflow
       // builds too, so the closure stays consistent.
@@ -335,8 +337,11 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   // On touch devices, native selection is the better UX (C5): no overlay.
   if (env.coarsePointer) return inertHandle();
 
-  const userOptions: HighlightOptions = { snap: "word", ...options };
-  const resolved = resolveOptions(userOptions);
+  // Accumulated across update() calls so options compose additively, exactly like
+  // createMarkHandle (A7) — re-spreading the construction-time options each update
+  // would revert prior updates and shallow-clobber sibling group fields.
+  let userOptions: HighlightOptions = { snap: "word", ...options };
+  let resolved = resolveOptions(userOptions);
   const host = document.body ?? document.documentElement;
   if (!host) return inertHandle();
 
@@ -394,7 +399,8 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     },
     update(opts: Partial<HighlightOptions>): void {
       if (removed) return;
-      Object.assign(resolved, resolveOptions({ ...userOptions, ...opts }));
+      userOptions = mergeOptions(userOptions, opts as HighlightOptions);
+      resolved = resolveOptions(userOptions);
       renderSelection();
     },
     remove(): void {

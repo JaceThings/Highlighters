@@ -273,6 +273,16 @@ describe("resolveOptions", () => {
     expect(resolveOptions({ opacity: 0.42 }).opacity).toBe(0.42);
   });
 
+  it("the minimal preset resolves truly flat (quality no longer re-injects variance)", () => {
+    const r = resolveOptions({ preset: "minimal" });
+    expect(r.ink.feathering).toBe(0);
+    expect(r.ink.streakiness).toBe(0);
+    expect(r.ink.dryout).toBe(0);
+    expect(r.ink.startEndBuildup).toBe(0);
+    expect(r.edge.waviness).toBe(0);
+    expect(r.edge.roughness).toBe(0);
+  });
+
   it("honors an explicit seed and the shape synonym", () => {
     expect(resolveOptions({ seed: 42 }).seed).toBe(42);
     expect(resolveOptions().seed).toBeNull();

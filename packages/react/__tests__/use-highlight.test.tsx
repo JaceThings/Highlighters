@@ -94,6 +94,21 @@ describe("useHighlight", () => {
     expect(handleSpies.update).toHaveBeenCalled();
     expect(handleSpies.update).toHaveBeenLastCalledWith({ opacity: 0.9 });
   });
+
+  it("recovers a deferred target — a bare ref populated after mount still highlights", () => {
+    function Probe({ show }: { show: boolean }): React.ReactElement {
+      const ref = useRef<HTMLParagraphElement>(null);
+      useHighlight(ref, {});
+      return show ? <p ref={ref}>text</p> : <span>placeholder</span>;
+    }
+
+    render(<Probe show={false} />);
+    expect(highlightMock).not.toHaveBeenCalled(); // no element yet → no mark
+    render(<Probe show />); // element appears → recovery effect creates the mark
+    expect(highlightMock).toHaveBeenCalledTimes(1);
+    const [target] = highlightMock.mock.calls[0];
+    expect((target as Element).tagName).toBe("P");
+  });
 });
 
 describe("<Highlight>", () => {
@@ -119,5 +134,19 @@ describe("<Highlight>", () => {
     expect(el).not.toBeNull();
     expect(el!.className).toBe("custom");
     expect(el!.getAttribute("data-test")).toBe("x");
+  });
+
+  it("re-creates the mark on an `as` element swap (and removes the old one)", () => {
+    render(<Highlight as="span">x</Highlight>);
+    expect(container.querySelector("span")).not.toBeNull();
+    expect(highlightMock).toHaveBeenCalledTimes(1);
+
+    render(<Highlight as="p">x</Highlight>);
+    // The element type changed: the old node's mark is removed and a new one is
+    // created on the new node (rather than being stranded on the unmounted span).
+    expect(container.querySelector("p")).not.toBeNull();
+    expect(container.querySelector("span")).toBeNull();
+    expect(handleSpies.remove).toHaveBeenCalled();
+    expect(highlightMock).toHaveBeenCalledTimes(2);
   });
 });

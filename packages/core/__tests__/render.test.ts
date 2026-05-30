@@ -566,6 +566,30 @@ describe("applyDrawOn", () => {
     expect(sibling.style.clipPath).toBe(""); // still untouched after settle
     disconnect();
   });
+
+  it("an armed in-view mark stays parked closed across a reflow (no pre-view flash)", () => {
+    // A reflow that lands BEFORE an in-view mark enters view must not reveal it —
+    // otherwise it flashes fully-drawn, then restarts when it finally intersects.
+    class FakeIO {
+      constructor(public cb: (e: { isIntersecting: boolean }[]) => void) {}
+      observe() {}
+      disconnect() {}
+    }
+    const prev = (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
+    (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeIO;
+    try {
+      const handle = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "in-view", duration: 200 }, fullEnv());
+      // Armed, not yet intersected → parked closed (empty front clip).
+      expect(wrapperOf(0).style.clipPath).toContain("M 0 0 Z");
+      // A reflow lands before view: retarget must keep it closed, not show full.
+      handle.retarget([geometry(0)]);
+      expect(wrapperOf(0).style.clipPath).toContain("M 0 0 Z");
+      expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
+      handle();
+    } finally {
+      (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = prev;
+    }
+  });
 });
 
 describe("prefersReducedMotion", () => {
@@ -658,6 +682,30 @@ describe("createMarkHandle", () => {
     expect(handle.isShowing()).toBe(false);
     // Only one unmount despite the second remove() and post-remove update().
     expect(renderer.calls.filter((c) => c === "unmount").length).toBe(1);
+  });
+
+  it("show() replays the draw-on entrance, but not on initial mount (R24)", () => {
+    const container = createOverlayContainer(host);
+    const renderer = stubRenderer();
+    const replay = vi.fn();
+    const handle = createMarkHandle({
+      ranges: [],
+      options: resolved(),
+      renderer,
+      container,
+      reflow: () => {},
+      replay,
+      rebuild: (opts) => ({ container, options: opts, lines: [], ranges: [] }),
+    });
+    // The initial entrance runs via applyDrawOn directly, so creating the handle
+    // does not replay; only an explicit re-show does.
+    expect(replay).not.toHaveBeenCalled();
+    handle.hide();
+    handle.show();
+    expect(replay).toHaveBeenCalledTimes(1);
+    handle.remove();
+    handle.show(); // post-remove no-op
+    expect(replay).toHaveBeenCalledTimes(1);
   });
 
   it("show/hide toggle container visibility without tearing down geometry", () => {

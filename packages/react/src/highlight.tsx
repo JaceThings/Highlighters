@@ -1,6 +1,7 @@
 import {
   createElement,
-  useRef,
+  useCallback,
+  useState,
   type ElementType,
   type ReactNode,
   type ComponentPropsWithoutRef,
@@ -45,9 +46,13 @@ export type HighlightProps<E extends ElementType = "span"> = HighlightOwnProps &
 export function Highlight<E extends ElementType = "span">(props: HighlightProps<E>) {
   const { as, options, children, ...rest } = props;
   const Component = (as ?? "span") as ElementType;
-  const ref = useRef<HTMLElement>(null);
+  // A callback ref into state, so the hook tracks the ACTUAL mounted node: an
+  // `as`-element swap or a deferred mount re-runs the hook on the new node rather
+  // than stranding the mark on a stale (or never-populated) ref.
+  const [node, setNode] = useState<Element | null>(null);
+  const ref = useCallback((el: Element | null) => setNode(el), []);
 
-  useHighlight(ref, options);
+  useHighlight(node, options);
 
   return createElement(Component, { ...rest, ref }, children);
 }

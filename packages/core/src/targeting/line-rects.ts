@@ -132,7 +132,11 @@ export function computeAnchor(ranges: Range[]): Anchor {
       const rects = range.getClientRects();
       for (let i = 0; i < rects.length; i++) {
         const r = rects[i];
-        if (r.width < 1 && r.height < 1) continue;
+        // Drop sub-pixel rects (zero-width carets, collapsed fragments) with the
+        // SAME `||` test `rangesToLineRects` uses, so the anchor can't latch onto
+        // a caret rect the line stage discards — which would shift every per-line
+        // seed relative to the painted lines.
+        if (r.width < 1 || r.height < 1) continue;
         if (r.top < top) top = r.top;
         if (r.left < left) left = r.left;
       }

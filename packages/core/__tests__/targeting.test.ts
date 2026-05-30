@@ -391,6 +391,20 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
     expect(computeAnchor([])).toEqual({ top: 0, left: 0 });
   });
 
+  it("computeAnchor ignores sub-pixel caret rects (same || filter as the line stage)", () => {
+    const body = setBody(`<p>anchored</p>`);
+    const range = document.createRange();
+    range.selectNodeContents(body.querySelector("p")!);
+    // A zero-width caret rect above the real line; the anchor must skip it so the
+    // per-line seeds stay aligned to the lines the renderer actually paints.
+    vi.spyOn(range, "getClientRects").mockReturnValue(
+      domRectList([rect(20, 10, 0, 16), rect(30, 50, 100, 20)]),
+    );
+    const anchor = computeAnchor([range]);
+    expect(anchor.top).toBe(50);
+    expect(anchor.left).toBe(30);
+  });
+
   it("rangesToLineRects emits stable seeds and isFirst/isLast flags", () => {
     const body = setBody(`<p>two lines</p>`);
     const range = document.createRange();

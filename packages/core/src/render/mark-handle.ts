@@ -45,6 +45,12 @@ export interface MarkHandleInit {
   /** Extra teardown to run on `remove()` (animation, mutation watcher, …). */
   cleanup?: Disconnect[];
   /**
+   * Replay the draw-on entrance — called on an explicit `show()` so a re-shown
+   * mark re-animates rather than just reappearing (the {@link MarkHandle} `show`
+   * contract / R24). Omitted (or a no-op) when there is no entrance to replay.
+   */
+  replay?: () => void;
+  /**
    * The original user-facing options that produced {@link options}. `update()`
    * accumulates further overrides on top of this so the merge chain stays
    * correct across successive updates (A7). Defaults to `{}`.
@@ -67,7 +73,7 @@ export interface MarkHandleInit {
  * @returns A handle exposing `show`/`hide`/`update`/`remove`/`isShowing`/`tier`.
  */
 export function createMarkHandle(init: MarkHandleInit): MarkHandle {
-  const { renderer, container, reflow, rebuild } = init;
+  const { renderer, container, reflow, rebuild, replay } = init;
   const cleanups = init.cleanup ? [...init.cleanup] : [];
   // The full user-facing option state, accumulated across `update()` calls so the
   // merge chain stays correct: seeded from the options that produced this mark.
@@ -92,6 +98,9 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
       if (removed) return;
       showing = true;
       container.style.visibility = "";
+      // An explicit re-show replays the draw-on entrance (R24); the initial mount
+      // animates via applyDrawOn directly, so this only fires on a later show().
+      replay?.();
     },
 
     hide(): void {
