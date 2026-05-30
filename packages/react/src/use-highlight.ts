@@ -34,12 +34,11 @@ function resolveTarget(target: HighlightTarget): Target | null {
  * disconnecting every observer (R9). It returns the live {@link MarkHandle} so
  * callers can drive `show`/`hide`/`isShowing` imperatively.
  *
- * Two effects cover both ways a target can arrive: the setup effect re-creates the
- * mark whenever the resolved target *changes* (so passing the DOM node directly —
- * as `<Highlight>` does — recreates it on an element swap or a deferred mount),
- * and a recovery effect picks up a bare `RefObject` that populates *after* mount
- * (whose identity never changes, so the setup effect alone would miss it). The
- * setup effect owns the single teardown path, so the two never double-free.
+ * Two effects cover both ways a target arrives: the setup effect re-creates the
+ * mark whenever the resolved target changes (so passing the node directly — as
+ * `<Highlight>` does — handles an `as`-swap or deferred mount), and a recovery
+ * effect catches a bare `RefObject` populated after mount, whose identity never
+ * changes. The setup effect owns the single teardown, so they never double-free.
  *
  * @param target - A ref to the element, a DOM node/core `Target`, or `null`.
  * @param options - Highlight options; re-applied via `update()` when they change.
@@ -61,10 +60,10 @@ export function useHighlight(
   // freshly-allocated literal with identical contents each render.
   const optionsKey = JSON.stringify(options ?? null);
 
-  // Setup: (re)create the mark when the resolved target changes. Passing the node
-  // itself makes node identity reactive here, so an `as`-element swap or a deferred
-  // mount recreates on the right node. The cleanup is ALWAYS registered, so it
-  // tears down whichever effect created the current handle (no leak, no double-free).
+  // Setup: (re)create the mark when the resolved target changes — passing the node
+  // itself (as <Highlight> does) makes that reactive, covering `as`-swaps and
+  // deferred mounts. The cleanup is ALWAYS registered, so it tears down whichever
+  // effect created the current handle.
   useIsoLayoutEffect(() => {
     const resolved = resolveTarget(target);
     if (resolved != null && !handleRef.current) {
@@ -77,9 +76,8 @@ export function useHighlight(
   }, [target]);
 
   // Recovery: a bare RefObject can populate AFTER mount without changing identity,
-  // so the setup effect (keyed on the stable ref) would never fire. Re-check after
-  // each render and create the mark once the ref resolves; teardown stays with the
-  // setup effect's cleanup, so this never double-frees.
+  // so the setup effect (keyed on the ref) never fires. Re-check each render and
+  // create once it resolves; teardown stays with the setup effect's cleanup.
   useIsoLayoutEffect(() => {
     if (handleRef.current) return;
     const resolved = resolveTarget(target);

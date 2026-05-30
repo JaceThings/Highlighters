@@ -27,10 +27,10 @@
  * index lookup would alias onto a sibling mark's band — letting N marks' draw-ons
  * all clobber one wrapper. Per-seed lookup keeps each mark on its own bands.
  *
- * The onset wicks in: the wrapper's opacity ramps 0→1 over the first ~120ms (the
- * ink seeping into paper on contact), then holds solid — so the touchdown never
- * hard-pops. And the draw maps progress onto [minFront → width], so the band starts
- * at its tip touchdown width and immediately drags, with no sub-tip clamp plateau.
+ * The onset wicks in: the wrapper's opacity ramps 0→1 over a tiny fixed window
+ * (`FADE_IN_MS`), just enough that the touchdown doesn't hard-pop, then holds solid.
+ * And the draw maps progress onto [minFront → width], so the band starts at its tip
+ * touchdown width and immediately drags, with no sub-tip clamp plateau.
  *
  * `clip-path` is applied AFTER the ink's edge filter, so the band's TOP/BOTTOM
  * wavy edges stay soft (the filter), while the advancing FRONT is a crisp contact
@@ -134,13 +134,11 @@ function setClip(el: HTMLElement, path: string): void {
 }
 
 /**
- * The onset fade-in duration in ms. Deliberately tiny — just enough to take the
- * hard edge off the touchdown so the band doesn't pop into existence, NOT a fade
- * you should perceive animating. A FIXED time (not a fraction of the draw) so it
- * reads the same whether the pen drags fast or slow; capped at half the draw so a
- * very short draw still softens. Opacity rides the WRAPPER, whose page-facing
- * `multiply` optic is carried by the overlay container (not the ink), so a fading
- * wrapper still darkens the text correctly.
+ * Onset fade-in duration (ms). Deliberately tiny — it takes the hard edge off the
+ * touchdown so the band doesn't pop in, not a fade you should perceive animating.
+ * A fixed time (not a fraction of the draw) so it reads the same at any draw speed,
+ * capped at half the draw so a very short one still softens. (Fading the wrapper is
+ * safe for the ink's `multiply` — see the module header.)
  */
 const FADE_IN_MS = 50;
 
