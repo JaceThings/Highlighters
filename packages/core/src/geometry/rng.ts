@@ -18,7 +18,7 @@
  * server and client — there is no platform pseudo-random generator and no
  * wall-clock read anywhere in the chain. Adjacent integer seeds map to widely
  * scattered outputs, so the convention throughout the library is to draw
- * decorrelated values by offsetting the seed (see {@link jitterAt}).
+ * decorrelated values by offsetting the seed before hashing.
  *
  * @param seed - An integer seed. Non-integers are accepted but callers should
  *   pass integers so that a given grid index / line always resolves identically.
@@ -68,20 +68,6 @@ export function mulberry(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-/**
- * Draw a decorrelated {@link hashJitter} value from a base seed and an integer
- * offset. The library's convention is to reserve a distinct offset per role
- * (left extension, slant, top edge, bottom edge, …) so that two roles sharing a
- * line never move in lockstep.
- *
- * @param seed - The base seed (e.g. a line's anchor-relative seed).
- * @param offset - The role/index offset added before hashing.
- * @returns A deterministic value in `[-1, 1]`.
- */
-export function jitterAt(seed: number, offset: number): number {
-  return hashJitter(seed + offset);
 }
 
 /**

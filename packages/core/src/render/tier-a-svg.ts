@@ -1,14 +1,22 @@
 /**
  * Tier A renderer — the realistic SVG-filter band (blueprint R26 / A3 / R31).
  *
- * The default tier. Each visual line gets one absolutely-positioned `<div>`
- * carrying the pool gradient, clipped to the chisel/bullet/fine geometry via
+ * The default tier. Each visual line gets one absolutely-positioned **wrapper**
+ * `<div>` placed at the line box; inside it, at `inset: 0`, sit the ink node (the
+ * pool gradient, clipped to the chisel/bullet/fine geometry via
  * `clip-path: path(...)`, textured by the offset-sampled noise tile via
- * `mask-image`, and run through a **single shared** `<svg>`/`<defs>` filter block
- * (`feTurbulence` + `feDisplacementMap` + `feMorphology` + `feGaussianBlur`) so
- * every mark on the page reuses one filter set rather than instantiating its own
- * (R31). The filters are referenced, never animated — they are computed once per
- * geometry and reused until reflow (R32), so scrolling never re-filters.
+ * `mask-image`, run through a shared SVG filter) and an optional glow node. The
+ * **wrapper carries no geometry clip-path** — only the box position — so the
+ * draw-on animation can wipe it open with `clip-path: inset(...)` (a left-to-right
+ * reveal of FIXED ink) instead of an `transform: scaleX()` that would stretch the
+ * texture/wave (the wrapper's inset composes with the ink's own shape clip,
+ * because each element clips its own subtree).
+ *
+ * The shared **single** `<svg>`/`<defs>` filter block
+ * (`feTurbulence` + `feDisplacementMap` + `feMorphology` + `feGaussianBlur`) is
+ * reused by every mark on the page rather than instantiating its own (R31). The
+ * filters are referenced, never animated — they are computed once per geometry and
+ * reused until reflow (R32), so scrolling never re-filters.
  *
  * An optional **additive** fluorescence layer (R16) is drawn as a second node in
  * `screen` blend over the multiply ink, so an enabled mark can read brighter and
@@ -16,12 +24,12 @@
  * darker tint, and never reducing text legibility.
  *
  * Nodes are pooled by stable line identity (the per-line seed) so reflow keeps
- * surviving lines' nodes (A14 §6 / R22d); `unmount()` removes the overlay and
- * leaves the DOM pristine (R9).
+ * surviving lines' wrappers and their children (A14 §6 / R22d); `unmount()`
+ * removes the overlay and leaves the DOM pristine (R9).
  */
 
 import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions } from "../types.js";
-import { NodePool } from "./renderer.js";
+import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce } from "./renderer.js";
 import { poolGradientToCss } from "./tier-b-css.js";
 
 /** SVG namespace for `createElementNS`. */
@@ -30,20 +38,22 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 /** Id of the document-level shared `<svg>` holding the filter defs (R31). */
 const SHARED_SVG_ID = "highlighters-shared-defs";
 
-/** Filter ids inside the shared defs — referenced by every Tier A band. */
-const FILTER_ROUGH = "highlighters-edge-rough";
-const FILTER_BLEED = "highlighters-edge-bleed";
-
 /**
  * Lazily create (or return) the document-level shared `<svg>`/`<defs>` block that
  * holds the turbulence/displacement/morphology/blur filters every Tier A mark
  * references (R31). The `<svg>` itself is zero-size, off-screen, and
  * `aria-hidden` — it contributes no layout and no paint of its own.
  *
+ * Filters are **interned** into this single block by id (see {@link edgeFilterId}):
+ * many marks share one filter when their feathering/flow quantize to the same
+ * bucket, so the defs stay small while feathering can still visibly drive the
+ * blur/dilation per mark. The `<svg>`/`<defs>` element is created once per
+ * document and reused (the R31 invariant the tests assert).
+ *
  * @param doc - The document to attach the shared defs to.
- * @returns The shared `<defs>` element (filters are appended on first creation).
+ * @returns The shared `<defs>` element.
  */
-export function getSharedDefs(doc: Document): SVGDefsElement {
+function getSharedDefs(doc: Document): SVGDefsElement {
   const existing = doc.getElementById(SHARED_SVG_ID);
   if (existing) {
     const defs = existing.querySelector("defs");
@@ -63,11 +73,81 @@ export function getSharedDefs(doc: Document): SVGDefsElement {
   s.pointerEvents = "none";
 
   const defs = doc.createElementNS(SVG_NS, "defs");
-  defs.appendChild(buildEdgeFilter(doc, FILTER_ROUGH, { scale: 3, morph: 0, blur: 0 }));
-  defs.appendChild(buildEdgeFilter(doc, FILTER_BLEED, { scale: 5, morph: 0.6, blur: 0.7 }));
   svg.appendChild(defs);
   (doc.body ?? doc.documentElement).appendChild(svg);
   return defs;
+}
+
+/** Quantize a 0–1 knob into one of `steps` buckets so filters can be interned. */
+function quantize(value: number, steps: number): number {
+  return Math.round(clamp01(value) * steps) / steps;
+}
+
+/**
+ * Edge-filter parameters resolved from the ink/edge/paper knobs. `scale` is the
+ * displacement fray (edge roughness/wave), `morph` the dilation that spreads the
+ * bleed outward, and `blur` the soft feather — all in absolute px.
+ */
+interface EdgeFilterParams {
+  scale: number;
+  morph: number;
+  blur: number;
+}
+
+/**
+ * Resolve, then quantize, the per-mark edge-filter parameters from the resolved
+ * options. The result is the source of truth both for the filter's id (so equal
+ * params intern to one filter) and for its built primitives.
+ *
+ * - **feathering** drives the Gaussian `blur` stdDeviation and the `morph` dilate
+ *   radius: high feathering = visibly blurrier, spread, bleeding edges.
+ * - **flow** softens further (juicier ink reads softer/wider); **viscosity**
+ *   sharpens (more viscous ink holds a crisper edge), so the two pull against
+ *   each other on the same blur axis.
+ * - **edge waviness/roughness** and paper absorbency raise the displacement fray.
+ *
+ * Returns `null` when nothing perturbs the edge (clean geometric band) so the mark
+ * can skip the filter entirely.
+ */
+function resolveEdgeFilter(options: ResolvedOptions): EdgeFilterParams | null {
+  const { edge, ink, paper } = options;
+
+  // Soft feather axis: feathering is the dominant term; juicy flow adds softness,
+  // viscosity removes it. Paper absorbency wicks the edge wider too.
+  const softness =
+    ink.feathering * 1.0 + ink.flow * 0.4 - ink.viscosity * 0.35 + paper.absorbency * 0.4;
+  const blur = quantize(Math.max(0, softness), 8) * 4; // 0 .. 4px stdDeviation
+  // Bleed dilation grows with feathering + absorbency; thin (low-flow) ink dilates
+  // less so it stays skinny.
+  const spread = ink.feathering * 0.8 + paper.absorbency * 0.5 + ink.flow * 0.25 - 0.15;
+  const morph = quantize(Math.max(0, spread), 6) * 1.8; // 0 .. 1.8px dilate radius
+
+  // Edge fray (displacement) from the wave + roughness; a wetter paper frays more.
+  const frayRaw = edge.waviness * 0.8 + edge.roughness * 4 + paper.absorbency * 2;
+  const scale = Math.min(8, Math.round(frayRaw * 2) / 2);
+
+  if (blur <= 0 && morph <= 0 && scale <= 0) return null;
+  return { scale, morph, blur };
+}
+
+/** A stable, collision-free id encoding the (quantized) edge-filter params. */
+function edgeFilterId(p: EdgeFilterParams): string {
+  const key = `${p.scale}-${p.morph}-${p.blur}`.replace(/\./g, "p");
+  return `highlighters-edge-${key}`;
+}
+
+/**
+ * Return the id of the edge filter for `params`, building and interning it into
+ * the shared defs on first use (R31). Subsequent marks with params that quantize
+ * to the same bucket reuse the same filter element.
+ */
+function ensureEdgeFilter(defs: SVGDefsElement, params: EdgeFilterParams): string {
+  const id = edgeFilterId(params);
+  const doc = defs.ownerDocument;
+  if (!doc.getElementById(id)) {
+    defs.appendChild(buildEdgeFilter(doc, id, params));
+  }
+  return id;
 }
 
 /**
@@ -80,7 +160,7 @@ export function getSharedDefs(doc: Document): SVGDefsElement {
 function buildEdgeFilter(
   doc: Document,
   id: string,
-  params: { scale: number; morph: number; blur: number },
+  params: EdgeFilterParams,
 ): SVGFilterElement {
   const filter = doc.createElementNS(SVG_NS, "filter");
   filter.setAttribute("id", id);
@@ -96,6 +176,7 @@ function buildEdgeFilter(
   turb.setAttribute("baseFrequency", "0.012 0.04");
   turb.setAttribute("numOctaves", "2");
   turb.setAttribute("seed", "7");
+  // Seamless tiling so displaced edges never reveal a turbulence seam.
   turb.setAttribute("stitchTiles", "stitch");
   turb.setAttribute("result", "noise");
   filter.appendChild(turb);
@@ -129,79 +210,93 @@ function buildEdgeFilter(
   return filter;
 }
 
-/** Choose which shared filter a mark uses, from its resolved edge/ink params. */
-function filterIdFor(options: ResolvedOptions): string | null {
-  const { edge, ink, paper } = options;
-  const wantsBleed =
-    ink.feathering > 0.45 || paper.absorbency > 0.5 || ink.flow > 0.7;
-  const wantsFray = edge.waviness > 0 || edge.roughness > 0;
-  if (wantsBleed) return FILTER_BLEED;
-  if (wantsFray) return FILTER_ROUGH;
-  return null;
-}
-
 /**
  * Create a Tier A renderer.
  *
  * @returns A {@link Renderer} whose `tier` is `"svg"`.
  */
 export function createSvgRenderer(): Renderer {
-  // Each line owns an ink node and (optionally) a glow node, pooled by identity.
+  // Per line: a positioned WRAPPER (the draw-on wipe surface, no geometry clip)
+  // holding an ink node and, optionally, a glow node — all pooled by identity.
+  const wrapperPool = new NodePool<HTMLElement>();
   const inkPool = new NodePool<HTMLElement>();
   const glowPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
 
-  function styleInk(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
-    const { box } = line;
-    const { options } = context;
+  /** Place a child node at `inset: 0` of its wrapper (fills the line box). */
+  function fillWrapper(el: HTMLElement): void {
     const s = el.style;
     s.position = "absolute";
-    s.left = `${box.x}px`;
-    s.top = `${box.y}px`;
-    s.width = `${box.width}px`;
-    s.height = `${box.height}px`;
+    s.left = "0";
+    s.top = "0";
+    s.width = "100%";
+    s.height = "100%";
+  }
+
+  function styleInk(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
+    const { options } = context;
+    const { ink } = options;
+    const s = el.style;
+    fillWrapper(el);
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
-    s.opacity = String(options.opacity);
-    s.backgroundImage = poolGradientToCss(line.pool);
+
+    // --- saturation × flow → effective ink alpha -----------------------------
+    // saturation multiplies the deposited intensity (washed-out → bold); juicy
+    // flow adds opacity on top, viscous ink subtracts it (drier, thinner).
+    const saturationGain = 0.35 + 0.65 * clamp01(ink.saturation);
+    const flowGain = 1 + 0.35 * (clamp01(ink.flow) - clamp01(ink.viscosity));
+    const effectiveAlpha = clamp01(options.opacity * saturationGain * flowGain);
+    s.opacity = String(round3(effectiveAlpha));
+
+    setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool));
     s.backgroundRepeat = "no-repeat";
     // Absolute-px clip-path for the chisel/bullet/fine geometry (A14 §4).
-    s.clipPath = line.clipPath;
-    (s as CSSStyleDeclaration & { webkitClipPath?: string }).webkitClipPath = line.clipPath;
-    // Offset-sampled, fixed-px, repeated noise tile (A14 §1) — the streak/pressure
-    // texture, applied as a mask so the gradient shows through the grain. The
-    // tile is sampled by offsetting the window, never by rescaling it (R22c).
-    s.maskImage = `url("${line.noiseTile.dataUrl}")`;
-    (s as CSSStyleDeclaration & { webkitMaskImage?: string }).webkitMaskImage = `url("${line.noiseTile.dataUrl}")`;
-    s.maskRepeat = "repeat";
-    (s as CSSStyleDeclaration & { webkitMaskRepeat?: string }).webkitMaskRepeat = "repeat";
-    s.maskPosition = `${line.maskOffset.x}px ${line.maskOffset.y}px`;
-    (s as CSSStyleDeclaration & { webkitMaskPosition?: string }).webkitMaskPosition = `${line.maskOffset.x}px ${line.maskOffset.y}px`;
-    s.maskSize = `${line.noiseTile.width}px ${line.noiseTile.height}px`;
-    (s as CSSStyleDeclaration & { webkitMaskSize?: string }).webkitMaskSize = `${line.noiseTile.width}px ${line.noiseTile.height}px`;
-    // Reference the shared filter (never recomputed on scroll, R32).
-    const filterId = filterIdFor(options);
-    s.filter = filterId ? `url(#${filterId})` : "";
+    setVendorPrefixed(el, "clipPath", line.clipPath);
+    // Offset-sampled, fixed-px, repeated noise tile (A14 §1) — the streak/pressure/
+    // dryout texture, applied as a mask so the gradient shows through the grain and
+    // breaks up where the tile thins out. The tile is sampled by offsetting the
+    // window, never by rescaling it (R22c).
+    setVendorPrefixed(el, "maskImage", `url("${line.noiseTile.dataUrl}")`);
+    setVendorPrefixed(el, "maskRepeat", "repeat");
+    setVendorPrefixed(el, "maskPosition", `${line.maskOffset.x}px ${line.maskOffset.y}px`);
+    setVendorPrefixed(el, "maskSize", `${line.noiseTile.width}px ${line.noiseTile.height}px`);
+
+    // --- feathering / flow / viscosity → soft-edge bleed filter --------------
+    // Reference an interned shared filter; its blur/dilate scale with feathering
+    // (and flow/viscosity), so dragging feathering up is visibly blurrier (R32:
+    // referenced, never animated per frame).
+    const doc = el.ownerDocument;
+    const defs = getSharedDefs(doc);
+    const filterParams = resolveEdgeFilter(options);
+    setStyleOnce(el, "filter", filterParams ? `url(#${ensureEdgeFilter(defs, filterParams)})` : "");
   }
 
   function styleGlow(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
-    const { box } = line;
-    const { glow } = context.options;
+    const { glow, ink } = context.options;
     const s = el.style;
-    s.position = "absolute";
-    s.left = `${box.x}px`;
-    s.top = `${box.y}px`;
-    s.width = `${box.width}px`;
-    s.height = `${box.height}px`;
+    fillWrapper(el);
     s.pointerEvents = "none";
     // Additive emission over the multiply ink (R16): screen blend + bloom, so the
-    // mark can read brighter/more saturated than its background.
+    // mark can read brighter/more saturated than its background. Glow rides the
+    // saturation knob too, so a bold mark glows brighter than a washed-out one.
     s.mixBlendMode = "screen";
-    s.opacity = String(glow.intensity);
+    s.opacity = String(round3(clamp01(glow.intensity * (0.4 + 0.6 * clamp01(ink.saturation)))));
     s.backgroundColor = glow.color;
-    s.clipPath = line.clipPath;
-    (s as CSSStyleDeclaration & { webkitClipPath?: string }).webkitClipPath = line.clipPath;
-    s.filter = `blur(${glow.spread}px)`;
+    setVendorPrefixed(el, "clipPath", line.clipPath);
+    setStyleOnce(el, "filter", `blur(${glow.spread}px)`);
+  }
+
+  /** Get (or create, inside its wrapper) the pooled ink node for a line. */
+  function ensureInk(doc: Document, wrapper: HTMLElement, seed: number): HTMLElement {
+    let ink = inkPool.get(seed);
+    if (!ink) {
+      ink = doc.createElement("div");
+      ink.setAttribute("aria-hidden", "true");
+      wrapper.appendChild(ink);
+      inkPool.set(seed, ink);
+    }
+    return ink;
   }
 
   function render(context: RenderContext): void {
@@ -216,13 +311,21 @@ export function createSvgRenderer(): Renderer {
     for (const line of context.lines) {
       keep.add(line.seed);
 
-      let ink = inkPool.get(line.seed);
-      if (!ink) {
-        ink = doc.createElement("div");
-        ink.setAttribute("aria-hidden", "true");
-        container.appendChild(ink);
-        inkPool.set(line.seed, ink);
+      // The wrapper carries ONLY the box position — never a geometry clip — so the
+      // draw-on can wipe it open with `clip-path: inset(...)` without scaling the
+      // ink. Its clip-path is left untouched here so an in-flight/primed reveal is
+      // preserved across reflow (R22: reflow never re-animates).
+      let wrapper = wrapperPool.get(line.seed);
+      if (!wrapper) {
+        wrapper = doc.createElement("div");
+        wrapper.setAttribute("aria-hidden", "true");
+        wrapper.style.pointerEvents = "none";
+        container.appendChild(wrapper);
+        wrapperPool.set(line.seed, wrapper);
       }
+      applyBoxPosition(wrapper, line.box);
+
+      const ink = ensureInk(doc, wrapper, line.seed);
 
       if (glowEnabled) {
         let glow = glowPool.get(line.seed);
@@ -230,7 +333,7 @@ export function createSvgRenderer(): Renderer {
           glow = doc.createElement("div");
           glow.setAttribute("aria-hidden", "true");
           // Glow sits beneath the ink in DOM order so the ink's clip wins visually.
-          container.insertBefore(glow, ink);
+          wrapper.insertBefore(glow, ink);
           glowPool.set(line.seed, glow);
         }
         styleGlow(glow, line, context);
@@ -239,19 +342,37 @@ export function createSvgRenderer(): Renderer {
       styleInk(ink, line, context);
     }
 
-    inkPool.retain(keep, (el) => el.remove());
+    // Reconcile: a vanished line's wrapper (and its ink/glow children) is removed
+    // as a unit; surviving lines keep their exact wrapper subtree (R22d).
+    wrapperPool.retain(keep, (el) => el.remove());
+    inkPool.retain(keep, () => {});
     // Drop glow nodes for vanished lines, and all glow nodes if glow is now off.
-    glowPool.retain(glowEnabled ? keep : new Set<number>(), (el) => el.remove());
+    const glowKeep = glowEnabled ? keep : new Set<number>();
+    glowPool.retain(glowKeep, (el) => el.remove());
   }
 
   return {
     tier: "svg",
     mount: render,
     update: render,
+    bandFor: (seed: number): HTMLElement | null => wrapperPool.get(seed) ?? null,
     unmount(): void {
-      inkPool.clear((el) => el.remove());
-      glowPool.clear((el) => el.remove());
+      // Removing each wrapper detaches its ink/glow children with it; clear the
+      // child pools without re-removing (their nodes leave with the wrapper).
+      wrapperPool.clear((el) => el.remove());
+      inkPool.clear(() => {});
+      glowPool.clear(() => {});
       container = null;
     },
   };
+}
+
+/** Clamp a value into `[0, 1]`. */
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
+}
+
+/** Round to 3 decimals so inline-style writes stay stable/compact. */
+function round3(v: number): number {
+  return Math.round(v * 1000) / 1000;
 }

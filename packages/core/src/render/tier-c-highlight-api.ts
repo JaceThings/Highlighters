@@ -130,6 +130,10 @@ export function createHighlightApiRenderer(): Renderer {
       writeRule(context);
     },
 
+    // Tier C adds no overlay DOM (it paints via ::highlight()), so there is no
+    // wrapper to draw on — the draw-on is a no-op for this tier.
+    bandFor: (): HTMLElement | null => null,
+
     unmount(): void {
       if (highlightApiAvailable() && CSS.highlights.has(name)) {
         CSS.highlights.delete(name);

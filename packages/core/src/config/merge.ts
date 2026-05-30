@@ -124,7 +124,6 @@ function resolveColor(
   if (color && typeof color === "object") {
     return resolveSwatch(color);
   }
-  // No explicit color — draw the default swatch from the named palette.
   if (palette) {
     return defaultSwatch(palette);
   }
@@ -154,8 +153,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
 
   // 3. Quality bundle. The effective quality is the user's, else the preset's,
   // else the baseline standard.
-  const quality: QualityTier =
-    input.quality ?? preset.quality ?? d.quality;
+  const quality: QualityTier = input.quality ?? preset.quality ?? d.quality;
   layered = mergeOptions(layered, QUALITY_BUNDLES[quality]);
 
   // 4. Colorant axis fills unset ink params. The effective position is the
@@ -174,6 +172,8 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     width: merged.tip?.width ?? d.tip.width,
     thickness: merged.tip?.thickness ?? d.tip.thickness,
     angle: merged.tip?.angle ?? d.tip.angle,
+    overshoot: merged.tip?.overshoot ?? d.tip.overshoot,
+    overshootJitter: merged.tip?.overshootJitter ?? d.tip.overshootJitter,
   };
 
   const ink: ResolvedInk = {

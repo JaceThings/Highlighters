@@ -20,13 +20,10 @@ import type {
   MutationCallback,
   ReflowCallback,
 } from "../types.js";
+import { hasWindow } from "../internal/dom.js";
 
 /** Debounce window (ms) for the mutation watcher — coalesces bursts of mutations. */
 const MUTATION_DEBOUNCE_MS = 50;
-
-function hasWindow(): boolean {
-  return typeof window !== "undefined";
-}
 
 /**
  * Walk up from `el` to the nearest ancestor whose `position` is not `static`

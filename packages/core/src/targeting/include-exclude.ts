@@ -9,17 +9,15 @@
  */
 
 import type { PageTarget } from "../types.js";
-
-const SHOW_TEXT = 0x4; // NodeFilter.SHOW_TEXT, without touching globals at load.
-const FILTER_ACCEPT = 1; // NodeFilter.FILTER_ACCEPT
-const FILTER_REJECT = 2; // NodeFilter.FILTER_REJECT
+import {
+  FILTER_ACCEPT,
+  FILTER_REJECT,
+  hasDomWithRange,
+  SHOW_TEXT,
+} from "../internal/dom.js";
 
 /** Declarative opt-out attribute: any element carrying it (or under one) is excluded. */
 const EXCLUDE_ATTR = "data-highlight-exclude";
-
-function hasDom(): boolean {
-  return typeof document !== "undefined" && typeof Range !== "undefined";
-}
 
 /** Resolve the `Element` a node lives in: the node itself, or its parent element. */
 function elementOf(node: Node): Element | null {
@@ -71,11 +69,6 @@ function isIncluded(node: Node, includeSelectors: string[]): boolean {
   return false;
 }
 
-/** Whether a text node carries any non-whitespace content worth highlighting. */
-function hasVisibleText(node: Text): boolean {
-  return node.data.trim().length > 0;
-}
-
 /**
  * Collect every textual `Range` under `target.root` (default `document.body`),
  * honoring optional `include` selectors and dropping anything inside an excluded
@@ -89,7 +82,7 @@ function hasVisibleText(node: Text): boolean {
  * never throws.
  */
 export function collectPageRanges(target: PageTarget): Range[] {
-  if (!hasDom()) return [];
+  if (!hasDomWithRange()) return [];
 
   const root = target.root ?? document.body;
   if (!root) return [];
@@ -100,7 +93,7 @@ export function collectPageRanges(target: PageTarget): Range[] {
   const walker = document.createTreeWalker(root, SHOW_TEXT, {
     acceptNode(node) {
       const text = node as Text;
-      if (!hasVisibleText(text)) return FILTER_REJECT;
+      if (text.data.trim().length === 0) return FILTER_REJECT;
       // Structural exclusion precedence (R7): drop the whole excluded subtree.
       if (isExcluded(text, exclude)) return FILTER_REJECT;
       if (!isIncluded(text, include)) return FILTER_REJECT;

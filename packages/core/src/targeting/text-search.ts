@@ -12,20 +12,12 @@
  * in different text nodes.
  */
 
+import { hasDomWithRange, SHOW_TEXT } from "../internal/dom.js";
+
 /** A single character's provenance: the owning text node and its in-node index. */
 interface CharSlot {
   node: Text;
   offset: number;
-}
-
-const SHOW_TEXT = 0x4; // NodeFilter.SHOW_TEXT, defined without touching globals.
-
-/**
- * Whether we are running with a usable DOM. The functions below read
- * `document`/`Range`, so guard at the entry points to stay SSR-safe (R34).
- */
-function hasDom(): boolean {
-  return typeof document !== "undefined" && typeof Range !== "undefined";
 }
 
 /**
@@ -85,7 +77,7 @@ export function findTextRanges(
   root: Element | Document,
   query: string | RegExp,
 ): Range[] {
-  if (!hasDom() || !root) return [];
+  if (!hasDomWithRange() || !root) return [];
 
   const { text, slots } = collectText(root);
   if (text.length === 0) return [];

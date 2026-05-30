@@ -49,6 +49,16 @@ function geometry(seed: number): MarkGeometry {
     box: { x: 0, y: seed, width: 100, height: 20 },
     seed,
     clipPath: "path('M0 0 H100 V20 H0 Z')",
+    // Front-truncated clip: an empty path when closed, the full clip at full width,
+    // and a distinct truncated string in between — enough to drive the draw-on.
+    clipAtFront: (front: number) =>
+      front <= 0
+        ? 'path("M 0 0 Z")'
+        : front >= 100
+          ? "path('M0 0 H100 V20 H0 Z')"
+          : `path('M0 0 H${front.toFixed(1)} V20 H0 Z')`,
+    slant: 6,
+    minFront: 0,
     topEdge: [],
     bottomEdge: [],
     noiseTile: { dataUrl: "data:image/svg+xml,<svg/>", width: 256, height: 64 },
@@ -210,7 +220,7 @@ describe("createCssRenderer", () => {
   });
   afterEach(() => host.remove());
 
-  it("mounts one aria-hidden band per line with multiply blend", () => {
+  it("mounts one aria-hidden wipe wrapper per line, each holding a multiply band", () => {
     const renderer = createCssRenderer();
     const container = createOverlayContainer(host);
     const context: RenderContext = {
@@ -221,12 +231,21 @@ describe("createCssRenderer", () => {
     };
     renderer.mount(context);
 
-    const bands = container.querySelectorAll("div");
-    expect(bands.length).toBe(2);
-    for (const band of Array.from(bands)) {
+    // One positioned wrapper per line is mounted as a direct child of the
+    // container; the wrapper carries the box position and NO geometry clip so the
+    // draw-on can wipe it open without scaling.
+    const wrappers = Array.from(container.children) as HTMLElement[];
+    expect(wrappers.length).toBe(2);
+    for (const wrapper of wrappers) {
+      expect(wrapper.getAttribute("aria-hidden")).toBe("true");
+      expect(wrapper.style.position).toBe("absolute");
+      expect(wrapper.style.clipPath).toBe("");
+      // Each wrapper holds exactly one painted band child with the multiply optic.
+      const band = wrapper.firstElementChild as HTMLElement;
+      expect(band).not.toBeNull();
       expect(band.getAttribute("aria-hidden")).toBe("true");
-      expect((band as HTMLElement).style.mixBlendMode).toBe("multiply");
-      expect((band as HTMLElement).style.position).toBe("absolute");
+      expect(band.style.mixBlendMode).toBe("multiply");
+      expect(band.style.position).toBe("absolute");
     }
   });
 
@@ -245,15 +264,19 @@ describe("createCssRenderer", () => {
     const renderer = createCssRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(0), geometry(20)], ranges: [] });
-    const first = container.querySelector("div");
+    // Two wrappers (the per-line wipe surfaces) are mounted as direct children.
+    expect(container.children.length).toBe(2);
+    const firstWrapper = container.firstElementChild;
+    const firstBand = firstWrapper?.firstElementChild;
 
-    // Drop the second line; the first must keep its exact node.
+    // Drop the second line; the first must keep its exact wrapper + band subtree.
     renderer.update({ container, options: resolved(), lines: [geometry(0)], ranges: [] });
-    expect(container.querySelectorAll("div").length).toBe(1);
-    expect(container.querySelector("div")).toBe(first);
+    expect(container.children.length).toBe(1);
+    expect(container.firstElementChild).toBe(firstWrapper);
+    expect(container.firstElementChild?.firstElementChild).toBe(firstBand);
   });
 
-  it("unmount removes every band", () => {
+  it("unmount removes every wrapper and band", () => {
     const renderer = createCssRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(0), geometry(20)], ranges: [] });
@@ -289,15 +312,21 @@ describe("createSvgRenderer", () => {
     hostB.remove();
   });
 
-  it("applies the absolute-px clip-path and offset-sampled mask (A14)", () => {
+  it("applies the absolute-px clip-path and offset-sampled mask to the ink inside the wrapper (A14)", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(40)], ranges: [] });
-    const band = container.querySelector("div") as HTMLElement;
-    expect(band.style.clipPath).toContain("path(");
-    expect(band.style.maskPosition).toBe("-10px -5px");
-    expect(band.style.maskSize).toBe("256px 64px");
-    expect(band.style.maskRepeat).toBe("repeat");
+    // The direct child is the wipe wrapper: positioned at the box, NO geometry
+    // clip (so the draw-on inset never stretches the shape).
+    const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper.style.position).toBe("absolute");
+    expect(wrapper.style.clipPath).toBe("");
+    // The ink node lives inside the wrapper and carries the shape clip + mask.
+    const ink = wrapper.lastElementChild as HTMLElement;
+    expect(ink.style.clipPath).toContain("path(");
+    expect(ink.style.maskPosition).toBe("-10px -5px");
+    expect(ink.style.maskSize).toBe("256px 64px");
+    expect(ink.style.maskRepeat).toBe("repeat");
   });
 
   it("adds an additive (screen) glow node only when glow is enabled (R16)", () => {
@@ -321,15 +350,28 @@ describe("createSvgRenderer", () => {
 describe("applyDrawOn", () => {
   let host: HTMLElement;
   let container: HTMLElement;
+  // Per-seed wrapper lookup, exactly like a renderer's `bandFor`: the draw-on finds
+  // a line's wrapper by its stable seed, NOT by index into the (possibly shared)
+  // container — so marks sharing a container never animate each other's bands.
+  let bands: Map<number, HTMLElement>;
+  const bandFor = (seed: number): HTMLElement | null => bands.get(seed) ?? null;
 
   beforeEach(() => {
     host = document.createElement("div");
     document.body.appendChild(host);
     container = createOverlayContainer(host);
+    bands = new Map();
+    // Mirror the renderer's structure: each direct child is a WRAPPER holding a
+    // clip-bearing ink. The renderer owns the ink's full geometry clip; applyDrawOn
+    // grows the WRAPPER's clip-path front frame to frame (revealing the subtree),
+    // then restores the full clip. The two never write the same element's clip.
     for (const seed of [0, 20]) {
-      const band = document.createElement("div");
-      band.style.clipPath = geometry(seed).clipPath;
-      container.appendChild(band);
+      const wrapper = document.createElement("div");
+      const ink = document.createElement("div");
+      ink.style.clipPath = geometry(seed).clipPath;
+      wrapper.appendChild(ink);
+      container.appendChild(wrapper);
+      bands.set(seed, wrapper);
     }
   });
   afterEach(() => {
@@ -338,43 +380,176 @@ describe("applyDrawOn", () => {
   });
 
   const anim = resolved().animation;
+  const FULL = geometry(0).clipPath; // the settled clip the stub returns at full front
+  const wrapperOf = (i: number) => Array.from(container.children)[i] as HTMLElement;
+  const inkOf = (i: number) => wrapperOf(i).firstElementChild as HTMLElement;
 
-  it("shows bands instantly under prefers-reduced-motion (R25)", () => {
-    const disconnect = applyDrawOn(container, [geometry(0), geometry(20)], anim, fullEnv({ prefersReducedMotion: true }));
-    for (const band of Array.from(container.children) as HTMLElement[]) {
-      expect(band.style.clipPath).toBe("inset(0 0 0 0)");
-      expect(band.style.transition).toBe("");
-    }
+  it("shows the full clip instantly under prefers-reduced-motion (R25)", () => {
+    const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], anim, fullEnv({ prefersReducedMotion: true }));
+    // Instant = the full settled clip on the wrapper, no animation.
+    expect(wrapperOf(0).style.clipPath).toBe(FULL);
+    expect(wrapperOf(1).style.clipPath).toBe(FULL);
     disconnect();
   });
 
-  it("shows bands instantly when draw is disabled", () => {
-    const noDraw = { ...anim, draw: false };
-    applyDrawOn(container, [geometry(0)], noDraw, fullEnv());
-    const band = container.firstElementChild as HTMLElement;
-    expect(band.style.clipPath).toBe("inset(0 0 0 0)");
+  it("shows the full clip instantly when draw is disabled", () => {
+    applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: false }, fullEnv());
+    expect(wrapperOf(0).style.clipPath).toBe(FULL);
   });
 
-  it("primes bands hidden and reveals them with a transition under draw-on", () => {
+  it("grows the wrapper's clip-path front, then restores the full clip (no mask/opacity/scale)", () => {
     vi.useFakeTimers();
-    const disconnect = applyDrawOn(container, [geometry(0), geometry(20)], { ...anim, draw: true, trigger: "immediate", stagger: 50, duration: 200 }, fullEnv());
-    // After priming (synchronous), bands are scaled to zero.
-    const bands = Array.from(container.children) as HTMLElement[];
-    expect(bands[0].style.transform).toBe("scaleX(0)");
-    // Run the kickoff + staggered reveals.
-    vi.runAllTimers();
-    expect(bands[0].style.transform).toBe("scaleX(1)");
-    expect(bands[0].style.transition).toContain("transform");
+    const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], { ...anim, draw: true, trigger: "immediate", direction: "left-to-right", stagger: 50, duration: 200 }, fullEnv());
+    const wrapper = wrapperOf(0);
+    // play() runs synchronously: the line is parked CLOSED (an empty front clip) —
+    // revealed by growing the clip, never by a mask, opacity fade, or transform.
+    expect(wrapper.style.clipPath).toContain("M 0 0 Z");
+    expect(wrapper.style.maskImage ?? "").toBe("");
+    expect(wrapper.style.opacity).toBe("");
+    expect(wrapper.style.transform).toBe("");
+    // Advance partway: the clip is a TRUNCATED band — non-empty, not yet full.
+    vi.advanceTimersByTime(90);
+    const mid = wrapper.style.clipPath;
+    expect(mid).toContain("path(");
+    expect(mid).not.toContain("M 0 0 Z");
+    expect(mid).not.toBe(FULL);
+    // Advance past duration + stagger: the full settled clip is restored.
+    vi.advanceTimersByTime(500);
+    expect(wrapper.style.clipPath).toBe(FULL);
     disconnect();
   });
 
-  it("disconnect cancels pending timers (R33)", () => {
+  it("draws on the wrapper, never the ink child — so the renderer keeps the ink's geometry clip", () => {
     vi.useFakeTimers();
-    const clearSpy = vi.spyOn(globalThis, "clearTimeout");
-    const disconnect = applyDrawOn(container, [geometry(0)], { ...anim, draw: true, trigger: "immediate" }, fullEnv());
+    const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
+    vi.advanceTimersByTime(90);
+    // The draw lives on the wrapper; the ink child's clip (the renderer's geometry)
+    // is untouched by the animation throughout.
+    expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
+    expect(inkOf(0).style.clipPath).toBe(FULL);
     disconnect();
-    expect(clearSpy).toHaveBeenCalled();
-    clearSpy.mockRestore();
+  });
+
+  it("survives a reflow that resets the ink clip mid-draw — no flash to full, no restart", () => {
+    // The exact regression: a reflow re-runs renderer.update(), which rewrites the
+    // ink child's clip to FULL. Because the draw clips the WRAPPER (not the ink),
+    // the front is preserved and the band keeps drawing instead of flashing full.
+    vi.useFakeTimers();
+    const handle = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
+    vi.advanceTimersByTime(90);
+    const beforeFront = wrapperOf(0).style.clipPath;
+    expect(beforeFront).not.toBe(FULL);
+    // Simulate renderer.update on reflow: the ink child is reset to its full clip…
+    inkOf(0).style.clipPath = FULL;
+    // …and the draw is retargeted onto the (unchanged) geometry.
+    handle.retarget([geometry(0)]);
+    // The wrapper's front clip is still truncated — the visible band did NOT snap to
+    // full. (A flash-to-full would mean the wrapper read FULL here.)
+    expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
+    // The next frame keeps advancing from where it was, then settles — one draw.
+    vi.advanceTimersByTime(40);
+    expect(wrapperOf(0).style.clipPath).toContain("path(");
+    vi.advanceTimersByTime(200);
+    expect(wrapperOf(0).style.clipPath).toBe(FULL);
+    handle();
+  });
+
+  it("retargets an in-flight draw-on onto reflow-corrected geometry, preserving progress", () => {
+    vi.useFakeTimers();
+    const handle = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
+    const wrapper = wrapperOf(0);
+    // Mid-draw on the ORIGINAL (width-100) geometry.
+    vi.advanceTimersByTime(60);
+    expect(wrapper.style.clipPath).toContain("path(");
+    expect(wrapper.style.clipPath).not.toContain("H200");
+    // A reflow corrects the geometry to width 200 (a late font load widened the
+    // line). Retarget the still-running draw-on onto it.
+    const wide = {
+      ...geometry(0),
+      clipPath: "path('M0 0 H200 V20 H0 Z')",
+      clipAtFront: (f: number) =>
+        f <= 0 ? 'path("M 0 0 Z")' : f >= 200 ? "path('M0 0 H200 V20 H0 Z')" : `path('M0 0 H${f.toFixed(1)} V20 H0 Z')`,
+    };
+    handle.retarget([wide]);
+    // Finish: it settles to the WIDE full clip, not the stale narrow one.
+    vi.advanceTimersByTime(400);
+    expect(wrapper.style.clipPath).toBe("path('M0 0 H200 V20 H0 Z')");
+    handle();
+  });
+
+  it("disconnect cancels the draw and restores the full clip (R33)", () => {
+    vi.useFakeTimers();
+    const cancelSpy = vi.spyOn(globalThis, "cancelAnimationFrame");
+    const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate" }, fullEnv());
+    disconnect();
+    expect(cancelSpy).toHaveBeenCalled();
+    expect(wrapperOf(0).style.clipPath).toBe(FULL);
+    cancelSpy.mockRestore();
+  });
+
+  it("starts the front at minFront (tip touchdown), never below — no start-of-draw pause", () => {
+    // The draw maps progress 0→1 onto front [minFront → width]. With a chisel-like
+    // minFront of 30, the FIRST drawn frame must already be at ≥30 (the band touches
+    // down at its tip and drags) — not a sub-tip value that build() would clamp,
+    // which is what made the band pop then sit frozen.
+    vi.useFakeTimers();
+    const seed = 0;
+    const line: MarkGeometry = {
+      ...geometry(seed),
+      minFront: 30,
+      // Echo the requested front so the test can read exactly what was drawn.
+      clipAtFront: (f: number) => (f <= 0 ? 'path("M 0 0 Z")' : `path('M0 0 H${f.toFixed(1)} V20 H0 Z')`),
+    };
+    const readFront = (): number => {
+      const m = /H([\d.]+)/.exec(wrapperOf(0).style.clipPath);
+      return m ? Number(m[1]) : NaN;
+    };
+    const disconnect = applyDrawOn(container, bandFor, [line], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
+    // Early in the draw: the band has already touched down at its tip (≥ minFront),
+    // never a sub-tip front that build() would clamp into a frozen plateau.
+    vi.advanceTimersByTime(50);
+    const early = readFront();
+    expect(early).toBeGreaterThanOrEqual(30);
+    // Later: it has dragged forward (no plateau, no freeze at the touchdown width).
+    vi.advanceTimersByTime(60);
+    const later = readFront();
+    expect(later).toBeGreaterThan(early);
+    disconnect();
+  });
+
+  it("wicks the onset in (wrapper opacity ramps up), then clears opacity at settle", () => {
+    // The touchdown fades in like ink seeping into paper, instead of hard-popping.
+    // Opacity rides the WRAPPER (the container carries the page-facing multiply), and
+    // is cleared at settle so the rested mark forms no lingering stacking context.
+    vi.useFakeTimers();
+    const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 1000 }, fullEnv());
+    vi.advanceTimersByTime(40);
+    const op = wrapperOf(0).style.opacity;
+    expect(op).not.toBe(""); // actively fading in during the onset
+    expect(Number(op)).toBeGreaterThanOrEqual(0);
+    expect(Number(op)).toBeLessThan(1);
+    // After the draw settles, opacity is cleared (full, no isolated group at rest).
+    vi.advanceTimersByTime(1200);
+    expect(wrapperOf(0).style.opacity).toBe("");
+    disconnect();
+  });
+
+  it("only touches its OWN seed's band, never a sibling mark sharing the container", () => {
+    // The root cause of "draws twice": several marks share ONE overlay container,
+    // so wrappers for unrelated marks are siblings. A draw-on for line seed 0 must
+    // animate ONLY the seed-0 wrapper — never the seed-20 wrapper that belongs to a
+    // different mark (which would let N marks all clobber one band).
+    vi.useFakeTimers();
+    const sibling = wrapperOf(1); // the seed-20 band; this draw-on must not touch it
+    expect(sibling.style.clipPath).toBe("");
+    const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
+    vi.advanceTimersByTime(90);
+    expect(wrapperOf(0).style.clipPath).toContain("path("); // our band IS drawing
+    expect(sibling.style.clipPath).toBe(""); // the other mark's band is untouched
+    vi.advanceTimersByTime(300);
+    expect(wrapperOf(0).style.clipPath).toBe(FULL);
+    expect(sibling.style.clipPath).toBe(""); // still untouched after settle
+    disconnect();
   });
 });
 
@@ -408,6 +583,9 @@ describe("createMarkHandle", () => {
       },
       update() {
         calls.push("update");
+      },
+      bandFor() {
+        return null;
       },
       unmount() {
         calls.push("unmount");

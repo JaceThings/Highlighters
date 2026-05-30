@@ -1,8 +1,9 @@
 /**
  * Tier B renderer — a CSS `linear-gradient` band (blueprint R26 / A3).
  *
- * The lightweight tier: one absolutely-positioned `<div>` per visual line, painted
- * with the absolute-px end-pool gradient ({@link PoolGradient}) and composited with
+ * The lightweight tier: one absolutely-positioned per-line **wrapper** `<div>`
+ * placed at the line box, holding a band `<div>` at `inset: 0` painted with the
+ * absolute-px end-pool gradient ({@link PoolGradient}) and composited with
  * `mix-blend-mode: multiply` (the true ink optic, R14). Edges are straight — no
  * wave geometry, no turbulence texture — but colour, opacity, blend, and band
  * position are shared with Tier A, so degrading to this tier changes fidelity, not
@@ -10,13 +11,17 @@
  * rendering of the band keeps its decoration per fragment; the per-line `<div>`
  * model already gives correct multiline coverage.
  *
+ * The wrapper carries only the box position (no clip), so the shared draw-on
+ * animation wipes it open with `clip-path: inset(...)` — revealing the fixed band
+ * left-to-right with no scaling, identical in structure to Tier A.
+ *
  * Nodes are pooled by stable line identity (the per-line seed) so a reflow that
  * changes the line set keeps surviving lines' nodes (A14 §6 / R22d). `unmount()`
  * removes the overlay container and every node, leaving the DOM pristine (R9).
  */
 
 import type { Renderer, RenderContext, MarkGeometry, PoolGradient } from "../types.js";
-import { NodePool } from "./renderer.js";
+import { NodePool, applyBoxPosition } from "./renderer.js";
 
 /**
  * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` string in
@@ -53,19 +58,21 @@ export function poolGradientToCss(pool: PoolGradient): string {
  * @returns A {@link Renderer} whose `tier` is `"css"`.
  */
 export function createCssRenderer(): Renderer {
-  const pool = new NodePool<HTMLElement>();
+  // Per line: a positioned WRAPPER (the draw-on wipe surface) holding a band node.
+  const wrapperPool = new NodePool<HTMLElement>();
+  const bandPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
 
   /** Style one line band from its geometry and the resolved options. */
   function styleBand(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
-    const { box } = line;
     const { options } = context;
     const s = el.style;
+    // The band fills its wrapper (which is positioned at the line box).
     s.position = "absolute";
-    s.left = `${box.x}px`;
-    s.top = `${box.y}px`;
-    s.width = `${box.width}px`;
-    s.height = `${box.height}px`;
+    s.left = "0";
+    s.top = "0";
+    s.width = "100%";
+    s.height = "100%";
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
     s.opacity = String(options.opacity);
@@ -85,26 +92,42 @@ export function createCssRenderer(): Renderer {
 
     for (const line of context.lines) {
       keep.add(line.seed);
-      let el = pool.get(line.seed);
-      if (!el) {
-        el = doc.createElement("div");
-        el.setAttribute("aria-hidden", "true");
-        container.appendChild(el);
-        pool.set(line.seed, el);
+      // The wrapper carries ONLY the box position (no clip) so the draw-on wipes
+      // it open without scaling; its clip-path is left untouched across reflow.
+      let wrapper = wrapperPool.get(line.seed);
+      if (!wrapper) {
+        wrapper = doc.createElement("div");
+        wrapper.setAttribute("aria-hidden", "true");
+        wrapper.style.pointerEvents = "none";
+        container.appendChild(wrapper);
+        wrapperPool.set(line.seed, wrapper);
       }
-      styleBand(el, line, context);
+      applyBoxPosition(wrapper, line.box);
+
+      let band = bandPool.get(line.seed);
+      if (!band) {
+        band = doc.createElement("div");
+        band.setAttribute("aria-hidden", "true");
+        wrapper.appendChild(band);
+        bandPool.set(line.seed, band);
+      }
+      styleBand(band, line, context);
     }
 
-    // Release lines that no longer exist; survivors keep their identical node.
-    pool.retain(keep, (el) => el.remove());
+    // Release lines that no longer exist (the wrapper takes its band child with
+    // it); survivors keep their identical wrapper subtree.
+    wrapperPool.retain(keep, (el) => el.remove());
+    bandPool.retain(keep, () => {});
   }
 
   return {
     tier: "css",
     mount: render,
     update: render,
+    bandFor: (seed: number): HTMLElement | null => wrapperPool.get(seed) ?? null,
     unmount(): void {
-      pool.clear((el) => el.remove());
+      wrapperPool.clear((el) => el.remove());
+      bandPool.clear(() => {});
       container = null;
     },
   };

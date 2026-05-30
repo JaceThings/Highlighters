@@ -194,19 +194,42 @@ export type ColorantValue = number | "dye" | "balanced" | "pigment";
 // --- Namespaced option groups (all optional on input) -----------------------
 
 /**
- * Nib geometry. Tip `type` drives the chisel stroke-width model: the effective
- * stroke width interpolates between {@link TipOptions.thickness | thickness} and
- * {@link TipOptions.width | width} as a function of the stroke-vs-tip angle (R12).
+ * Nib geometry. `type` selects the nib shape and `angle` drives the chisel slant
+ * (the lean the SVG renderer bakes into each band's clip-path). `width` and
+ * `thickness` describe the nib's broad-face / narrow-edge dimensions for the full
+ * chisel stroke-width model (R12): they are part of the option surface but are
+ * not consumed by the default renderer's current slant geometry, which derives
+ * the lean from `angle` and the band width.
  */
 export interface TipOptions {
   /** Nib shape. Default `chisel`. */
   type?: TipType;
-  /** Broad-face width of the nib, in px. */
+  /**
+   * Broad-face width of the nib, in px. Part of the chisel stroke-width model
+   * (R12); reserved — not consumed by the default renderer's slant geometry.
+   */
   width?: number;
-  /** Narrow-edge thickness of the nib, in px. */
+  /**
+   * Narrow-edge thickness of the nib, in px. Part of the chisel stroke-width
+   * model (R12); reserved — not consumed by the default renderer's slant geometry.
+   */
   thickness?: number;
   /** Nib angle relative to the stroke, in degrees (chisel slant). */
   angle?: number;
+  /**
+   * How far each of the mark's true outer ends runs past the text edges, in px.
+   * Signed: positive overshoots past the glyphs the way a real swipe overruns the
+   * word; `0` stops flush with the text; negative pulls the band in short of the
+   * glyphs. Inner edges of a wrapped run ignore this — they always overlap to
+   * stitch consecutive lines into one continuous swipe. Default `2`.
+   */
+  overshoot?: number;
+  /**
+   * Per-end random variance of {@link overshoot}, in px (≥0). Deterministically
+   * jitters each outer end around the base overrun so the two ends never land on
+   * a machine-perfect identical inset. Default `1`.
+   */
+  overshootJitter?: number;
 }
 
 /**
@@ -317,7 +340,7 @@ export interface HighlightOptions {
   /** A named preset applied as a base layer before other options. Default `mild`. */
   preset?: PresetName;
 
-  /** Mark kind. Default `highlight`. Synonym of {@link markType}. */
+  /** Mark kind. Default `highlight`. */
   shape?: ShapeType;
   /** Mark kind. Synonym of {@link shape}; whichever is provided last wins. */
   markType?: MarkType;
@@ -383,6 +406,10 @@ export interface ResolvedTip {
   width: number;
   thickness: number;
   angle: number;
+  /** Signed px the mark's true outer ends run past the text edges. */
+  overshoot: number;
+  /** Per-end px variance of {@link overshoot} (≥0). */
+  overshootJitter: number;
 }
 
 /** {@link InkOptions} with every field resolved. */
@@ -580,6 +607,25 @@ export interface MarkGeometry {
   seed: number;
   /** `clip-path: path(...)` string in absolute-px coordinates (chisel/bullet/fine). */
   clipPath: string;
+  /**
+   * Rebuild this line's `clip-path` truncated to an advancing `front` (local px),
+   * with the leading tip cap drawn AT the front — the draw-on grows the band by
+   * appending grid nodes (never stretching). `clipAtFront(box.width)` equals
+   * {@link clipPath}. Pure; safe to call per animation frame.
+   */
+  clipAtFront: (front: number) => string;
+  /**
+   * Chisel slant in px — how far the top edge leads the bottom (0 for bullet/fine).
+   */
+  slant: number;
+  /**
+   * The smallest visible front (local px) — the tip touchdown width below which the
+   * cap would invert, so {@link clipAtFront} clamps any smaller front up to it. The
+   * draw-on starts its travel here (progress `0→1` maps to front
+   * `minFront → box.width`) so the band touches down at its tip and immediately
+   * drags, instead of popping to this width then pausing while progress catches up.
+   */
+  minFront: number;
   /** Top-edge wave vertices on the fixed grid. */
   topEdge: EdgeVertex[];
   /** Bottom-edge wave vertices on the fixed grid. */
@@ -714,6 +760,14 @@ export interface Renderer {
   update(context: RenderContext): void;
   /** Detach all nodes and release shared resources; leave the DOM pristine. */
   unmount(): void;
+  /**
+   * The per-line **wrapper** element for a line's stable seed — the surface the
+   * draw-on animation clips. Returns `null` for a line this renderer has not
+   * mounted, or for tiers with no overlay DOM (Tier C). Identifying a line's band
+   * by its seed (not by index into the overlay container) is essential: marks that
+   * share one overlay container MUST NOT find each other's wrappers (A4 / R22d).
+   */
+  bandFor(seed: number): HTMLElement | null;
 }
 
 /**

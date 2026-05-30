@@ -17,7 +17,7 @@
 
 import type { ColorantValue, HighlightOptions, InkOptions } from "../types.js";
 
-/** Clamp `value` into the inclusive `[0, 1]` range. */
+/** Clamp `value` into `[0, 1]`; `NaN` maps to `0.5` (neutral midpoint). */
 function clamp01(value: number): number {
   if (Number.isNaN(value)) return 0.5;
   if (value < 0) return 0;
@@ -25,9 +25,6 @@ function clamp01(value: number): number {
   return value;
 }
 
-/**
- * Linear interpolation from `dye` (axis `0`) to `pigment` (axis `1`).
- */
 function lerp(dye: number, pigment: number, t: number): number {
   return dye + (pigment - dye) * t;
 }

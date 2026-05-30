@@ -18,6 +18,7 @@
  */
 
 import type { Anchor, LineRect } from "../types.js";
+import { hasDomWithRange } from "../internal/dom.js";
 
 /** Drop rects taller than this multiple of the median line height (bbox artifacts). */
 const BBOX_REJECT_RATIO = 3.0;
@@ -29,10 +30,6 @@ const MERGE_MAX_GAP_RATIO = 1.5;
 const COLUMN_SLOP = 24;
 /** Seed quantization: anchor-relative top × this, rounded (≈0.14 px buckets). */
 const SEED_SCALE = 7;
-
-function hasDom(): boolean {
-  return typeof document !== "undefined" && typeof Range !== "undefined";
-}
 
 /** A mutable line accumulator in absolute viewport px. */
 interface LineBox {
@@ -47,7 +44,7 @@ function toDomRect(box: LineBox): DOMRect {
   const { top, bottom, left, right } = box;
   const width = right - left;
   const height = bottom - top;
-  const rect = {
+  return {
     x: left,
     y: top,
     width,
@@ -59,8 +56,7 @@ function toDomRect(box: LineBox): DOMRect {
     toJSON() {
       return { x: left, y: top, width, height, top, right, bottom, left };
     },
-  };
-  return rect as DOMRect;
+  } as DOMRect;
 }
 
 /** Median of a numeric array (lower-middle element of the sorted copy). */
@@ -132,7 +128,7 @@ export function computeAnchor(ranges: Range[]): Anchor {
   let top = Infinity;
   let left = Infinity;
 
-  if (hasDom()) {
+  if (hasDomWithRange()) {
     for (const range of ranges) {
       const rects = range.getClientRects();
       for (let i = 0; i < rects.length; i++) {
@@ -161,7 +157,7 @@ export function computeAnchor(ranges: Range[]): Anchor {
  * `[]` outside a DOM.
  */
 export function rangesToLineRects(ranges: Range[], anchor: Anchor): LineRect[] {
-  if (!hasDom() || ranges.length === 0) return [];
+  if (!hasDomWithRange() || ranges.length === 0) return [];
 
   // Collect every paintable client rect across all ranges.
   const raw: DOMRect[] = [];

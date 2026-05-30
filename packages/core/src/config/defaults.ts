@@ -30,6 +30,10 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     width: 16,
     thickness: 4,
     angle: 35,
+    // A hair of overrun past the text with a touch of per-end variance — the
+    // default "real swipe" end behaviour (R12); fully tunable via the Ends knobs.
+    overshoot: 2,
+    overshootJitter: 1,
   }),
   ink: Object.freeze({
     flow: 0.5,

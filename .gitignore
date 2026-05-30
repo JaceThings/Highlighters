@@ -6,8 +6,11 @@ coverage/
 *.tgz
 .vitest/
 .turbo/
+.claude/
 
 # planning / process docs — kept local, never committed
 blueprint.md
 CONTRACT.md
+*_CONTRACT.md
 BUILD_REPORT.md
+.shots/

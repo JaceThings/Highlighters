@@ -1,3 +1,4 @@
+import { clamp } from "../internal/math.js";
 import type { ColorValue, GradientStop, PoolGradient } from "../types.js";
 
 /**
@@ -56,11 +57,6 @@ export interface PoolOptions {
   angle?: number;
 }
 
-/** Clamp a value into `[lo, hi]`. */
-function clamp(value: number, lo: number, hi: number): number {
-  return value < lo ? lo : value > hi ? hi : value;
-}
-
 /** Round an alpha to 3 decimals for stable, compact stop strings. */
 function roundAlpha(value: number): number {
   return Math.round(clamp(value, 0, 1) * 1000) / 1000;
@@ -72,20 +68,22 @@ function roundAlpha(value: number): number {
  * The four stops share the base `color`; their alphas are the base `opacity`
  * scaled by a per-end pool factor. With `startEndBuildup = b`:
  *
- *  - the two **end** stops (offsets `0` and `1`) get `opacity * (1 + 0.45*b)`;
+ *  - the two **end** stops (offsets `0` and `1`) get `opacity * (1 + 0.7*b)`;
  *  - the two **core** stops get the flat `opacity`.
  *
  * So `b > 0` lifts the ends above the core (darker pool), `b < 0` drops them
  * below it (guardrail / suppressed pooling), and `b = 0` makes all four equal —
- * a flat band. Alphas are clamped to `[0, 1]`.
+ * a flat band. The gain is deliberately strong so dragging the slider produces a
+ * clearly visible wet-pool ↔ anti-pool delta at the ends. Alphas clamp to `[0,1]`.
  */
 export function buildPoolGradient(opts: PoolOptions): PoolGradient {
   const buildup = clamp(opts.startEndBuildup, -1, 1);
   const base = clamp(opts.opacity, 0, 1);
 
-  // 0.45 is the pool-contrast gain: at full +1 the ends are ~1.45× the core
-  // alpha (clamped), at full -1 they drop to ~0.55× (the guardrail floor).
-  const endAlpha = roundAlpha(base * (1 + 0.45 * buildup));
+  // 0.7 is the pool-contrast gain: at full +1 the ends are 1.7× the core alpha
+  // (clamped to 1) — an obvious wet pool; at full -1 they drop to 0.3× (a clearly
+  // lighter, anti-pooled end). The strong gain makes the knob read in a screenshot.
+  const endAlpha = roundAlpha(base * (1 + 0.7 * buildup));
   const coreAlpha = roundAlpha(base);
 
   const color: ColorValue = opts.color;

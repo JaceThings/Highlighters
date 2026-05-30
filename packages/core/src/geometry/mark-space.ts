@@ -7,11 +7,11 @@ import type {
   NoiseTile,
   ResolvedOptions,
 } from "../types.js";
-import { buildClipPath } from "./clip-path.js";
+import { buildClipPath, chiselSlant, minVisibleFront } from "./clip-path.js";
 import { buildEdge } from "./edges.js";
 import { buildNoiseTile } from "./noise-tile.js";
 import { buildPoolGradient } from "./pool.js";
-import { jitterUnit } from "./rng.js";
+import { hashJitter } from "./rng.js";
 
 /**
  * The resolution-independent tie-it-together step (anchored-grid doc, blueprint
@@ -31,11 +31,6 @@ import { jitterUnit } from "./rng.js";
  * from the SSR `/path` entry.
  */
 
-/** Per-line coverage extension bounds, in px (a tight hug around the text). */
-const LEFT_MIN = 5;
-const LEFT_MAX = 8;
-const RIGHT_MIN = 5;
-const RIGHT_MAX = 9;
 /** Vertical padding above/below the text so the wavy edge stays clear of glyphs. */
 const VERT_PAD = 2;
 
@@ -47,8 +42,8 @@ const VERT_PAD = 2;
 const WRAP_OVERSHOOT = 12;
 
 /** Decorrelating seed offsets, one per derived role. */
-const SEED_LEFT_EXT = 0;
-const SEED_RIGHT_EXT = 11;
+const SEED_LEFT_OVER = 0;
+const SEED_RIGHT_OVER = 11;
 const SEED_TOP_EDGE = 200;
 const SEED_BOTTOM_EDGE = 300;
 
@@ -104,22 +99,26 @@ export function buildMarkGeometry(
 ): MarkGeometry {
   const { edge, ink, tip, paper } = options;
 
-  // --- Coverage extensions (deterministic per seed) -------------------------
-  // Tight outward hug so the band reads as a marker pass, not an oversized blob.
-  const leftExt = LEFT_MIN + jitterUnit(seed + SEED_LEFT_EXT) * (LEFT_MAX - LEFT_MIN);
-  const rightExt = RIGHT_MIN + jitterUnit(seed + SEED_RIGHT_EXT) * (RIGHT_MAX - RIGHT_MIN);
-
-  // Wrap overshoot connects line ends into one continuous swipe (R20): extend
-  // the trailing edge of every non-terminal line and the leading edge of every
-  // non-initial line past the text box.
-  const leftWrap = lineRect.isFirst ? 0 : WRAP_OVERSHOOT;
-  const rightWrap = lineRect.isLast ? 0 : WRAP_OVERSHOOT;
+  // --- End extensions (deterministic per seed) ------------------------------
+  // The user-tunable overshoot governs how far each TRUE outer end runs past
+  // (positive) or short of (negative) the text edge; a deterministic per-end
+  // jitter keeps the two ends from landing on an identical inset (R12). Inner
+  // edges of a wrapped run instead use the fixed wrap overshoot so consecutive
+  // lines' ends/starts overlap into one continuous swipe (R20). The jitter is
+  // seeded by the (width-independent) line seed, so growing a mark never shifts
+  // its start — preserving the anchored-grid prefix invariant (R22d).
+  const endOver = (s: number): number =>
+    tip.overshoot + hashJitter(s) * tip.overshootJitter;
+  const leftExt = lineRect.isFirst ? endOver(seed + SEED_LEFT_OVER) : WRAP_OVERSHOOT;
+  const rightExt = lineRect.isLast ? endOver(seed + SEED_RIGHT_OVER) : WRAP_OVERSHOOT;
 
   // --- Band box in absolute px ----------------------------------------------
   const band = resolveBand(options.markType, lineRect.height);
-  const boxX = lineRect.left - leftExt - leftWrap;
+  const boxX = lineRect.left - leftExt;
   const boxY = lineRect.top - VERT_PAD + band.offsetY;
-  const boxWidth = lineRect.width + leftExt + rightExt + leftWrap + rightWrap;
+  // Clamp to a positive width so an aggressive negative overshoot on a short
+  // mark can never invert the box.
+  const boxWidth = Math.max(1, lineRect.width + leftExt + rightExt);
   const boxHeight = band.height + VERT_PAD * 2;
   const box: Box = { x: boxX, y: boxY, width: boxWidth, height: boxHeight };
 
@@ -166,20 +165,30 @@ export function buildMarkGeometry(
   const bottomEdge: EdgeVertex[] = bottomAbs.map(toLocal);
 
   // --- Clip path (absolute-px local path()) ---------------------------------
-  const clipPath = buildClipPath({
-    box,
-    tip,
-    topEdge,
-    bottomEdge,
-    cap: edge.cap,
-    radius: edge.radius,
-  });
+  // The clip-path, parameterized by an advancing front for the draw-on. The full
+  // mark is `clipAtFront(box.width)`; the entrance calls it with a growing front
+  // so the band gains grid nodes frame to frame (never stretches).
+  const clipAtFront = (front: number): string =>
+    buildClipPath({
+      box,
+      tip,
+      topEdge,
+      bottomEdge,
+      cap: edge.cap,
+      radius: edge.radius,
+      front,
+    });
+  const clipPath = clipAtFront(box.width);
 
   // --- Shared noise tile + per-line sample offset (never scaled) ------------
+  // streakiness → lengthwise lanes, feathering (+ absorbency) → soft blotches,
+  // dryout → probabilistic transparent skip-holes (viscosity raises dryout, since
+  // a more viscous ink skips more on a dry pass).
   const noiseTile: NoiseTile = buildNoiseTile({
     seed,
     streakiness: ink.streakiness,
     feathering: ink.feathering + paper.absorbency * 0.25,
+    dryout: ink.dryout + ink.viscosity * 0.2,
   });
   const maskOffset: MaskOffset = {
     x: -mod(seed * MASK_X_MULT, noiseTile.width),
@@ -199,6 +208,11 @@ export function buildMarkGeometry(
     box,
     seed,
     clipPath,
+    clipAtFront,
+    // Same slant the clip-path uses (top leads bottom by this many px).
+    slant: chiselSlant(tip, box.width, box.height),
+    // The tip touchdown width the draw-on starts from (no sub-tip pause).
+    minFront: Math.min(minVisibleFront(tip, edge.cap, box.width, box.height, edge.radius), box.width),
     topEdge,
     bottomEdge,
     noiseTile,

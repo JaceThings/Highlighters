@@ -88,7 +88,7 @@ export function snapRangeToBounds(range: Range, mode: SnapMode): Range {
   // A trim that crosses the two boundaries (e.g. an all-whitespace range)
   // can leave start after end; collapse defensively to the start so callers
   // get a valid, paint-nothing range rather than an inverted one.
-  if (out.collapsed && range.collapsed === false) {
+  if (out.collapsed && !range.collapsed) {
     out.collapse(true);
   }
 

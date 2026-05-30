@@ -28,7 +28,14 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
     gradient: null,
     opacity: 0.5,
     blendMode: "multiply",
-    tip: { type: "chisel", width: 12, thickness: 3, angle: 8 },
+    tip: {
+      type: "chisel",
+      width: 12,
+      thickness: 3,
+      angle: 8,
+      overshoot: 2,
+      overshootJitter: 1,
+    },
     ink: {
       flow: 0.5,
       viscosity: 0.5,
@@ -308,7 +315,14 @@ describe("buildEdge", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildClipPath", () => {
-  const baseTip = { type: "chisel", width: 12, thickness: 3, angle: 8 } as const;
+  const baseTip = {
+    type: "chisel",
+    width: 12,
+    thickness: 3,
+    angle: 8,
+    overshoot: 0,
+    overshootJitter: 0,
+  } as const;
 
   it("returns a bare path(...) value with no clip-path: prefix", () => {
     const s = buildClipPath({
@@ -324,7 +338,7 @@ describe("buildClipPath", () => {
     expect(s).not.toContain("clip-path:");
   });
 
-  it("threads the supplied edge vertices as L commands", () => {
+  it("threads the supplied edge vertices as smooth Q control points (rounded corners)", () => {
     const s = buildClipPath({
       box: { x: 0, y: 0, width: 200, height: 24 },
       tip: { ...baseTip },
@@ -333,8 +347,9 @@ describe("buildClipPath", () => {
       cap: "round",
       radius: 3,
     });
-    expect(s).toContain("L 60.0 0.50");
-    expect(s).toContain("L 90.0 23.50");
+    // Each wave vertex is a quadratic control point (smooth), never a sharp `L`.
+    expect(s).toContain("Q 60.0 0.50");
+    expect(s).toContain("Q 90.0 23.50");
   });
 
   it("emits quadratic Q arcs for the four rounded corners", () => {
@@ -361,7 +376,14 @@ describe("buildClipPath", () => {
     });
     const bullet = buildClipPath({
       box,
-      tip: { type: "bullet", width: 12, thickness: 12, angle: 0 },
+      tip: {
+        type: "bullet",
+        width: 12,
+        thickness: 12,
+        angle: 0,
+        overshoot: 0,
+        overshootJitter: 0,
+      },
       topEdge: [],
       bottomEdge: [],
       cap: "flat",
@@ -376,7 +398,14 @@ describe("buildClipPath", () => {
   it("flat/square caps drop corner rounding (no Q in a wave-free body)", () => {
     const s = buildClipPath({
       box: { x: 0, y: 0, width: 200, height: 24 },
-      tip: { type: "fine", width: 4, thickness: 2, angle: 0 },
+      tip: {
+        type: "fine",
+        width: 4,
+        thickness: 2,
+        angle: 0,
+        overshoot: 0,
+        overshootJitter: 0,
+      },
       topEdge: [],
       bottomEdge: [],
       cap: "flat",
@@ -388,6 +417,30 @@ describe("buildClipPath", () => {
     // at the exact box extents instead.
     expect(s).toContain("M 0.0 0");
     expect(s).toContain("200.0");
+  });
+
+  it("chisel slant grows monotonically with angle across the full range", () => {
+    const box = { x: 0, y: 0, width: 200, height: 24 };
+    const slantStartX = (angle: number): number => {
+      const s = buildClipPath({
+        box,
+        tip: { type: "chisel", width: 12, thickness: 3, angle, overshoot: 0, overshootJitter: 0 },
+        topEdge: [],
+        bottomEdge: [],
+        cap: "flat",
+        radius: 0,
+      });
+      // The top edge starts at "M <slant> 0" (flat cap ⇒ R=0 ⇒ topStartX = slant).
+      return Number(/^path\("M ([\d.]+) 0/.exec(s)![1]);
+    };
+    // A steeper nib angle leans the parallelogram further — visible end to end,
+    // not saturated after a handful of degrees.
+    const a10 = slantStartX(10);
+    const a35 = slantStartX(35);
+    const a70 = slantStartX(70);
+    expect(a10).toBeGreaterThan(0);
+    expect(a35).toBeGreaterThan(a10);
+    expect(a70).toBeGreaterThan(a35);
   });
 
   it("is deterministic — identical inputs give a byte-identical string", () => {
@@ -503,7 +556,7 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
     const svg = Buffer.from(url.split(",")[1], "base64").toString("utf8");
     expect((svg.match(/feTurbulence/g) ?? []).length).toBe(2);
     expect((svg.match(/stitchTiles="stitch"/g) ?? []).length).toBe(2);
-    expect(svg).toContain('baseFrequency="0.04 0.7"');
+    expect(svg).toContain('baseFrequency="0.04 0.34"');
     expect(svg).toContain('baseFrequency="0.012"');
   });
 
@@ -547,6 +600,40 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
 });
 
 // ---------------------------------------------------------------------------
+// clip-path.ts — draw-on front truncation (grow the band by adding nodes)
+// ---------------------------------------------------------------------------
+
+describe("buildClipPath front truncation", () => {
+  const tip = {
+    type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0,
+  } as const;
+  const args = (front?: number) => ({
+    box: { x: 0, y: 0, width: 200, height: 24 },
+    tip: { ...tip },
+    topEdge: [] as never[],
+    bottomEdge: [] as never[],
+    cap: "round" as const,
+    radius: 3,
+    front,
+  });
+
+  it("a degenerate front (cap can't fit) emits an empty, not-yet-inked path", () => {
+    expect(buildClipPath(args(0))).toBe('path("M 0 0 Z")');
+  });
+
+  it("front === box.width equals the un-truncated full clip (and is the default)", () => {
+    const full = buildClipPath(args());
+    expect(buildClipPath(args(200))).toBe(full);
+  });
+
+  it("draws the leading cap AT the front, not at the full width", () => {
+    const mid = buildClipPath(args(120));
+    expect(mid).toContain("120.0"); // leading cap arc sits at the front
+    expect(mid).not.toContain("200.0"); // not the full box width
+  });
+});
+
+// ---------------------------------------------------------------------------
 // mark-space.ts — the resolution-independent integrator
 // ---------------------------------------------------------------------------
 
@@ -556,7 +643,12 @@ describe("buildMarkGeometry", () => {
     const rect = makeLineRect();
     const a = buildMarkGeometry(rect, opts, rect.seed);
     const b = buildMarkGeometry(rect, opts, rect.seed);
-    expect(a).toEqual(b);
+    // Compare the serializable geometry (the `clipAtFront` closure is a fresh
+    // function instance per call, so exclude it and assert it behaves identically).
+    const { clipAtFront: aFront, ...aData } = a;
+    const { clipAtFront: bFront, ...bData } = b;
+    expect(aData).toEqual(bData);
+    expect(aFront(50)).toBe(bFront(50));
     // The two strings that get serialized into the DOM must be byte-identical.
     expect(a.clipPath).toBe(b.clipPath);
     expect(a.noiseTile.dataUrl).toBe(b.noiseTile.dataUrl);
@@ -565,6 +657,19 @@ describe("buildMarkGeometry", () => {
   it("carries the supplied seed through to the geometry", () => {
     const g = buildMarkGeometry(makeLineRect(), makeOptions(), 4242);
     expect(g.seed).toBe(4242);
+  });
+
+  it("clipAtFront grows the band by adding nodes (full front == clipPath)", () => {
+    const g = buildMarkGeometry(makeLineRect({ width: 400 }), makeOptions(), 808);
+    // The full-front clip is exactly the settled clip-path (one source of truth).
+    expect(g.clipAtFront(g.box.width)).toBe(g.clipPath);
+    // A smaller front is a different, shorter band that still starts identically
+    // (the left cap + covered prefix is stable as the front grows, R22d).
+    const mid = g.clipAtFront(180);
+    expect(mid).not.toBe(g.clipPath);
+    const prefix = 'path("M ';
+    expect(mid.startsWith(prefix)).toBe(true);
+    expect(g.clipPath.startsWith(mid.slice(0, 12))).toBe(true);
   });
 
   it("samples the mask by per-seed offset (never scaled)", () => {
@@ -659,14 +764,14 @@ describe("buildMarkGeometry", () => {
     const seed = 808;
     const small = buildMarkGeometry(makeLineRect({ seed, left: 100, width: 200 }), opts, seed);
     const big = buildMarkGeometry(makeLineRect({ seed, left: 100, width: 700 }), opts, seed);
-    // Every threaded wave-vertex command the *smaller* clip path actually
-    // serialized must appear verbatim in the larger clip path. Each vertex's
-    // x/y are functions of its grid index and the (constant) box origin, so a
-    // covered vertex never moves as the mark grows. Corner/cap commands
-    // legitimately differ (they reference the box width), so we derive the set
-    // from the small path itself rather than over-matching.
+    // Every covered wave vertex the *smaller* clip path serialized (now as a
+    // smooth quadratic CONTROL point, `Q x y …`) must appear verbatim in the
+    // larger clip path. Each vertex's x/y are functions of its grid index and the
+    // (constant) box origin, so a covered vertex never moves as the mark grows.
+    // Corner/cap commands legitimately differ (they reference the front), so we
+    // derive the set from the small path itself rather than over-matching.
     const vertexCommands = [...small.topEdge, ...small.bottomEdge]
-      .map((v) => `L ${v.x.toFixed(1)} ${v.y.toFixed(2)} `)
+      .map((v) => `Q ${v.x.toFixed(1)} ${v.y.toFixed(2)} `)
       .filter((cmd) => small.clipPath.includes(cmd));
     expect(vertexCommands.length).toBeGreaterThan(0);
     for (const cmd of vertexCommands) {
@@ -691,6 +796,63 @@ describe("buildMarkGeometry", () => {
     // further left than a standalone line with the same text rect.
     expect(middle.box.width).toBeGreaterThan(single.box.width);
     expect(middle.box.x).toBeLessThan(single.box.x);
+  });
+
+  it("overshoot extends (or pulls in) the mark's true outer ends", () => {
+    const seed = 71;
+    const rect = makeLineRect({ seed, left: 100, width: 300 });
+    const flush = buildMarkGeometry(
+      rect,
+      makeOptions({
+        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0 },
+      }),
+      seed,
+    );
+    const over = buildMarkGeometry(
+      rect,
+      makeOptions({
+        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 10, overshootJitter: 0 },
+      }),
+      seed,
+    );
+    const under = buildMarkGeometry(
+      rect,
+      makeOptions({
+        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: -6, overshootJitter: 0 },
+      }),
+      seed,
+    );
+    // With zero jitter, overshoot is the exact px each end runs past the text.
+    expect(flush.box.x).toBe(rect.left);
+    expect(flush.box.width).toBe(rect.width);
+    // +10 overshoot starts 10px earlier and is 20px wider (both ends).
+    expect(over.box.x).toBe(rect.left - 10);
+    expect(over.box.width).toBe(rect.width + 20);
+    // Negative overshoot pulls both ends in.
+    expect(under.box.x).toBe(rect.left + 6);
+    expect(under.box.width).toBe(rect.width - 12);
+  });
+
+  it("overshootJitter varies the two ends deterministically", () => {
+    const seed = 71;
+    const rect = makeLineRect({ seed, left: 100, width: 300 });
+    const opts = makeOptions({
+      tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 4, overshootJitter: 4 },
+    });
+    const a = buildMarkGeometry(rect, opts, seed);
+    const b = buildMarkGeometry(rect, opts, seed);
+    // Deterministic: identical inputs → identical box.
+    expect(a.box).toEqual(b.box);
+    // The two ends do not land on an identical inset (the whole point of jitter):
+    // left inset = left - box.x; right inset = (box.x + width) - (left + width).
+    const leftInset = rect.left - a.box.x;
+    const rightInset = a.box.x + a.box.width - (rect.left + rect.width);
+    expect(leftInset).not.toBe(rightInset);
+    // Both stay within the base ± jitter envelope.
+    for (const inset of [leftInset, rightInset]) {
+      expect(inset).toBeGreaterThanOrEqual(4 - 4);
+      expect(inset).toBeLessThanOrEqual(4 + 4);
+    }
   });
 
   it("positions underline and strike-through as thin bands within the line", () => {

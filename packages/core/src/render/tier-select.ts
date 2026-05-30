@@ -19,6 +19,7 @@ import type {
   RendererTier,
   RendererTierPreference,
 } from "../types.js";
+import { hasMediaQueries } from "../internal/dom.js";
 
 /**
  * Default mark count above which Tier A auto-degrades to Tier B under `auto`
@@ -44,15 +45,6 @@ const SSR_ENVIRONMENT: RenderEnvironment = {
   coarsePointer: false,
   degradeThreshold: DEFAULT_DEGRADE_THRESHOLD,
 };
-
-/** Whether a usable DOM (with `document` and `window.CSS.supports`) is present. */
-function hasDom(): boolean {
-  return (
-    typeof document !== "undefined" &&
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function"
-  );
-}
 
 /** Safe `CSS.supports(decl, value)` that never throws on old engines. */
 function cssSupports(declaration: string, value: string): boolean {
@@ -122,7 +114,7 @@ function detectHighlightApi(): boolean {
  * @returns A capability + preference snapshot for {@link selectTier}.
  */
 export function detectEnvironment(): RenderEnvironment {
-  if (!hasDom()) return SSR_ENVIRONMENT;
+  if (!hasMediaQueries()) return SSR_ENVIRONMENT;
 
   return {
     supportsSvgFilters: detectSvgFilters(),

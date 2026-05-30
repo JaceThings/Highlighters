@@ -1,16 +1,54 @@
 /**
  * Entrance animation — the draw-on swipe (blueprint R23–R25).
  *
- * Each line band is "drawn on" by animating a `clip-path: inset(...)` that opens
- * from one end to the other, mimicking a pen swiped across the text. Duration,
- * easing, direction, and per-line stagger are configurable (R23); `in-view`
- * triggering arms an `IntersectionObserver` (one-shot unless `repeat`, R24); and
- * under `prefers-reduced-motion: reduce` (or with `draw: false`) the mark is shown
- * fully and instantly in both the JS and the CSS path (R25).
+ * The mark draws itself on by GROWING its own geometry: each animation frame the
+ * line's `clip-path` is rebuilt truncated to an advancing front (`clipAtFront`),
+ * so the band literally gains grid nodes and its leading edge is always the mark's
+ * own tip cap (chisel slant / bullet round / fine) at the current front. Nothing
+ * is masked, gradient-faded, or stretched — the ink is laid down exactly like a
+ * real highlighter, the tip shape visible throughout. The already-drawn prefix is
+ * byte-identical frame to frame (the anchored-grid invariant, R22d): the mark adds
+ * nodes, it never scales.
+ *
+ * The draw clip lives on the per-line WRAPPER, never on its ink/glow children. The
+ * renderer owns the children's full geometry clip and rewrites it on every reflow;
+ * the draw owns the wrapper's clip and the two never touch the same property on the
+ * same element. That separation is load-bearing: a reflow mid-draw (a late web-font
+ * load, a resize) re-runs `renderer.update()`, which resets the children to their
+ * FULL geometry clip — but the wrapper's front clip is left intact, so the band
+ * keeps drawing at its current front instead of flashing to full and restarting.
+ * The page-facing `multiply` optic is carried by the overlay CONTAINER (its own
+ * `isolation: isolate` + `mix-blend-mode: multiply`), not by the per-line ink, so
+ * the wrapper's own clip/opacity (and the stacking context they create) stay nested
+ * inside that group and never change how the mark darkens the text underneath.
+ *
+ * The band finds its wrapper by stable seed (`bandFor`), never by index into the
+ * container: several marks share ONE container (all target `document.body`), so an
+ * index lookup would alias onto a sibling mark's band — letting N marks' draw-ons
+ * all clobber one wrapper. Per-seed lookup keeps each mark on its own bands.
+ *
+ * The onset wicks in: the wrapper's opacity ramps 0→1 over the first ~120ms (the
+ * ink seeping into paper on contact), then holds solid — so the touchdown never
+ * hard-pops. And the draw maps progress onto [minFront → width], so the band starts
+ * at its tip touchdown width and immediately drags, with no sub-tip clamp plateau.
+ *
+ * `clip-path` is applied AFTER the ink's edge filter, so the band's TOP/BOTTOM
+ * wavy edges stay soft (the filter), while the advancing FRONT is a crisp contact
+ * line — which is what a wet leading edge actually looks like. At the end the full
+ * clip is restored, so the settled mark has its full soft bleed/glow.
+ *
+ * - `animation.direction`: `left-to-right` (default) grows from the left;
+ *   `right-to-left`/`center-out` fall back to left-to-right (a mirrored front is a
+ *   later refinement).
+ * - `animation.trigger === "in-view"` arms an `IntersectionObserver`; the draw runs
+ *   on first entry and (unless `repeat`) disconnects after firing once (R24).
+ * - `env.prefersReducedMotion`, `animation.draw === false`, or no
+ *   `requestAnimationFrame` (SSR/test) → the full mark is shown instantly with no
+ *   animation (R25/R34).
  *
  * Reflow never re-animates — only first appearance or an explicit re-show does
- * (R22). The returned {@link Disconnect} cancels every timer and observer, so a
- * removed or re-shown mark leaves no pending work (R33).
+ * (R22). The returned {@link Disconnect} cancels the rAF + observer and restores
+ * each line's full clip so a cancelled mid-draw never strands a truncated mark (R33).
  */
 
 import type {
@@ -37,158 +75,244 @@ export function prefersReducedMotion(): boolean {
   }
 }
 
-/** The `clip-path: inset(...)` that hides a band before its swipe begins. */
-function hiddenInset(direction: ResolvedAnimation["direction"]): string {
-  switch (direction) {
-    case "right-to-left":
-      return "inset(0 0 0 100%)";
-    case "center-out":
-      return "inset(0 50% 0 50%)";
-    case "left-to-right":
-    default:
-      return "inset(0 100% 0 0)";
+/** A progress easing sampler: maps linear progress `[0,1]` → eased `[0,1]`. */
+type Easer = (t: number) => number;
+
+/** The CSS named easings as cubic-bezier control points. */
+const NAMED_EASINGS: Record<string, [number, number, number, number]> = {
+  ease: [0.25, 0.1, 0.25, 1],
+  "ease-in": [0.42, 0, 1, 1],
+  "ease-out": [0, 0, 0.58, 1],
+  "ease-in-out": [0.42, 0, 0.58, 1],
+};
+
+/** A cubic-bezier easing sampler (Newton-Raphson invert of X, then Y). */
+function cubicBezierEaser(p1x: number, p1y: number, p2x: number, p2y: number): Easer {
+  const cx = 3 * p1x;
+  const bx = 3 * (p2x - p1x) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * p1y;
+  const by = 3 * (p2y - p1y) - cy;
+  const ay = 1 - cy - by;
+  const sampleX = (t: number) => ((ax * t + bx) * t + cx) * t;
+  const sampleY = (t: number) => ((ay * t + by) * t + cy) * t;
+  const slopeX = (t: number) => (3 * ax * t + 2 * bx) * t + cx;
+  return (x: number): number => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 6; i++) {
+      const err = sampleX(t) - x;
+      if (Math.abs(err) < 1e-4) break;
+      const d = slopeX(t);
+      if (Math.abs(d) < 1e-6) break;
+      t -= err / d;
+    }
+    return sampleY(t);
+  };
+}
+
+/** Resolve a CSS easing string to a JS progress sampler (rAF needs a sampler). */
+function parseEasing(easing: ResolvedAnimation["easing"]): Easer {
+  if (easing === "linear") return (t) => t;
+  const named = NAMED_EASINGS[easing];
+  if (named) return cubicBezierEaser(...named);
+  const m = /cubic-bezier\(([^)]+)\)/.exec(easing);
+  if (m) {
+    const n = m[1].split(",").map((s) => Number(s.trim()));
+    if (n.length === 4 && n.every(Number.isFinite)) {
+      return cubicBezierEaser(n[0], n[1], n[2], n[3]);
+    }
   }
+  return cubicBezierEaser(...NAMED_EASINGS["ease-out"]);
 }
 
-/** The fully-revealed inset (no clipping). */
-const SHOWN_INSET = "inset(0 0 0 0)";
-
-/** Find the per-line band elements the renderer mounted into `container`. */
-function bandElements(container: HTMLElement): HTMLElement[] {
-  // Direct element children are the per-line bands (ink and, for Tier A, glow).
-  // We animate the ink bands; identifying them by being the topmost child per
-  // line keeps glow in lockstep visually since both share the same box.
-  return Array.from(container.children).filter(
-    (c): c is HTMLElement => c instanceof HTMLElement,
-  );
+/** Set `clip-path` (+ the `-webkit-` alias for older Safari). */
+function setClip(el: HTMLElement, path: string): void {
+  el.style.clipPath = path;
+  el.style.setProperty("-webkit-clip-path", path);
 }
 
-/** Show every band instantly with no transition (the reduced-motion path). */
-function showInstant(container: HTMLElement): void {
-  for (const el of bandElements(container)) {
-    el.style.transition = "";
-    el.style.clipPath = SHOWN_INSET;
-    (el.style as CSSStyleDeclaration & { webkitClipPath?: string }).webkitClipPath = SHOWN_INSET;
-    el.style.visibility = "";
+/**
+ * The onset fade-in duration in ms — how long the band's touchdown takes to wick
+ * from transparent to solid, like ink seeping into paper on contact. A FIXED time
+ * (not a fraction of the draw) so the seep reads the same whether the pen drags
+ * fast or slow; capped at half the draw so a very short draw still fades. Opacity
+ * is set on the WRAPPER, whose page-facing `multiply` optic is carried by the
+ * overlay container (not the ink), so a fading wrapper darkens the text correctly.
+ */
+const FADE_IN_MS = 120;
+
+/** The wrapper's opacity for `elapsedMs` into the draw: ramp in over `fadeMs`, then 1. */
+function fadeOpacity(elapsedMs: number, fadeMs: number): string {
+  if (elapsedMs >= fadeMs) return "";
+  return (Math.max(0, elapsedMs) / fadeMs).toFixed(3);
+}
+
+/**
+ * Resolve a line's stable seed to the wrapper element the draw-on clips. Several
+ * marks can share ONE overlay container (every mark targets `document.body`, and
+ * the container is idempotent per host), so the wrappers of unrelated marks are
+ * siblings. Identifying THIS mark's wrappers by index into `container.children`
+ * would alias onto another mark's bands — the cause of the "draws twice" bug, where
+ * four marks' draw-ons all wrote the first mark's wrapper. The renderer owns each
+ * line's wrapper keyed by seed, so we ask it directly. Returns `null` for tiers
+ * with no overlay DOM (Tier C) or a line not (yet) mounted.
+ */
+type BandFor = (seed: number) => HTMLElement | null;
+
+/** One line's draw state: the wrapper to clip + how to (re)build its clip. */
+interface DrawItem {
+  node: HTMLElement;
+  full: string;
+  build: (front: number) => string;
+  width: number;
+  minFront: number;
+  startMs: number;
+}
+
+function drawItems(bandFor: BandFor, lines: MarkGeometry[], stagger: number): DrawItem[] {
+  const items: DrawItem[] = [];
+  lines.forEach((line, i) => {
+    const node = bandFor(line.seed);
+    if (!node) return;
+    items.push({
+      node,
+      full: line.clipPath,
+      build: line.clipAtFront,
+      width: line.box.width,
+      minFront: line.minFront,
+      startMs: i * stagger,
+    });
+  });
+  return items;
+}
+
+/** Restore every wrapper to its full (settled) clip and full opacity. */
+function showFull(items: DrawItem[]): void {
+  for (const it of items) {
+    setClip(it.node, it.full);
+    it.node.style.opacity = "";
   }
 }
 
 /**
- * Run the draw-on swipe across the bands in `container`, or show them instantly
- * when motion is reduced or drawing is disabled.
+ * A {@link Disconnect} for the draw-on, plus `retarget`: re-point an IN-FLIGHT
+ * draw-on at freshly-built geometry without restarting its clock. The renderer
+ * calls this on reflow so a late web-font load (which corrects a line's measured
+ * height mid-entrance) is followed seamlessly — the band keeps drawing at its
+ * current progress on the corrected shape instead of finishing the stale one and
+ * snapping. Once the draw has settled, `retarget` only re-shows the full clip (no
+ * re-animation — R22).
+ */
+export type DrawOnHandle = Disconnect & {
+  retarget: (lines: MarkGeometry[]) => void;
+};
+
+/** Attach a `retarget` to a disconnect function, forming a {@link DrawOnHandle}. */
+function asHandle(disconnect: Disconnect, retarget: DrawOnHandle["retarget"]): DrawOnHandle {
+  return Object.assign(disconnect, { retarget });
+}
+
+/**
+ * Run the draw-on across the wrappers in `container`, or show them instantly when
+ * motion is reduced, drawing is disabled, or no `requestAnimationFrame` exists.
  *
- * - `animation.trigger === "in-view"` arms an `IntersectionObserver` with the
- *   configured `threshold`/`rootMargin`; the swipe runs on first entry and (unless
- *   `animation.repeat`) the observer disconnects after firing once (R24).
- * - Otherwise the swipe runs immediately.
- * - `env.prefersReducedMotion` or `animation.draw === false` shows the mark fully
- *   and instantly with no timers (R25).
+ * The draw rebuilds each line's `clip-path` per frame at an advancing front, so the
+ * band grows by adding nodes (the leading edge is the mark's own tip cap), then
+ * restores the full clip at the end. `stagger` offsets each line so a wrapped mark
+ * reads as one continuous pen travel.
  *
- * The clip-path of each band already carries its chisel/bullet geometry, so the
- * draw-on composes by animating a *wrapper* transform is avoided — instead we
- * animate the inset on the same node and rely on the renderer's own `clip-path`
- * being re-applied after the swipe completes (the final state is the renderer's
- * geometry, not `SHOWN_INSET`). To keep the renderer's geometry intact, the swipe
- * uses a CSS `transition` on `clip-path` only when the band has no geometry clip;
- * when it does, we animate `transform: scaleX()` from the swipe origin instead.
- *
- * @returns A {@link Disconnect} cancelling all timers/observers (R33).
+ * @returns A {@link DrawOnHandle} cancelling the rAF/observer + restoring full clips
+ *   (R33), with `retarget` for reflow-corrected geometry.
  */
 export function applyDrawOn(
   container: HTMLElement,
+  bandFor: BandFor,
   lines: MarkGeometry[],
   animation: ResolvedAnimation,
   env: RenderEnvironment,
-): Disconnect {
-  // Nothing to draw when the mark has no geometry.
-  if (lines.length === 0) return () => {};
+): DrawOnHandle {
+  if (lines.length === 0) return asHandle(() => {}, () => {});
 
-  const bands = bandElements(container);
+  let items = drawItems(bandFor, lines, animation.stagger);
+  if (items.length === 0) return asHandle(() => {}, () => {});
 
-  // Reduced motion or drawing disabled → instant full mark, no timers (R25).
-  if (env.prefersReducedMotion || prefersReducedMotion() || !animation.draw) {
-    showInstant(container);
-    return () => {};
+  // Reduced motion / draw off / no rAF → instant full mark, no animation (R25/R34).
+  if (
+    env.prefersReducedMotion ||
+    !animation.draw ||
+    typeof requestAnimationFrame === "undefined"
+  ) {
+    showFull(items);
+    // A reflow just re-shows the corrected full mark — there is no animation to keep.
+    return asHandle(
+      () => {},
+      (next) => showFull(drawItems(bandFor, next, animation.stagger)),
+    );
   }
 
-  if (bands.length === 0) return () => {};
-
-  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const ease = parseEasing(animation.easing);
+  const duration = Math.max(1, animation.duration);
+  // Onset fade is a fixed wall-clock time (capped at half the draw for very short
+  // draws), so the seep reads the same regardless of the draw's overall speed.
+  const fadeMs = Math.min(FADE_IN_MS, duration * 0.5);
+  let raf = 0;
+  let startTime = 0;
   let observer: IntersectionObserver | null = null;
   let played = false;
 
-  /** Whether a band carries renderer geometry we must preserve after the swipe. */
-  function usesTransform(el: HTMLElement): boolean {
-    const clip =
-      el.style.clipPath ||
-      (el.style as CSSStyleDeclaration & { webkitClipPath?: string }).webkitClipPath ||
-      "";
-    // A path()/polygon clip is renderer geometry; we must not overwrite it, so we
-    // swipe via a transform instead of the inset.
-    return clip.includes("path(") || clip.includes("polygon(");
+  /** Park a line closed (front 0 → an empty clip), hiding it until its turn. */
+  function primeClosed(it: DrawItem): void {
+    setClip(it.node, it.build(0));
   }
 
-  /** Set a band to its pre-swipe hidden state. */
-  function prime(el: HTMLElement): void {
-    el.style.transition = "none";
-    if (usesTransform(el)) {
-      const origin =
-        animation.direction === "right-to-left"
-          ? "right center"
-          : animation.direction === "center-out"
-            ? "center center"
-            : "left center";
-      el.style.transformOrigin = origin;
-      el.style.transform = "scaleX(0)";
-    } else {
-      const hidden = hiddenInset(animation.direction);
-      el.style.clipPath = hidden;
-      (el.style as CSSStyleDeclaration & { webkitClipPath?: string }).webkitClipPath = hidden;
-    }
-  }
-
-  /** Reveal a band with the configured duration/easing after `delay` ms. */
-  function reveal(el: HTMLElement, delay: number): void {
-    const timer = setTimeout(() => {
-      timers.delete(timer);
-      const transitionProp = usesTransform(el) ? "transform" : "clip-path";
-      el.style.transition = `${transitionProp} ${animation.duration}ms ${animation.easing}`;
-      if (usesTransform(el)) {
-        el.style.transform = "scaleX(1)";
-      } else {
-        el.style.clipPath = SHOWN_INSET;
-        (el.style as CSSStyleDeclaration & { webkitClipPath?: string }).webkitClipPath = SHOWN_INSET;
+  function frame(now: number): void {
+    if (startTime === 0) startTime = now;
+    let done = true;
+    for (const it of items) {
+      const elapsed = now - startTime - it.startMs;
+      const t = elapsed / duration;
+      if (t >= 1) {
+        setClip(it.node, it.full);
+        it.node.style.opacity = "";
+        continue;
       }
-    }, delay);
-    timers.add(timer);
+      done = false;
+      // Map progress onto [minFront → width]: at p→0 the band touches down at its
+      // tip (minFront) and immediately drags. Front 0 (t ≤ 0) stays the empty
+      // pre-ink clip, so a staggered line is hidden until its turn. Without this,
+      // mapping onto [0 → width] makes `build` clamp every sub-tip front up to
+      // minFront — the band pops to the tip width then sits frozen (the start pause).
+      const p = t <= 0 ? 0 : ease(t);
+      const front = p <= 0 ? 0 : it.minFront + p * (it.width - it.minFront);
+      setClip(it.node, it.build(front));
+      // Wick the onset in (ink seeping into paper) rather than hard-popping.
+      it.node.style.opacity = fadeOpacity(elapsed, fadeMs);
+    }
+    raf = done ? 0 : requestAnimationFrame(frame);
   }
 
-  /** Prime every band, then stagger each band's reveal. */
   function play(): void {
-    for (const el of bands) prime(el);
-    // Force the primed state to commit before transitioning (next macro task).
-    const kickoff = setTimeout(() => {
-      timers.delete(kickoff);
-      bands.forEach((el, i) => reveal(el, i * animation.stagger));
-    }, 0);
-    timers.add(kickoff);
+    startTime = 0;
+    for (const it of items) primeClosed(it);
+    raf = requestAnimationFrame(frame);
   }
 
-  /** Clear pending timers and reset transitions (used between repeat cycles). */
-  function reset(): void {
-    for (const timer of timers) clearTimeout(timer);
-    timers.clear();
+  function stop(): void {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
   }
 
   if (animation.trigger === "in-view" && typeof IntersectionObserver !== "undefined") {
-    // Prime immediately so the bands are hidden until they enter view.
-    for (const el of bands) prime(el);
+    // Park closed immediately so the marks are hidden until they enter view.
+    for (const it of items) primeClosed(it);
     observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.some((e) => e.isIntersecting);
         if (!visible) return;
         if (played && !animation.repeat) return;
-        if (animation.repeat) reset();
+        if (animation.repeat) stop();
         played = true;
         play();
         if (!animation.repeat) {
@@ -204,9 +328,22 @@ export function applyDrawOn(
     play();
   }
 
-  return () => {
-    reset();
+  /**
+   * Re-point the draw at `next` geometry. If the rAF is still running, just swap
+   * the items — the frame loop keeps its `startTime`, so progress is preserved and
+   * the next frame draws the corrected shape (seamless on a late font-load reflow).
+   * If the draw has already settled, only re-show the corrected full clip.
+   */
+  function retarget(next: MarkGeometry[]): void {
+    items = drawItems(bandFor, next, animation.stagger);
+    if (raf === 0) showFull(items);
+  }
+
+  return asHandle(() => {
+    stop();
     observer?.disconnect();
     observer = null;
-  };
+    // Never strand a cancelled mid-draw as a truncated mark.
+    showFull(items);
+  }, retarget);
 }

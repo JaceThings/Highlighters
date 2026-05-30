@@ -26,10 +26,95 @@
  * container leaves the DOM byte-for-byte as it was before the mark existed (R9).
  */
 
+import type { Box } from "../types.js";
+
 export type { Renderer, RenderContext } from "../types.js";
 
 /** Marks an overlay host this module created, so teardown is unambiguous. */
 const OVERLAY_FLAG = "data-highlighters-overlay";
+
+/**
+ * Per-element cache of the last inline value written for each style property.
+ *
+ * The renderer re-runs on every reflow (resize/font-load), and `update()` re-styles
+ * each surviving node. Blindly re-assigning a `mask-image: url(data:…)` or a
+ * `filter: url(#…)` — even to the *same* value — can force the engine to re-decode
+ * the mask SVG or re-rasterize the filter, which flickers an in-flight draw-on. A
+ * `WeakMap` keyed by element (so detached nodes are GC'd with their cache) lets the
+ * style helpers skip writes that wouldn't change anything, making a no-op reflow
+ * truly free and visually inert. Keyed by the *applied string*, not the computed
+ * value, so CSSOM quote/format normalization can't cause a false miss.
+ */
+const appliedStyles = new WeakMap<HTMLElement, Record<string, string>>();
+
+/** Write via `apply` only if `value` differs from the last value cached for `key`. */
+function applyOnce(el: HTMLElement, key: string, value: string, apply: () => void): void {
+  let cache = appliedStyles.get(el);
+  if (!cache) {
+    cache = {};
+    appliedStyles.set(el, cache);
+  }
+  if (cache[key] === value) return;
+  cache[key] = value;
+  apply();
+}
+
+/**
+ * Set a style property that needs both its standard camelCase form and the
+ * `-webkit-` prefixed form, matching the cast-and-assign idiom the DOM-touching
+ * tiers use for `clip-path` and `mask-*`. Both writes happen so engines that
+ * only understand the prefixed property still pick up the value. Idempotent:
+ * re-setting the same value is a no-op (avoids mask re-decode flicker on reflow).
+ *
+ * @param el - The element whose inline style to set.
+ * @param prop - The standard camelCase style property to set.
+ * @param value - The value to assign to both the standard and prefixed forms.
+ */
+export function setVendorPrefixed(
+  el: HTMLElement,
+  prop: "clipPath" | "maskImage" | "maskRepeat" | "maskPosition" | "maskSize",
+  value: string,
+): void {
+  applyOnce(el, prop, value, () => {
+    const s = el.style as CSSStyleDeclaration & Record<string, string>;
+    s[prop] = value;
+    const webkitProp = `webkit${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
+    s[webkitProp] = value;
+  });
+}
+
+/**
+ * Set a plain (non-prefixed) inline style property idempotently — re-setting the
+ * same value is a no-op. Use for the repaint-prone properties (`filter`,
+ * `background-image`) so a reflow that doesn't change them never re-rasterizes a
+ * mark mid-draw.
+ *
+ * @param el - The element whose inline style to set.
+ * @param prop - The camelCase style property to set.
+ * @param value - The value to assign.
+ */
+export function setStyleOnce(el: HTMLElement, prop: string, value: string): void {
+  applyOnce(el, prop, value, () => {
+    (el.style as CSSStyleDeclaration & Record<string, string>)[prop] = value;
+  });
+}
+
+/**
+ * Position an element as an absolutely-placed box, in px, from a {@link Box}.
+ * Logic-free: sets `position: absolute` plus `left`/`top`/`width`/`height`,
+ * matching the per-line band placement the tiers share.
+ *
+ * @param el - The element to position.
+ * @param box - The absolute-px rectangle to place it at.
+ */
+export function applyBoxPosition(el: HTMLElement, box: Box): void {
+  const s = el.style;
+  s.position = "absolute";
+  s.left = `${box.x}px`;
+  s.top = `${box.y}px`;
+  s.width = `${box.width}px`;
+  s.height = `${box.height}px`;
+}
 
 /**
  * Create (or return the existing) absolutely-positioned, isolated, `aria-hidden`,

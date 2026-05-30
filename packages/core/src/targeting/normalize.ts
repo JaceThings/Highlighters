@@ -13,17 +13,11 @@
 import type { PageTarget, Target, TextTarget } from "../types.js";
 import { findTextRanges } from "./text-search.js";
 import { collectPageRanges } from "./include-exclude.js";
-
-function hasDom(): boolean {
-  return typeof document !== "undefined" && typeof Range !== "undefined";
-}
+import { hasDomWithRange } from "../internal/dom.js";
 
 /** Whether `value` is a DOM `Range` (avoids `instanceof` across realms/SSR). */
 function isRange(value: unknown): value is Range {
-  return (
-    typeof Range !== "undefined" &&
-    value instanceof Range
-  );
+  return typeof Range !== "undefined" && value instanceof Range;
 }
 
 /** Whether `value` is a `Selection` — structural check, SSR-safe. */
@@ -71,16 +65,6 @@ function rangeForElement(el: Element): Range {
   return range;
 }
 
-/** Extract every range currently held by a `Selection`, skipping collapsed ones. */
-function rangesForSelection(selection: Selection): Range[] {
-  const out: Range[] = [];
-  for (let i = 0; i < selection.rangeCount; i++) {
-    const range = selection.getRangeAt(i);
-    if (!range.collapsed) out.push(range);
-  }
-  return out;
-}
-
 /**
  * Normalize any {@link Target} to a flat array of DOM `Range`s (A2).
  *
@@ -92,7 +76,7 @@ function rangesForSelection(selection: Selection): Range[] {
  * Returns `[]` (never throws) when nothing matches or when called without a DOM.
  */
 export function toRanges(target: Target): Range[] {
-  if (!hasDom() || target == null) return [];
+  if (!hasDomWithRange() || target == null) return [];
 
   // Range — used directly (R6b).
   if (isRange(target)) {
@@ -101,7 +85,12 @@ export function toRanges(target: Target): Range[] {
 
   // Selection — its non-collapsed ranges (R6b).
   if (isSelection(target)) {
-    return rangesForSelection(target);
+    const out: Range[] = [];
+    for (let i = 0; i < target.rangeCount; i++) {
+      const range = target.getRangeAt(i);
+      if (!range.collapsed) out.push(range);
+    }
+    return out;
   }
 
   // Element — a range over its content (R6a).

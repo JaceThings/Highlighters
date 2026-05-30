@@ -37,11 +37,7 @@ import { createCssRenderer } from "./tier-b-css.js";
 import { createHighlightApiRenderer } from "./tier-c-highlight-api.js";
 import { applyDrawOn } from "./animation.js";
 import { createMarkHandle } from "./mark-handle.js";
-
-/** Whether a usable DOM is present (R34). */
-function hasDom(): boolean {
-  return typeof document !== "undefined" && typeof window !== "undefined";
-}
+import { hasDom } from "../internal/dom.js";
 
 /**
  * An inert handle returned in non-DOM environments so callers can hold a
@@ -75,8 +71,7 @@ function rendererForTier(tier: ReturnType<typeof selectTier>): Renderer {
 
 /** Default snap mode by target shape (R22b): elements/page → line, text/sel → word. */
 function defaultSnap(target: Target): SnapMode {
-  if (typeof target === "string") return "line";
-  if (target instanceof Element) return "line";
+  if (typeof target === "string" || target instanceof Element) return "line";
   if (typeof Range !== "undefined" && target instanceof Range) return "word";
   if (typeof Selection !== "undefined" && target instanceof Selection) return "word";
   if (typeof target === "object" && target !== null && "text" in target) return "word";
@@ -109,13 +104,28 @@ function hostFor(ranges: Range[]): HTMLElement | null {
  * `update()`, and reflow. The seed is the explicit option seed when provided,
  * else each line's anchor-relative seed (A5 / A14 §5).
  */
-function buildLines(ranges: Range[], options: ResolvedOptions): MarkGeometry[] {
+function buildLines(
+  ranges: Range[],
+  options: ResolvedOptions,
+  container: HTMLElement,
+): MarkGeometry[] {
   if (ranges.length === 0) return [];
-  const anchor = computeAnchor(ranges);
-  const lineRects: LineRect[] = rangesToLineRects(ranges, anchor);
+  const lineRects: LineRect[] = rangesToLineRects(ranges, computeAnchor(ranges));
+  // `getClientRects()` reports VIEWPORT coordinates, but the overlay container is
+  // absolutely positioned at the host's content origin. Translate each line box
+  // into that container-local (≈ document) space so a mark sits on its text and
+  // tracks it under scroll — and so the edge grid anchors to a scroll-stable
+  // origin (A14), not the viewport. The container's own rect encodes the scroll
+  // offset, so this is correct for `body` and for any positioned host alike.
+  const origin = container.getBoundingClientRect();
   return lineRects.map((rect) => {
     const seed = options.seed ?? rect.seed;
-    return buildMarkGeometry(rect, options, seed);
+    const local: LineRect = {
+      ...rect,
+      left: rect.left - origin.left,
+      top: rect.top - origin.top,
+    };
+    return buildMarkGeometry(local, options, seed);
   });
 }
 
@@ -146,7 +156,7 @@ function mountMark(
   // RenderContext. Called for initial mount, update(), and reflow (R21/R22d).
   const buildContext = (opts: ResolvedOptions): RenderContext => {
     const snapped = snapRanges(ranges, opts.snap);
-    const lines = buildLines(snapped, opts);
+    const lines = buildLines(snapped, opts, container);
     return { container, options: opts, lines, ranges };
   };
 
@@ -156,13 +166,27 @@ function mountMark(
   renderer.mount(initialContext);
 
   // Entrance animation (draw-on / in-view / reduced-motion), one-shot on mount.
-  const animDisconnect = applyDrawOn(container, initialContext.lines, resolved.animation, env);
+  // The draw-on finds each line's wrapper by stable seed via the renderer — never
+  // by index into the (possibly shared) overlay container — so marks that share a
+  // container never animate each other's bands.
+  const animDisconnect = applyDrawOn(
+    container,
+    (seed) => renderer.bandFor(seed),
+    initialContext.lines,
+    resolved.animation,
+    env,
+  );
 
   // Reflow: ResizeObserver + window resize + fonts.ready, rAF-batched. On reflow
-  // we re-derive geometry and update the renderer WITHOUT re-animating (R22).
+  // we re-derive geometry and update the renderer WITHOUT re-animating (R22). If a
+  // draw-on is still in flight (e.g. a late web-font load corrected a line's height
+  // mid-entrance), retarget it onto the corrected geometry so it finishes drawing
+  // the right shape instead of snapping — once settled, retarget is a no-op.
   const reflowTargets = host instanceof Element ? [host] : [];
   const reflow = createReflowObserver(reflowTargets, () => {
-    renderer.update(buildContext(resolved));
+    const ctx = buildContext(resolved);
+    renderer.update(ctx);
+    animDisconnect.retarget(ctx.lines);
   });
 
   return createMarkHandle({
@@ -232,9 +256,8 @@ export function highlightAll(options?: HighlightOptions): MarkHandle {
     const pageRanges = collectPageRanges({ root });
     // Declarative attributes: explicit data-highlight elements augment the page
     // scan; the targeting layer drops data-highlight-exclude subtrees (R7).
-    const declared = Array.from(root.querySelectorAll("[data-highlight]"));
     const declaredRanges: Range[] = [];
-    for (const el of declared) {
+    for (const el of root.querySelectorAll("[data-highlight]")) {
       declaredRanges.push(...toRanges(el));
     }
     return [...pageRanges, ...declaredRanges];
@@ -316,7 +339,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
 
   const rebuild = (ranges: Range[]): RenderContext => {
     const snapped = snapRanges(ranges, resolved.snap);
-    const lines = buildLines(snapped, resolved);
+    const lines = buildLines(snapped, resolved, container);
     return { container, options: resolved, lines, ranges };
   };
 
