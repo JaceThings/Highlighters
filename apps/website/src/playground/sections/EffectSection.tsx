@@ -6,10 +6,9 @@ import { RadioPillGroup } from "../../components/playground/RadioPillGroup.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
+import { fmt2 } from "../../components/playground/slider-utils.ts";
 import { Preview } from "../Preview.tsx";
 import { usePlaygroundOptions } from "../options-context.tsx";
-
-const fmt2 = (v: number) => v.toFixed(2);
 
 // Glow enable is a boolean on the options object; map it through a string union
 // so it can ride the same RadioPillGroup as every other pill control.

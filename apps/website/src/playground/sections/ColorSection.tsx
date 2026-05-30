@@ -10,6 +10,7 @@ import { FigureCard } from "../../components/playground/FigureCard.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
+import { fmt2 } from "../../components/playground/slider-utils.ts";
 import { Preview } from "../Preview.tsx";
 import { usePlaygroundOptions } from "../options-context.tsx";
 
@@ -183,7 +184,7 @@ export function ColorSection() {
             min={0}
             max={1}
             step={0.01}
-            format={(v) => v.toFixed(2)}
+            format={fmt2}
             onChange={onOpacityChange}
           />
         </div>

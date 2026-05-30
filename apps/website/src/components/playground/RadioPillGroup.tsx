@@ -17,9 +17,9 @@ interface RadioPillGroupProps<T extends string> {
   pillBasis?: string;
 }
 
-// Hit-area extender mirrors TogglePill's PILL_HITAREA: `p-1.5 -m-1.5`
-// adds 6px each side without changing layout, so the visible pill stays
-// the same size while the pointer target reaches ~40×40.
+// Hit-area extender: `p-1.5 -m-1.5` adds 6px each side without changing
+// layout, so the visible pill stays the same size while the pointer target
+// reaches ~40×40.
 const PILL_HITAREA = "cursor-pointer p-1.5 -m-1.5 select-none";
 
 // Pill bg crossfade uses the same Apple-ease curve + 350ms duration as

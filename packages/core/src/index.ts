@@ -107,8 +107,4 @@ export type {
   ReflowCallback,
   MutationCallback,
   Disconnect,
-  HighlightFn,
-  HighlightAllFn,
-  HighlightSelectionFn,
-  GroupFn,
 } from "./types.js";

@@ -6,6 +6,7 @@ import { RadioPillGroup } from "../../components/playground/RadioPillGroup.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
+import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
 import { Preview } from "../Preview.tsx";
 import { usePlaygroundOptions } from "../options-context.tsx";
 
@@ -67,7 +68,7 @@ export function EdgeSection() {
             min={8}
             max={48}
             step={1}
-            format={(v) => `${v.toFixed(0)}px`}
+            format={fmtPx}
             onChange={(v, fromDrag) => set("edge.frequency", v, fromDrag)}
           />
         </div>
@@ -79,7 +80,7 @@ export function EdgeSection() {
             min={0}
             max={1}
             step={0.01}
-            format={(v) => v.toFixed(2)}
+            format={fmt2}
             onChange={(v, fromDrag) => set("edge.roughness", v, fromDrag)}
           />
         </div>
@@ -91,7 +92,7 @@ export function EdgeSection() {
             min={0}
             max={12}
             step={1}
-            format={(v) => `${v.toFixed(0)}px`}
+            format={fmtPx}
             onChange={(v, fromDrag) => set("edge.radius", v, fromDrag)}
           />
         </div>

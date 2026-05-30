@@ -3,10 +3,9 @@ import { FigureCard } from "../../components/playground/FigureCard.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { SLIDER_ROW } from "../../components/playground/styles.ts";
+import { fmt2 } from "../../components/playground/slider-utils.ts";
 import { Preview } from "../Preview.tsx";
 import { usePlaygroundOptions } from "../options-context.tsx";
-
-const fmt2 = (v: number) => v.toFixed(2);
 
 export function PaperSection() {
   const { options, set } = usePlaygroundOptions();

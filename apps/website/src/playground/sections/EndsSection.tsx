@@ -3,6 +3,7 @@ import { FigureCard } from "../../components/playground/FigureCard.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { SLIDER_ROW } from "../../components/playground/styles.ts";
+import { fmtPx } from "../../components/playground/slider-utils.ts";
 import { Preview } from "../Preview.tsx";
 import {
   TIP_OVERSHOOT_DEFAULT,
@@ -12,7 +13,6 @@ import {
 
 // Signed px formatter for overshoot: a "+" marks an overrun, "−" a pull-in.
 const fmtSignedPx = (v: number) => (v > 0 ? `+${v.toFixed(0)}px` : `${v.toFixed(0)}px`);
-const fmtPx = (v: number) => `${v.toFixed(0)}px`;
 
 /**
  * The mark's ENDS (phase-1 `tip.overshoot` / `tip.overshootJitter`). A real

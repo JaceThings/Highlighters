@@ -30,7 +30,7 @@ import { toRanges } from "../targeting/normalize.js";
 import { collectPageRanges } from "../targeting/include-exclude.js";
 import { computeAnchor, rangesToLineRects } from "../targeting/line-rects.js";
 import { createMutationWatcher, createReflowObserver } from "../targeting/observers.js";
-import { createOverlayContainer } from "./renderer.js";
+import { createOverlayContainer, teardownContainer } from "./renderer.js";
 import { detectEnvironment, selectTier } from "./tier-select.js";
 import { createSvgRenderer } from "./tier-a-svg.js";
 import { createCssRenderer } from "./tier-b-css.js";
@@ -397,8 +397,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       document.removeEventListener("selectionchange", onSelectionChange);
       renderer?.unmount();
       renderer = null;
-      while (container.firstChild) container.removeChild(container.firstChild);
-      container.remove();
+      teardownContainer(container);
     },
   };
 }

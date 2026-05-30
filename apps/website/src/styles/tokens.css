@@ -28,15 +28,8 @@
   --color-text-secondary: rgba(154, 145, 138, 0.75);
   --color-text-input: #7e756c;
 
-  /* Smoothing-toggle accents */
+  /* Smoothing-toggle accent */
   --color-accent-green: #5b793f;
-  --color-accent-red: #a45c5c;
-
-  /* Neutral demo fill */
-  --color-demo-fill: #7e756c;
-  /* Sage-cream surface accent (Figma 8:1440), retained from the design
-     system for parity with the source palette. */
-  --color-compare-front: #d6dbcd;
 
   /* Hairline gradient stops */
   --color-divider-from: rgba(115, 87, 74, 0.08);
@@ -54,8 +47,4 @@
      Tailwind v4 maps `--ease-*` to `ease-*` utilities, so this is also
      reachable as `ease-out-quint` on a className. */
   --ease-out-quint: cubic-bezier(0.2, 0, 0, 1);
-}
-
-:root {
-  --grid-height: 299px;
 }

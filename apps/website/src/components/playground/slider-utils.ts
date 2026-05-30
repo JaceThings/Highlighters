@@ -16,6 +16,12 @@ export const CLICK_THRESHOLD = 3;
 export const STEP_SNAP_DURATION = 0.08;
 export const STEP_SNAP_EASE: [number, number, number, number] = [0.0, 0.55, 0.45, 1.0];
 
+// Shared Slider readout formatters. Two-decimal for unitless 0–1 knobs;
+// whole-pixel for px knobs. Sign-prefixed and unit-specific variants stay
+// local to the sections that need them.
+export const fmt2 = (v: number) => v.toFixed(2);
+export const fmtPx = (v: number) => `${v.toFixed(0)}px`;
+
 export const clamp = (n: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, n));
 

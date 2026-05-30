@@ -69,14 +69,3 @@ export function mulberry(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
-/**
- * Map a {@link hashJitter} draw from `[-1, 1]` into `[0, 1]`, the form needed
- * when interpolating a value between a `min` and a `max` (`min + unit * range`).
- *
- * @param seed - The seed to hash.
- * @returns A deterministic value in `[0, 1]`.
- */
-export function jitterUnit(seed: number): number {
-  return hashJitter(seed) * 0.5 + 0.5;
-}

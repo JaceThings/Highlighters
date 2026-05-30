@@ -10,7 +10,7 @@
  * selection, or being called without a DOM all yield `[]`.
  */
 
-import type { PageTarget, Target, TextTarget } from "../types.js";
+import type { Target, TextTarget } from "../types.js";
 import { findTextRanges } from "./text-search.js";
 import { collectPageRanges } from "./include-exclude.js";
 import { hasDomWithRange } from "../internal/dom.js";
@@ -45,14 +45,6 @@ function isTextTarget(value: unknown): value is TextTarget {
   if (typeof value !== "object" || value === null) return false;
   const text = (value as TextTarget).text;
   return typeof text === "string" || text instanceof RegExp;
-}
-
-/** Whether `value` is a {@link PageTarget} (a plain object that isn't a text target). */
-function isPageTarget(value: unknown): value is PageTarget {
-  // A PageTarget is the catch-all object form: it may carry root/include/exclude
-  // (all optional). It is only reached after Range/Selection/TextTarget have
-  // been ruled out, so any remaining plain object is treated as a page target.
-  return typeof value === "object" && value !== null;
 }
 
 /**
@@ -120,10 +112,8 @@ export function toRanges(target: Target): Range[] {
     return findTextRanges(root, target.text);
   }
 
-  // Page target — whole subtree with include/exclude (R6d/R7).
-  if (isPageTarget(target)) {
-    return collectPageRanges(target);
-  }
-
-  return [];
+  // Page target — whole subtree with include/exclude (R6d/R7). Reached only after
+  // every more-specific shape (Range/Selection/Element/string/TextTarget) and null
+  // have returned, so any remaining target is the catch-all page-target object form.
+  return collectPageRanges(target);
 }

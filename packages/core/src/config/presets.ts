@@ -45,7 +45,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
   },
 
   mild: {
-    palette: "mild",
     color: { palette: "mild", swatch: "yellow" },
     opacity: 0.55,
     blendMode: "multiply",

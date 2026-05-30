@@ -796,21 +796,3 @@ export type MutationCallback = (records: MutationRecord[]) => void;
 
 /** Disconnects an observer/listener set; idempotent and leak-free (R8/R33). */
 export type Disconnect = () => void;
-
-/** Signature of the public `highlight(target, options?)` entry point. */
-export type HighlightFn = (target: Target, options?: HighlightOptions) => MarkHandle;
-
-/**
- * Signature of `highlightAll(options?)` — applies declarative-attribute and
- * page-mode highlighting across the document (R6d/R6e), returning one handle.
- */
-export type HighlightAllFn = (options?: HighlightOptions) => MarkHandle;
-
-/**
- * Signature of `highlightSelection(options?)` — live-selection mode (R6f) with
- * the coarse-pointer native-selection fallback (C5).
- */
-export type HighlightSelectionFn = (options?: HighlightOptions) => MarkHandle;
-
-/** Signature of `group(handles)` — bundles handles for choreography (R10). */
-export type GroupFn = (handles: MarkHandle[]) => GroupHandle;
