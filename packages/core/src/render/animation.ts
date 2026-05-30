@@ -134,14 +134,15 @@ function setClip(el: HTMLElement, path: string): void {
 }
 
 /**
- * The onset fade-in duration in ms — how long the band's touchdown takes to wick
- * from transparent to solid, like ink seeping into paper on contact. A FIXED time
- * (not a fraction of the draw) so the seep reads the same whether the pen drags
- * fast or slow; capped at half the draw so a very short draw still fades. Opacity
- * is set on the WRAPPER, whose page-facing `multiply` optic is carried by the
- * overlay container (not the ink), so a fading wrapper darkens the text correctly.
+ * The onset fade-in duration in ms. Deliberately tiny — just enough to take the
+ * hard edge off the touchdown so the band doesn't pop into existence, NOT a fade
+ * you should perceive animating. A FIXED time (not a fraction of the draw) so it
+ * reads the same whether the pen drags fast or slow; capped at half the draw so a
+ * very short draw still softens. Opacity rides the WRAPPER, whose page-facing
+ * `multiply` optic is carried by the overlay container (not the ink), so a fading
+ * wrapper still darkens the text correctly.
  */
-const FADE_IN_MS = 120;
+const FADE_IN_MS = 50;
 
 /** The wrapper's opacity for `elapsedMs` into the draw: ramp in over `fadeMs`, then 1. */
 function fadeOpacity(elapsedMs: number, fadeMs: number): string {
