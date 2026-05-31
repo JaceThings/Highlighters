@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
-import type { ReactNode } from "react";
-import { useNavigate, useLocation, type LinkProps } from "react-router-dom";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { useNavigate, useLocation } from "@tanstack/react-router";
 import { Divider } from "../Divider.tsx";
 import { playClick } from "../../lib/sounds.ts";
 
@@ -27,7 +27,11 @@ function NavSlot({ children }: { children: ReactNode }) {
   );
 }
 
-interface ScrollLinkProps extends Omit<LinkProps, "to"> {
+// Carries only what ScrollLink consumes: a string `to` plus the standard
+// anchor props (children, onClick, className, data-* …). `href` is omitted
+// because ScrollLink derives it from `to`.
+interface ScrollLinkProps
+  extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
   to: string;
 }
 
@@ -47,14 +51,14 @@ function ScrollLink({ to, onClick, ...rest }: ScrollLinkProps) {
     // so the link is useful as a "jump to top" affordance.
     if (to !== pathname) playClick();
     if (window.scrollY <= 0) {
-      navigate(to);
+      navigate({ to });
       return;
     }
     let navigated = false;
     const go = () => {
       if (navigated) return;
       navigated = true;
-      navigate(to);
+      navigate({ to });
     };
     // `scrollend` is in lib.dom but missing in older Safari — feature-
     // detect at runtime; fall back to a distance-scaled timeout.
