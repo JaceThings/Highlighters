@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { RuledPaper } from "./RuledPaper.tsx";
 
 // `@container/column` lets descendants read the column width via `100cqi`
 // (used by the playground preview). Overlay effects (`FocusRingOverlay`,
@@ -17,7 +18,10 @@ export function Layout({
   articleClassName?: string;
 }) {
   return (
-    <main className="flex min-h-dvh w-full items-stretch justify-center bg-bg">
+    // `relative` anchors the ruled-paper layer; `pb` reserves clearance so the
+    // footer always clears the fixed bottom dock when scrolled to the end.
+    <main className="relative flex min-h-dvh w-full items-stretch justify-center bg-bg pb-[176px]">
+      <RuledPaper />
       <article className={`${ARTICLE_BASE} ${articleClassName ?? "gap-9"}`}>
         {children}
       </article>

@@ -3,6 +3,8 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100%;
+  /* No rubber-band/overscroll bounce past the page edges. */
+  overscroll-behavior: none;
 }
 
 html {
@@ -85,6 +87,33 @@ h3 {
    snapping in older browsers. */
 :root {
   interpolate-size: allow-keywords;
+}
+
+/* Dock ink crossfade: the previous-colour marker overlay dissolves out to
+   reveal the new ink underneath (see Marker.tsx). prefers-reduced-motion
+   collapses this to an instant swap via the global rule below. */
+@keyframes dock-ink-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Dock markers: the selected pen sits raised; unselected pens pop up slightly on
+   hover. Driven here (not inline) so :hover can layer over the resting state.
+   The selected rule comes last so a hovered selected pen stays at its raised
+   offset rather than dropping to the hover pop. */
+.dock-pen-art {
+  transform: translateY(0);
+  transition: transform 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+.dock-pen:hover .dock-pen-art {
+  transform: translateY(-6px);
+}
+.dock-pen[aria-pressed="true"] .dock-pen-art {
+  transform: translateY(-24px);
 }
 
 /* sr-only content is for assistive tech only — exclude it from text

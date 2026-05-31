@@ -6,8 +6,10 @@ import {
   motion,
 } from "framer-motion";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Dock } from "./components/dock/Dock.tsx";
 import { FocusRingOverlay } from "./components/FocusRingOverlay.tsx";
-import { Header } from "./components/Header.tsx";
+// TEMP: page content removed for dock work — restore this import.
+// import { Header } from "./components/Header.tsx";
 import { Layout } from "./components/Layout.tsx";
 import { SelectionMarker } from "./components/SelectionMarker.tsx";
 import { Stagger } from "./components/Stagger.tsx";
@@ -133,15 +135,21 @@ function PersistentFooter() {
 }
 
 export function App() {
+  // TEMP: page content removed for dock work — these keep AnimatedBody /
+  // PersistentFooter defined (and typechecked) while unrendered. Restore the
+  // three children in <Layout> below, then delete this line.
+  void [AnimatedBody, PersistentFooter];
   return (
     <BrowserRouter>
       <MotionConfig reducedMotion="user">
         <LayoutGroup>
-          <Layout>
+          {/* TEMP: page content removed for dock work — restore these three. */}
+          {/* <Layout>
             <Header staggerFrom={0} />
             <AnimatedBody />
             <PersistentFooter />
-          </Layout>
+          </Layout> */}
+          <Layout>{null}</Layout>
         </LayoutGroup>
         <RouteHeadUpdater />
         <FocusRingOverlay />
@@ -149,6 +157,9 @@ export function App() {
             marker over any selected non-exhibit text (exhibits are select-none,
             so they're never touched). Mounted once, covers Home AND Playground. */}
         <SelectionMarker />
+        {/* The PencilKit-style tool tray: fixed at the bottom-centre, persists
+            across routes like the other root-level overlays. */}
+        <Dock />
         <DevAgentation />
       </MotionConfig>
     </BrowserRouter>
