@@ -1,10 +1,16 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { CapsuleBackground } from "./CapsuleBackground.tsx";
 import { ColorPalette } from "./ColorPalette.tsx";
 import { DockButton } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
 import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.tsx";
 import { DOCK_H } from "./constants.ts";
+
+// Entrance offset: start the whole tray well below the viewport so it rises in
+// from the very bottom (it rests 24px off the bottom and is DOCK_H tall, so it's
+// fully off-screen with clear margin), then springs up to y:0.
+const ENTER_FROM = DOCK_H + 96;
 
 /**
  * The PencilKit-style tool tray: a floating squircle capsule holding nav buttons,
@@ -26,9 +32,16 @@ export function Dock() {
       className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex select-none justify-center"
       aria-label="Highlighter tray"
     >
-      <div
+      {/* Entrance: after a short beat the whole tray rises up from off-screen as
+          one solid unit and overshoots slightly (spring bounce). initial/animate
+          run only on mount, so re-renders (picking a pen or ink) never replay it;
+          reducedMotion at the App root turns it into an instant appear. */}
+      <motion.div
         className="pointer-events-auto relative max-w-[calc(100vw-32px)]"
         style={{ height: DOCK_H }}
+        initial={{ y: ENTER_FROM }}
+        animate={{ y: 0 }}
+        transition={{ type: "spring", duration: 0.85, bounce: 0.3, delay: 0.7 }}
       >
         <CapsuleBackground />
 
@@ -67,7 +80,7 @@ export function Dock() {
           className="absolute top-[7.5px] left-1/2 -translate-x-1/2 rounded-full bg-[#efeeed]"
           style={{ width: 42.787, height: 5.943 }}
         />
-      </div>
+      </motion.div>
     </div>
   );
 }

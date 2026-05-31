@@ -48,7 +48,7 @@ export function ColorPalette({
             aria-pressed={isSelected}
             onClick={() => onChange(s.color)}
             data-focus-ring
-            className="relative size-[43px] shrink-0 rounded-full transition-transform duration-150 active:scale-90"
+            className="relative size-[43px] shrink-0 rounded-full transition-transform duration-150 active:scale-[0.96]"
             style={{
               // White gap + fixed ink ring live on the button, so the ring never
               // moves. The value disc on top hides them until it shrinks.

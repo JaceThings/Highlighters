@@ -108,6 +108,7 @@ h3 {
 .dock-pen-art {
   transform: translateY(0);
   transition: transform 240ms cubic-bezier(0.2, 0, 0, 1);
+  will-change: transform;
 }
 .dock-pen:hover .dock-pen-art {
   transform: translateY(-6px);
