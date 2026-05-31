@@ -7,19 +7,19 @@ import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.t
 import { DOCK_H } from "./constants.ts";
 
 /**
- * The PencilKit-style tool tray: a floating squircle capsule holding nav
- * buttons, the three marker pens, the ink well, and action buttons, with the
- * drawer grab-handle up top. Presentational for now — selecting a pen or colour
- * is local state so the tray feels alive.
+ * The PencilKit-style tool tray: a floating squircle capsule holding nav buttons,
+ * the three marker pens, the ink well, action buttons, and a drawer grab-handle up
+ * top. Presentational — selecting a pen or colour is local state so the tray feels
+ * alive.
  *
- * Mounted fixed at the bottom-centre of the viewport (see App). The outer layer
- * is pointer-events:none so clicks pass through the empty margins; only the
- * capsule itself is interactive.
+ * Mounted fixed at the bottom-centre of the viewport (see App). The outer layer is
+ * pointer-events:none so clicks pass through the empty margins; only the capsule is
+ * interactive.
  */
 export function Dock() {
-  // Ink picked from the palette (instant). MarkerRow crossfades between inks
-  // (a clean dissolve) rather than morphing the colour — complementary inks
-  // can't morph without a false green or a grey dip (gamut geometry).
+  // Ink picked from the palette (instant). MarkerRow crossfades between inks (a
+  // clean dissolve) rather than morphing the colour — complementary inks can't
+  // morph without a false green or a grey dip (gamut geometry).
   const [ink, setInk] = useState("#6f584c");
   return (
     <div
@@ -32,9 +32,8 @@ export function Dock() {
       >
         <CapsuleBackground />
 
-        {/* Content sits above the capsule. items-center vertically centres the
-            buttons and ink well; the markers self-end so their bodies reach the
-            tray floor. */}
+        {/* Content sits above the capsule. items-center centres the buttons and ink
+            well; the markers self-end so their bodies reach the tray floor. */}
         <div className="relative flex h-full items-center gap-[32px]">
           <nav className="flex items-center gap-[12px] pr-[25px] pl-[32px]">
             <DockButton label="Home" dimmed>

@@ -3,10 +3,9 @@ import type { ReactNode } from "react";
 const CLASSES =
   "flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#efeeed] text-[#7e756c] transition-[background-color,transform] duration-150 hover:bg-[#e6e4e1] active:scale-90";
 
-/** A 42px round tool-tray button: light fill, muted glyph. The Home button in
- *  the design is disabled, shown by dimming the glyph (not the fill). When
- *  `href` is given it renders as an external link instead of a button, sharing
- *  identical styling. */
+/** A 42px round tool-tray button: light fill, muted glyph. The disabled Home
+ *  button is shown by dimming the glyph, not the fill. With `href` it renders as
+ *  an external link instead of a button, sharing identical styling. */
 export function DockButton({
   children,
   label,

@@ -1,11 +1,10 @@
 // The compact ink well: two rows of three. The last is the "custom" hue wheel
-// (a placeholder for a future custom picker). Controlled — the selected swatch
-// is whichever colour matches `value`, and clicking one reports its ink colour.
+// (placeholder for a future picker). Controlled — the selected swatch is the one
+// matching `value`; clicking reports its ink colour.
 //
-// `color` is the ink value the swatch maps to (and reports on click). `ring` is
-// the selected-state outline colour (a solid, since box-shadow can't take a
-// gradient — the wheel borrows a neutral warm grey). `background` defaults to
-// the colour, except the wheel which paints a conic gradient.
+// `color` is the ink value (and what click reports). `ring` is the selected-state
+// outline — solid, since box-shadow can't take a gradient, so the wheel borrows a
+// neutral warm grey. `background` defaults to `color`; the wheel paints a conic gradient.
 interface Swatch {
   id: string;
   label: string;
@@ -51,17 +50,15 @@ export function ColorPalette({
             data-focus-ring
             className="relative size-[43px] shrink-0 rounded-full transition-transform duration-150 active:scale-90"
             style={{
-              // The white (capsule) gap and the fixed ink ring live on the
-              // button itself, so the ring never moves. The value disc on top
-              // hides them until it shrinks.
+              // White gap + fixed ink ring live on the button, so the ring never
+              // moves. The value disc on top hides them until it shrinks.
               background: "#fff",
               boxShadow: `inset 0 0 0 3.57px ${s.ring}`,
             }}
           >
-            {/* The colour "value": fills the swatch when unselected (covering the
-                ring + gap). Selecting it scales the value down to ~30px, revealing
-                the white gap and the fixed edge ring — the ring stays put, only
-                the value animates. */}
+            {/* The colour value disc: fills the swatch when unselected (covering
+                ring + gap). On select it scales down to ~30px, revealing the white
+                gap and fixed edge ring — the ring stays put, only the disc animates. */}
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-full"
@@ -69,10 +66,10 @@ export function ColorPalette({
                 background: s.background ?? s.color,
                 transformOrigin: "center",
                 transform: isSelected ? "scale(0.703)" : "scale(1)",
-                // Directional: the ring pops IN fast on select (the value shrinks
-                // away). On DESELECT the value grows back slower, with a gentle
-                // ease-in-out so it doesn't snap shut — you can see the ring leave.
-                // (CSS uses the transition declared on the target state.)
+                // Directional: ring pops IN fast on select (disc shrinks away). On
+                // DESELECT the disc grows back slower with a gentle ease-in-out so it
+                // doesn't snap shut — you see the ring leave. (CSS uses the transition
+                // declared on the target state.)
                 transition: isSelected
                   ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
                   : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",

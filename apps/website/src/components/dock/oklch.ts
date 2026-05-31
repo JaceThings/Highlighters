@@ -1,11 +1,11 @@
-// Pure OKLCH helpers (no React). Used to convert swatch hex to OKLCH and to
-// derive the pen tip's specular highlight from perceptual lightness. Conversion
-// uses the standard sRGB->OKLab matrices (Björn Ottosson).
+// Pure OKLCH helpers (no React): convert swatch hex to OKLCH, and derive the pen
+// tip's specular highlight from perceptual lightness. Uses the standard
+// sRGB->OKLab matrices (Björn Ottosson).
 
 export type Oklch = { L: number; C: number; H: number };
 
-// #rrggbb -> OKLCH. Parses to linear-light RGB, projects through OKLab, then
-// converts the a/b axes to chroma/hue (degrees).
+// #rrggbb -> OKLCH. To linear-light RGB, through OKLab, then a/b axes to
+// chroma/hue (degrees).
 export function hexToOklch(hex: string): Oklch {
   const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
   const [r0, g0, b0] = m
@@ -34,14 +34,13 @@ export function hexToOklch(hex: string): Oklch {
   return { L, C, H };
 }
 
-// CSS Color 4 oklch() literal. Modern Chrome/Safari accept this in SVG
+// CSS Color 4 oklch() literal — modern Chrome/Safari accept it in SVG
 // fill/stop-color/flood-color.
 export function oklchToCss(c: Oklch): string {
   return `oklch(${c.L.toFixed(4)} ${c.C.toFixed(4)} ${c.H.toFixed(2)})`;
 }
 
-// Lighten by raising lightness, holding chroma/hue. Used for the tip's
-// specular top stop and rim.
+// Raise lightness, hold chroma/hue. Drives the tip's specular top stop and rim.
 export function lightenOklch(c: Oklch, dL: number): Oklch {
   return { L: Math.min(1, c.L + dL), C: c.C, H: c.H };
 }

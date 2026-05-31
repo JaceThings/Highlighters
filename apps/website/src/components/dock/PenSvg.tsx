@@ -1,11 +1,11 @@
 import { useId, type CSSProperties } from "react";
 import { lightenOklch, oklchToCss, parseOklch } from "./oklch.ts";
 
-// The three nib shapes. Each path is in its own 0–15 space (as exported), so we
-// place it with a transform: TX centres the 14.26-wide nib on the barrel, and a
+// The three nib shapes. Each path lives in its own 0–15 space (as exported), so
+// a transform places it: TX centres the 14.26-wide nib on the barrel, and a
 // per-tip `ty` drops its bottom onto the funnel top (~y16 in marker space) —
-// the shapes differ in height, hence the different offsets. Painted (with the
-// band) in the ink `color`.
+// the shapes differ in height, hence the different offsets. Painted in the ink
+// `color` (with the band).
 const TX = 13.943;
 const TIPS = {
   slant: {
@@ -22,9 +22,9 @@ const TIPS = {
   },
 } as const;
 
-// The coloured ink band near the funnel. Rendered standalone (outside the
-// barrel's drop-shadow) so the band + tip are the only coloured layer — which
-// lets MarkerRow crossfade just the COLOUR over a static barrel + shadow.
+// The coloured ink band near the funnel. Rendered outside the barrel's
+// drop-shadow so band + tip are the only coloured layer — letting MarkerRow
+// crossfade just the COLOUR over a static barrel + shadow.
 const BAND = "M8 57.0525H34.1475V67.7492H8V57.0525Z";
 
 interface PenProps {
@@ -42,13 +42,13 @@ interface PenProps {
 
 export function Pen({ tip, color, width, className, style, colorOnly }: PenProps) {
   // Namespace every gradient/filter/clipPath id so multiple <Pen> instances on
-  // one page never collide on shared defs. useId() yields a stable, unique base.
+  // one page never collide on shared defs. useId() gives a stable, unique base.
   const id = useId();
-  // `color` arrives as an oklch() string (the animated ink). Read it back so we
-  // derive the tip shading in OKLCH each frame.
+  // Parse the animated ink back out of its oklch() string so we derive the tip
+  // shading in OKLCH each frame.
   const ink = parseOklch(color);
-  // The lighter top of the tip gradient — also the colour of the top rim, so the
-  // rim blends into the nib instead of reading as a dark line.
+  // Lighter top of the tip gradient — also the top-rim colour, so the rim blends
+  // into the nib instead of reading as a dark line.
   const tipTop = oklchToCss(lightenOklch(ink, 0.06));
   // White specular highlight opacity, scaled off OKLCH lightness: dark inks
   // (brown ~0.5) stay ~0.07, light inks (yellow/green) brighten.
@@ -65,7 +65,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
       style={{ width, height: "auto", ...style }}
     >
       {/* Grey barrel + funnel and its drop-shadow. Skipped in colorOnly mode so
-          the dissolving overlay carries only the ink (no doubled shadow). */}
+          the dissolving overlay carries only ink (no doubled shadow). */}
       {!colorOnly && (
         <g filter={`url(#${id}-filter0)`}>
           <g clipPath={`url(#${id}-clip0)`}>
@@ -80,8 +80,8 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           </g>
         </g>
       )}
-      {/* Coloured ink band — standalone (no drop-shadow) so it crossfades cleanly
-          over a static barrel; the grey body behind it carries the real shadow. */}
+      {/* Coloured ink band — no drop-shadow, so it crossfades cleanly over a
+          static barrel; the grey body behind it carries the real shadow. */}
       <path d={BAND} style={{ fill: color }} />
       <path
         d={BAND}
@@ -89,9 +89,9 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
         style={{ mixBlendMode: "color-dodge" }}
       />
       <g filter={`url(#${id}-filter1)`}>
-        {/* New nib shape, centred on the barrel and dropped onto the funnel.
-            Vertical gradient matching the ink: lighter at the nib, base toward
-            the body (replaces the original brown paint3, now colour-relative). */}
+        {/* Nib, centred on the barrel and dropped onto the funnel. Vertical
+            ink-matched gradient: lighter at the nib, base toward the body
+            (replaces the original fixed-brown paint3, now colour-relative). */}
         <g transform={`translate(${TX} ${TIPS[tip].ty})`}>
           <path d={TIPS[tip].d} fill={`url(#${id}-tipgrad)`} />
         </g>
@@ -140,8 +140,8 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
         >
           <feFlood floodOpacity="0" result="BackgroundImageFix" />
           <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-          {/* White specular highlight at the nib's top inner edge; opacity scales
-              with ink luminance so it stays visible on light inks. */}
+          {/* White specular highlight at the nib's top inner edge; opacity
+              scales with ink luminance so it stays visible on light inks. */}
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -154,8 +154,8 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           <feFlood floodColor="#ffffff" floodOpacity={whiteAlpha} />
           <feComposite in2={`${id}-hlAlpha`} operator="in" />
           <feBlend mode="normal" in2="shape" result={`${id}-effect1_innerShadow`} />
-          {/* Top rim, tinted to the lighter top-gradient colour so it blends into
-              the nib (was a hardcoded dark line). */}
+          {/* Top rim, tinted to the lighter top-gradient colour so it blends
+              into the nib (was a hardcoded dark line). */}
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -227,8 +227,8 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           y2="16"
           gradientUnits="userSpaceOnUse"
         >
-          {/* The JS tween drives these colours each frame, so no CSS transition
-              (it would fight the per-frame updates). */}
+          {/* The JS tween drives these colours each frame — no CSS transition,
+              which would fight the per-frame updates. */}
           <stop style={{ stopColor: tipTop }} />
           <stop offset="1" style={{ stopColor: color }} />
         </linearGradient>
