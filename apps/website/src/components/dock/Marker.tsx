@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { DOCK_H } from "./constants.ts";
 import { Pen } from "./PenSvg.tsx";
 import { hexToOklch, oklchToCss } from "./oklch.ts";
 
@@ -10,7 +11,7 @@ const SVG_W = (27 * 43) / 26.1475; // ~44.4px
 // The clip frame spans the full capsule height. Its TOP sits well above even a
 // raised tip (so the nib is never clipped); only the BOTTOM edge — the tray
 // floor — cuts the pen body (the art is ~175px tall and overflows below it).
-const FRAME_H = 145;
+const FRAME_H = DOCK_H;
 const REST_VISIBLE = 95.45; // pen height shown above the tray floor at rest
 const REST_TOP = FRAME_H - REST_VISIBLE; // 49.55 — the pen's resting offset
 // The selected pen rises (translateY -24px → shows 119.45) and unselected pens
@@ -21,7 +22,7 @@ const GAP = 71 - SVG_W; // pen centres sit 71px apart
 // Ink CROSSFADE duration. We dissolve between inks rather than interpolate the
 // colour: complementary inks (blue<->yellow) can't morph without passing through
 // a false green or a grey dip (gamut geometry), so we crossfade instead.
-const FADE_MS = 180;
+const INK_FADE_MS = 180;
 
 type Tip = "slant" | "flat" | "round";
 
@@ -60,7 +61,7 @@ export function MarkerRow({ color }: { color: string }) {
     setFadeOut({ color: previous, key: id });
     const timer = setTimeout(
       () => setFadeOut((f) => (f && f.key === id ? null : f)),
-      FADE_MS + 40,
+      INK_FADE_MS + 40,
     );
     return () => clearTimeout(timer);
   }, [color]);
@@ -103,7 +104,7 @@ export function MarkerRow({ color }: { color: string }) {
                 width={SVG_W}
                 colorOnly
                 className="dock-pen-art"
-                style={{ ...place, animation: `dock-ink-out ${FADE_MS}ms ease forwards` }}
+                style={{ ...place, animation: `dock-ink-out ${INK_FADE_MS}ms ease forwards` }}
               />
             )}
           </button>

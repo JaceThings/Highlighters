@@ -4,10 +4,7 @@ import { ColorPalette } from "./ColorPalette.tsx";
 import { DockButton } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
 import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.tsx";
-
-// The capsule height (Figma "Toolbar" content = 145). The caps and everything
-// inside scale off this; the width is whatever the content needs.
-const DOCK_H = 145;
+import { DOCK_H } from "./constants.ts";
 
 /**
  * The PencilKit-style tool tray: a floating squircle capsule holding nav

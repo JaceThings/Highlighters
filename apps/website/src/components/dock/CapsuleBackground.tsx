@@ -1,3 +1,5 @@
+import { DOCK_H } from "./constants.ts";
+
 // The dock's white capsule. The shape is a "squircle capsule": the left/right
 // caps are a specific rounded profile (wider than a pure semicircle), and the
 // span between them is a plain rectangle. So to fit any width we keep the caps
@@ -15,9 +17,11 @@
 const CAP_PATH =
   "M47.7024 140.628C60.3281 145 79.2648 145 110.827 145V0C79.2648 0 60.3281 0 47.7024 4.37175C27.5659 11.7015 11.7013 27.5663 4.37168 47.7032C1.47898 55.651 0 64.0429 0 72.5C0 80.9571 1.47898 89.349 4.37168 97.2968C11.7013 117.434 27.5659 133.298 47.7024 140.628Z";
 
-// Native size of the cap on the 145-tall source canvas.
+// Native size of the cap on the source canvas — its height is the dock height
+// (the path was authored on a DOCK_H-tall canvas), so it tracks the shared
+// constant; the width is the cap's own coordinate span.
 const CAP_W = 110.827;
-const CAP_H = 145;
+const CAP_H = DOCK_H;
 
 function Cap({ flip }: { flip?: boolean }) {
   return (

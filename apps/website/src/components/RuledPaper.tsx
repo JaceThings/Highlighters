@@ -2,8 +2,9 @@
 // default root size, but rem-based so it tracks the reader's text size). A
 // single repeating-linear-gradient draws a 1px warm line at the bottom of each
 // 1.5rem band. Absolutely fills its (relative) parent and scrolls with the page
-// like real paper.
-const LINE = "rgba(115, 87, 74, 0.06)";
+// like real paper. The warm brown is the shared `--primary-rgb` token (the
+// page's text colour) at low alpha.
+const LINE = "rgba(var(--primary-rgb), 0.06)";
 
 export function RuledPaper() {
   return (
