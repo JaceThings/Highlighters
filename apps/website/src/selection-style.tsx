@@ -62,9 +62,16 @@ export function useSelectionStyle(): SelectionStyleContextValue {
   return ctx;
 }
 
+// End overshoot for the live selection: every line end runs PAST the text, never
+// short of it, by a random 7-10px so a swipe always overruns the glyphs the way a
+// real highlighter does. overshoot 8.5 ± jitter 1.5 lands each end in [7, 10]; the
+// two ends jitter independently (mark-space seeds them apart), so left and right
+// overrun by different amounts but both always overshoot.
+const END_SWING = { overshoot: 8.5, overshootJitter: 1.5 } as const;
+
 /**
  * Map a dock pen to its highlighter nib (the R12 chisel model). All three share
- * the broad 24×16 nib and differ in shape and slant:
+ * the broad 24×16 nib and the {@link END_SWING}, differing in shape and slant:
  *  - slant — a chisel held at an angle (the default slanted broad stroke);
  *  - round — a rounded bullet nib;
  *  - flat  — a chisel held square-on (broad, no slant).
@@ -72,11 +79,11 @@ export function useSelectionStyle(): SelectionStyleContextValue {
 export function penToTip(pen: PenTip): Pick<HighlightOptions, "tip"> {
   switch (pen) {
     case "round":
-      return { tip: { type: "bullet", width: 24, thickness: 16, angle: 0 } };
+      return { tip: { type: "bullet", width: 24, thickness: 16, angle: 0, ...END_SWING } };
     case "flat":
-      return { tip: { type: "chisel", width: 24, thickness: 16, angle: 0 } };
+      return { tip: { type: "chisel", width: 24, thickness: 16, angle: 0, ...END_SWING } };
     case "slant":
     default:
-      return { tip: { type: "chisel", width: 24, thickness: 16, angle: 8 } };
+      return { tip: { type: "chisel", width: 24, thickness: 16, angle: 8, ...END_SWING } };
   }
 }
