@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { CopyablePackages } from "../components/CopyablePackages.tsx";
+import { Stagger } from "../components/Stagger.tsx";
+import { useDockEntrance } from "../dock-entrance.tsx";
 import { creditLine, pickNextExcerpt } from "./excerpts.ts";
 
 // The homepage IS the demonstration: a sheet of ruled paper with real text and a
@@ -35,44 +37,64 @@ export function Home() {
   // Drawn once per mount from the shuffle bag, so each load advances through
   // every passage before any repeats (see pickNextExcerpt).
   const [excerpt] = useState(pickNextExcerpt);
+  // The last block's arrival is the cue for the dock to fly in (dock-entrance.tsx).
+  const { signalReady } = useDockEntrance();
 
   return (
     <div className="flex flex-col gap-6 leading-6">
-      <h1 className="m-0 text-[1rem] font-[550]">Highlighters</h1>
+      {/* Each block fades + focuses in on load, cascaded by index (see Stagger),
+          matching the lisse landing page. Wrapping blocks (not lines) keeps the
+          24px gap rhythm: the Stagger <div>s are the flex children. */}
+      <Stagger index={0}>
+        <h1 className="m-0 text-[1rem] font-[550]">Highlighters</h1>
+      </Stagger>
 
-      <p className="m-0">{INTRO}</p>
-      <p className="m-0">{FEATURES}</p>
+      <Stagger index={1}>
+        <p className="m-0">{INTRO}</p>
+      </Stagger>
+      <Stagger index={2}>
+        <p className="m-0">{FEATURES}</p>
+      </Stagger>
 
       {/* The npm packages, one per line — monospace, click-to-copy, still on the
           24px grid (four lines = four rows). See CopyablePackages. */}
-      <CopyablePackages items={PACKAGES} />
+      <Stagger index={3}>
+        <CopyablePackages items={PACKAGES} />
+      </Stagger>
 
       {/* A playful nudge that the passage below is the demo surface. Muted so it
           reads as a quiet aside; still selectable, so you can mark it up too. */}
-      <p className="m-0" style={{ color: "var(--color-text-secondary)" }}>
-        Below's a passage to take a highlighter to, if you fancy it.
-      </p>
+      <Stagger index={4}>
+        <p className="m-0" style={{ color: "var(--color-text-secondary)" }}>
+          Below's a passage to take a highlighter to, if you fancy it.
+        </p>
+      </Stagger>
 
       {/* Divider: a hairline centred in one ruled row, so the grid is untouched.
           select-none keeps this decorative rule out of any text selection. */}
-      <div className="flex h-6 select-none items-center" aria-hidden="true">
-        <span
-          className="block h-px w-full"
-          style={{ background: "rgba(var(--primary-rgb), 0.16)" }}
-        />
-      </div>
+      <Stagger index={5}>
+        <div className="flex h-6 select-none items-center" aria-hidden="true">
+          <span
+            className="block h-px w-full"
+            style={{ background: "rgba(var(--primary-rgb), 0.16)" }}
+          />
+        </div>
+      </Stagger>
 
-      {/* The randomised classic passage, with a quiet attribution. */}
-      <figure className="m-0 flex flex-col gap-6">
-        {excerpt.text.split("\n\n").map((para, i) => (
-          <p key={i} className="m-0">
-            {para}
-          </p>
-        ))}
-        <figcaption className="m-0" style={{ color: "var(--color-text-secondary)" }}>
-          – {creditLine(excerpt)}
-        </figcaption>
-      </figure>
+      {/* The randomised classic passage, with a quiet attribution. The last block
+          in: its arrival cues the dock to fly in (see signalReady). */}
+      <Stagger index={6} onComplete={signalReady}>
+        <figure className="m-0 flex flex-col gap-6">
+          {excerpt.text.split("\n\n").map((para, i) => (
+            <p key={i} className="m-0">
+              {para}
+            </p>
+          ))}
+          <figcaption className="m-0" style={{ color: "var(--color-text-secondary)" }}>
+            – {creditLine(excerpt)}
+          </figcaption>
+        </figure>
+      </Stagger>
     </div>
   );
 }
