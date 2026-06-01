@@ -107,13 +107,13 @@ export function createHighlightApiRenderer(): Renderer {
   /** Replace this renderer's rule in the shared sheet without disturbing others. */
   function rewriteOwnRule(): void {
     if (!styleEl) return;
-    const others = styleEl.textContent
-      ? styleEl.textContent
-          .split("}")
-          .map((s) => (s.trim() ? s.trim() + "}" : ""))
-          .filter((s) => s && !s.includes(`::highlight(${name})`))
-      : [];
-    styleEl.textContent = [...others, ruleText].join("\n");
+    // Strip only THIS renderer's `::highlight(name){…}` rule (others stay byte-intact),
+    // then append the fresh one. Targeting the rule by pattern is more robust than
+    // splitting the whole sheet on `}`. `name` is escaped for regex safety.
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const ownRule = new RegExp(`\\s*::highlight\\(${escaped}\\)\\s*\\{[^}]*\\}`, "g");
+    const base = (styleEl.textContent ?? "").replace(ownRule, "").trim();
+    styleEl.textContent = base ? `${base}\n${ruleText}` : ruleText;
   }
 
   return {
