@@ -74,7 +74,14 @@ export function createHighlightApiRenderer(): Renderer {
     // so fold opacity into the fill via `color-mix` toward transparent. Blend
     // mode is unavoidably dropped (no paintable property for it).
     const alpha = Math.max(0, Math.min(1, options.opacity));
-    const fill = `color-mix(in srgb, ${options.color} ${Math.round(alpha * 100)}%, transparent)`;
+    // options.color lands in stylesheet RULE TEXT here (`styleEl.textContent`),
+    // not a CSSOM property setter — so it must be guarded against CSS injection.
+    // `CSS.supports` accepts only a bare colour value and rejects anything crafted
+    // to close `color-mix()` and inject extra rules; fall back to transparent.
+    const raw = String(options.color);
+    const color =
+      typeof CSS !== "undefined" && CSS.supports?.("color", raw) ? raw : "transparent";
+    const fill = `color-mix(in srgb, ${color} ${Math.round(alpha * 100)}%, transparent)`;
     const decls = [`background-color: ${fill}`, `color: inherit`];
     return `::highlight(${name}) { ${decls.join("; ")}; }`;
   }

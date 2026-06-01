@@ -212,8 +212,9 @@ function mountMark(
     // An explicit handle.show() replays the draw-on entrance (R24).
     replay: () => animDisconnect.replay(),
     rebuild: (opts) => {
-      // On update, the new resolved options replace `resolved` for future reflow
-      // builds too, so the closure stays consistent.
+      // Mutate `resolved` IN-PLACE (not reassign) so the reflow closure above —
+      // which closed over this same reference — picks up the new option values on
+      // its next build. Intentional shared-reference update, not a stale `const`.
       Object.assign(resolved, opts);
       // A watched page mark re-collects here, so an update() fired by the mutation
       // watcher paints newly-added nodes and drops removed ones (R8). Reflow calls

@@ -233,7 +233,12 @@ export function createSvgRenderer(): Renderer {
     s.height = "100%";
   }
 
-  function styleInk(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
+  function styleInk(
+    el: HTMLElement,
+    line: MarkGeometry,
+    context: RenderContext,
+    filterValue: string,
+  ): void {
     const { options } = context;
     const { ink } = options;
     const s = el.style;
@@ -263,13 +268,11 @@ export function createSvgRenderer(): Renderer {
     setVendorPrefixed(el, "maskSize", `${line.noiseTile.width}px ${line.noiseTile.height}px`);
 
     // --- feathering / flow / viscosity → soft-edge bleed filter --------------
-    // Reference an interned shared filter; its blur/dilate scale with feathering
-    // (and flow/viscosity), so dragging feathering up is visibly blurrier (R32:
-    // referenced, never animated per frame).
-    const doc = el.ownerDocument;
-    const defs = getSharedDefs(doc);
-    const filterParams = resolveEdgeFilter(options);
-    setStyleOnce(el, "filter", filterParams ? `url(#${ensureEdgeFilter(defs, filterParams)})` : "");
+    // Reference the interned shared filter (its blur/dilate scale with feathering
+    // and flow/viscosity). The filter is invariant across a mark's lines, so it's
+    // interned ONCE in render() and the URL passed in — no per-line DOM lookup or
+    // param recompute on the hot reflow path (R32: referenced, never animated).
+    setStyleOnce(el, "filter", filterValue);
   }
 
   function styleGlow(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
@@ -302,8 +305,12 @@ export function createSvgRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    // Ensure the shared filter defs exist for this document (R31).
-    getSharedDefs(doc);
+    // Ensure the shared filter defs exist (R31), and intern the edge filter ONCE:
+    // it depends only on doc + options, so it's invariant across all of a mark's
+    // lines — computing it per line was a needless DOM lookup + param recompute.
+    const defs = getSharedDefs(doc);
+    const filterParams = resolveEdgeFilter(context.options);
+    const filterValue = filterParams ? `url(#${ensureEdgeFilter(defs, filterParams)})` : "";
 
     const glowEnabled = context.options.glow.enabled;
     const keep = new Set<number>();
@@ -339,7 +346,7 @@ export function createSvgRenderer(): Renderer {
         styleGlow(glow, line, context);
       }
 
-      styleInk(ink, line, context);
+      styleInk(ink, line, context, filterValue);
     }
 
     // Reconcile: a vanished line's wrapper (and its ink/glow children) is removed

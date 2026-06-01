@@ -252,7 +252,10 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     markType: merged.markType ?? merged.shape ?? d.markType,
     color,
     gradient: merged.gradient ?? d.gradient,
-    opacity: finiteOr(merged.opacity, d.opacity),
+    // Clamp at this single resolution point so every renderer tier receives a
+    // [0,1] alpha and none has to defend the invariant itself (inline min/max,
+    // not the `clamp` helper, to keep this module's import list untouched).
+    opacity: Math.max(0, Math.min(1, finiteOr(merged.opacity, d.opacity))),
     blendMode,
     tip,
     ink,
