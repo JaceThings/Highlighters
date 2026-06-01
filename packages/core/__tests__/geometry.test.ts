@@ -779,7 +779,7 @@ describe("buildMarkGeometry", () => {
     }
   });
 
-  it("applies wrap overshoot to inner edges of multiline runs (R20)", () => {
+  it("applies the configured overshoot uniformly to every line, regardless of position", () => {
     const opts = makeOptions();
     const seed = 333;
     const single = buildMarkGeometry(
@@ -792,10 +792,10 @@ describe("buildMarkGeometry", () => {
       opts,
       seed,
     );
-    // A middle line overshoots on both sides, so its band is wider and starts
-    // further left than a standalone line with the same text rect.
-    expect(middle.box.width).toBeGreaterThan(single.box.width);
-    expect(middle.box.x).toBeLessThan(single.box.x);
+    // Overshoot is governed by tip.overshoot for every line; a line's box no
+    // longer depends on whether it is the first/last of a run (no special stitch).
+    expect(middle.box.width).toBe(single.box.width);
+    expect(middle.box.x).toBe(single.box.x);
   });
 
   it("overshoot extends (or pulls in) the mark's true outer ends", () => {

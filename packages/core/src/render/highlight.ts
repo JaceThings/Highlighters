@@ -111,14 +111,17 @@ function buildLines(
   container: HTMLElement,
 ): MarkGeometry[] {
   if (ranges.length === 0) return [];
-  const lineRects: LineRect[] = rangesToLineRects(ranges, computeAnchor(ranges));
-  // `getClientRects()` reports VIEWPORT coordinates, but the overlay container is
-  // absolutely positioned at the host's content origin. Translate each line box
-  // into that container-local (≈ document) space so a mark sits on its text and
-  // tracks it under scroll — and so the edge grid anchors to a scroll-stable
-  // origin (A14), not the viewport. The container's own rect encodes the scroll
-  // offset, so this is correct for `body` and for any positioned host alike.
+  // `getClientRects()` is viewport-relative; the overlay container sits at the
+  // host's content origin and its rect encodes the scroll offset. Both the
+  // per-line SEED (via rangesToLineRects) and POSITION (below) measure from it,
+  // so a line's seed tracks its document position alone — stable under scroll and
+  // either drag direction (A14). Correct for `body` and any positioned host.
   const origin = container.getBoundingClientRect();
+  const lineRects: LineRect[] = rangesToLineRects(
+    ranges,
+    computeAnchor(ranges),
+    origin.top,
+  );
   return lineRects.map((rect) => {
     // An explicit `options.seed` must still yield a DISTINCT per-line seed: else a
     // wrapped mark keys every line's pooled wrapper to one value, collapsing them

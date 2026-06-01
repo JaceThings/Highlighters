@@ -34,13 +34,6 @@ import { hashJitter } from "./rng.js";
 /** Vertical padding above/below the text so the wavy edge stays clear of glyphs. */
 const VERT_PAD = 2;
 
-/**
- * Wrap overshoot in px applied to the *inner* edge of a multiline run so a
- * line's end and the next line's start visually connect into one pen swipe (R20):
- * a non-terminal line overshoots on the right, a non-initial line on the left.
- */
-const WRAP_OVERSHOOT = 12;
-
 /** Decorrelating seed offsets, one per derived role. */
 const SEED_LEFT_OVER = 0;
 const SEED_RIGHT_OVER = 11;
@@ -86,8 +79,7 @@ function resolveBand(
 /**
  * Build the full geometry for one visual line.
  *
- * @param lineRect - The line's measured rect, in absolute px, with its
- *   first/last flags (controls wrap overshoot).
+ * @param lineRect - The line's measured rect, in absolute px.
  * @param options - Fully-resolved options (the single source of truth).
  * @param seed - The stable seed every value derives from. The caller passes the
  *   line's anchor-relative seed (or an explicit `options.seed`).
@@ -100,17 +92,16 @@ export function buildMarkGeometry(
   const { edge, ink, tip, paper } = options;
 
   // --- End extensions (deterministic per seed) ------------------------------
-  // The user-tunable overshoot governs how far each TRUE outer end runs past
-  // (positive) or short of (negative) the text edge; a deterministic per-end
-  // jitter keeps the two ends from landing on an identical inset (R12). Inner
-  // edges of a wrapped run instead use the fixed wrap overshoot so consecutive
-  // lines' ends/starts overlap into one continuous swipe (R20). The jitter is
-  // seeded by the (width-independent) line seed, so growing a mark never shifts
-  // its start — preserving the anchored-grid prefix invariant (R22d).
+  // `tip.overshoot` governs how far EACH end of EVERY line runs past (positive)
+  // or short of (negative) the text edge — applied uniformly to every line, not
+  // just a run's outer ends. A deterministic per-end jitter keeps the two ends
+  // from landing on an identical inset (R12), seeded by the (width-independent)
+  // line seed so growing a mark never shifts its start (the anchored-grid prefix
+  // invariant, R22d).
   const endOver = (s: number): number =>
     tip.overshoot + hashJitter(s) * tip.overshootJitter;
-  const leftExt = lineRect.isFirst ? endOver(seed + SEED_LEFT_OVER) : WRAP_OVERSHOOT;
-  const rightExt = lineRect.isLast ? endOver(seed + SEED_RIGHT_OVER) : WRAP_OVERSHOOT;
+  const leftExt = endOver(seed + SEED_LEFT_OVER);
+  const rightExt = endOver(seed + SEED_RIGHT_OVER);
 
   // --- Band box in absolute px ----------------------------------------------
   const band = resolveBand(options.markType, lineRect.height);
