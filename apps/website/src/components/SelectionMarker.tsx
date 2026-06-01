@@ -72,9 +72,10 @@ export const BROWN_SELECTION_OPTIONS: HighlightOptions = {
   // Non-fluorescent brown — no additive emission.
   glow: { enabled: false },
 
-  // Hug the selection like the Lisse per-line coverage extension hugs
-  // character width.
-  snap: "word",
+  // Track the selection character by character — trim only leading/trailing
+  // whitespace, never expand out to whole-word boundaries — so the band follows
+  // the cursor exactly.
+  snap: "glyph",
 
   // Premium tier matches the low-variance, controlled pooling of the
   // hand-tuned original.
