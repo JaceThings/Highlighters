@@ -26,30 +26,65 @@ import { NodePool, applyBoxPosition } from "./renderer.js";
 /**
  * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` string in
  * absolute-px stop positions with the documented `min`/`max` clamps (A14 §3), so
- * a short mark cannot over-pool. The middle plateau uses the resolved stop
- * colours; the ends darken toward the pool stops.
+ * a short mark cannot over-pool.
+ *
+ * Each stop's alpha is folded into its colour with `color-mix(... transparent)`
+ * (matching Tier C), normalized to the brightest stop — so the gradient carries
+ * the RELATIVE pooling + dry-out variation while the band's layer opacity supplies
+ * the base. The darkest point therefore matches a flat band, and the pooled/dried
+ * regions read lighter (without this the per-stop alpha never rendered and the
+ * band was flat).
  *
  * @param pool - The absolute-px end-pool gradient from the mark geometry.
  * @returns A CSS `linear-gradient(...)` value.
  */
 export function poolGradientToCss(pool: PoolGradient): string {
   const stops = pool.stops;
-  const startColor = stops[0]?.color ?? "transparent";
-  const endColor = stops[stops.length - 1]?.color ?? startColor;
-  const coreColor = stops[Math.floor(stops.length / 2)]?.color ?? startColor;
+  let maxAlpha = 0;
+  for (const s of stops) maxAlpha = Math.max(maxAlpha, s.opacity ?? 1);
+
+  // Relative per-stop alpha (1 at the brightest stop) folded into the colour, so
+  // the layer opacity stays the absolute base. 100% = colour as-is, lower = drier.
+  const fill = (i: number): string => {
+    const stop = stops[i] ?? stops[0];
+    const rel = maxAlpha > 0 ? (stop?.opacity ?? 1) / maxAlpha : 1;
+    return `color-mix(in srgb, ${stop?.color ?? "transparent"} ${Math.round(rel * 100)}%, transparent)`;
+  };
 
   // Absolute-px insets with min()/max() clamps keep the cap-pool width constant:
   //   2px, min(10px, 40%), max(100% - 10px, 60%), 100% - 2px.
+  // Live-speed path: N core stops at pre-computed px positions between the two
+  // px-pool ends — the same color-mix normalization, generalized over the array.
+  // No nested calc/min/max (positions are already px), so it parses everywhere.
+  const positions = pool.coreStopsPositionsPx;
+  if (positions) {
+    const parts: string[] = [
+      `linear-gradient(${pool.angle}deg`,
+      `${fill(0)} ${pool.startInsetPx}px`,
+    ];
+    for (let i = 0; i < positions.length; i++) {
+      parts.push(`${fill(i + 1)} ${round2(positions[i])}px`);
+    }
+    parts.push(`${fill(stops.length - 1)} calc(100% - ${pool.endInsetPx}px))`);
+    return parts.join(", ");
+  }
+
+  // Legacy 4-stop gradient — absolute-px insets with min()/max() clamps.
   const startCore = `min(${pool.startCorePx}px, ${pool.startCorePct}%)`;
   const endCore = `max(calc(100% - ${pool.endCorePx}px), ${pool.endCorePct}%)`;
 
   return [
     `linear-gradient(${pool.angle}deg`,
-    `${startColor} ${pool.startInsetPx}px`,
-    `${coreColor} ${startCore}`,
-    `${coreColor} ${endCore}`,
-    `${endColor} calc(100% - ${pool.endInsetPx}px))`,
+    `${fill(0)} ${pool.startInsetPx}px`,
+    `${fill(1)} ${startCore}`,
+    `${fill(2)} ${endCore}`,
+    `${fill(3)} calc(100% - ${pool.endInsetPx}px))`,
   ].join(", ");
+}
+
+/** Round a px position to 2 decimals for a compact, stable gradient string. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 /**
@@ -75,7 +110,9 @@ export function createCssRenderer(): Renderer {
     s.height = "100%";
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
-    s.opacity = String(options.opacity);
+    // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
+    // — so a uniformly-fast swipe dims here rather than being normalized back to full.
+    s.opacity = String(options.opacity * (line.pool.layerScale ?? 1));
     // The pool gradient already carries the end-pooling; box-decoration-break is
     // set for parity with an inline rendering of the same band.
     s.backgroundImage = poolGradientToCss(line.pool);

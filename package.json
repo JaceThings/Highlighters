@@ -24,7 +24,7 @@
     {
       "name": "@highlighters/core/path (ESM, brotli)",
       "path": "packages/core/dist/path.js",
-      "limit": "5 KB"
+      "limit": "6 KB"
     },
     {
       "name": "@highlighters/react",

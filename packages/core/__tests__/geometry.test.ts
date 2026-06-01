@@ -45,6 +45,20 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
       streakiness: 0.5,
       dryout: 0,
       startEndBuildup: 0.3,
+      flowFade: 0,
+    },
+    speed: {
+      enabled: true,
+      sensitivity: 0.8,
+      slowSpeed: 0.2,
+      fastSpeed: 2,
+      minDeposit: 0.4,
+      smoothing: 0.35,
+      resolution: 12,
+      dryoutBoost: 0.7,
+      streakBoost: 0.3,
+      featherReduce: 0.5,
+      poolBoost: 0.6,
     },
     edge: { waviness: 1, frequency: 30, roughness: 0.3, cap: "round", radius: 3 },
     paper: { absorbency: 0.3 },
@@ -535,6 +549,35 @@ describe("buildPoolGradient", () => {
     expect(g.stops[3].opacity!).toBeLessThan(g.stops[2].opacity!);
   });
 
+  it("flowFade dries the stroke directionally — start wetter than the end", () => {
+    const flat = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5 });
+    const dry = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5, flowFade: 0.5 });
+    // No flowFade → flat band, start alpha equals end alpha.
+    expect(flat.stops[0].opacity).toBe(flat.stops[3].opacity);
+    // flowFade leaves the start untouched and drops the end (drier as it slides).
+    expect(dry.stops[0].opacity).toBe(flat.stops[0].opacity);
+    expect(dry.stops[3].opacity!).toBeLessThan(dry.stops[0].opacity!);
+    // Monotonic dry-out across the four stops.
+    const a = dry.stops.map((s) => s.opacity!);
+    expect(a[0]).toBeGreaterThanOrEqual(a[1]);
+    expect(a[1]).toBeGreaterThanOrEqual(a[2]);
+    expect(a[2]).toBeGreaterThanOrEqual(a[3]);
+  });
+
+  it("flowReversed mirrors the dry-out — wet end, dry start (backward drag)", () => {
+    const base = { lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5, flowFade: 0.5 };
+    const fwd = buildPoolGradient(base);
+    const rev = buildPoolGradient({ ...base, flowReversed: true });
+    // Reversed is the forward ramp flipped end for end: start↔end alphas swap.
+    expect(rev.stops[0].opacity).toBeCloseTo(fwd.stops[3].opacity!);
+    expect(rev.stops[3].opacity).toBeCloseTo(fwd.stops[0].opacity!);
+    // Now the END is the wettest and it dries toward the start (monotonic up).
+    const a = rev.stops.map((s) => s.opacity!);
+    expect(a[0]).toBeLessThanOrEqual(a[1]);
+    expect(a[1]).toBeLessThanOrEqual(a[2]);
+    expect(a[2]).toBeLessThanOrEqual(a[3]);
+  });
+
   it("clamps alpha into [0, 1] even at extreme opacity + buildup", () => {
     const g = buildPoolGradient({
       lengthPx: 400,
@@ -546,6 +589,61 @@ describe("buildPoolGradient", () => {
       expect(s.opacity).toBeGreaterThanOrEqual(0);
       expect(s.opacity).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("with no speed args is byte-identical legacy: 4 stops, no speed fields", () => {
+    const g = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0.3, color: "#000", opacity: 0.5 });
+    expect(g.stops).toHaveLength(4);
+    expect(g.stops.map((s) => s.offset)).toEqual([0, 0.4, 0.6, 1]);
+    expect(g.coreStopCount).toBeUndefined();
+    expect(g.coreStopsPositionsPx).toBeUndefined();
+    expect(g.layerScale).toBeUndefined();
+  });
+
+  it("speed path emits N core stops between two pool ends, monotonic px positions", () => {
+    const g = buildPoolGradient({
+      lengthPx: 400,
+      startEndBuildup: 0.25,
+      color: "#000",
+      opacity: 0.5,
+      coreStopCount: 12,
+      depositAt: () => 1,
+    });
+    expect(g.coreStopCount).toBe(12);
+    expect(g.stops).toHaveLength(14); // 2 ends + 12 core
+    expect(g.coreStopsPositionsPx).toHaveLength(12);
+    const pos = g.coreStopsPositionsPx!;
+    for (let i = 1; i < pos.length; i++) expect(pos[i]).toBeGreaterThanOrEqual(pos[i - 1]);
+    // Core plateau stays between the px-clamped pool insets.
+    expect(pos[0]).toBeGreaterThanOrEqual(0);
+    expect(pos[pos.length - 1]).toBeLessThanOrEqual(400);
+  });
+
+  it("layerScale dims a uniformly-fast line but not a uniformly-slow one", () => {
+    const common = { lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.6, coreStopCount: 8 } as const;
+    const slow = buildPoolGradient({ ...common, depositAt: () => 1 });
+    const fast = buildPoolGradient({ ...common, depositAt: () => 0.4 });
+    expect(slow.layerScale).toBeCloseTo(1);
+    // Uniformly fast → every stop scaled by 0.4 → normalization cancels the shape,
+    // so layerScale must carry the absolute dimming instead.
+    expect(fast.layerScale).toBeCloseTo(0.4);
+  });
+
+  it("speed deposit profile varies the core stop alphas mid-line (slow→fast→slow)", () => {
+    // deposit dips in the middle (fast) and is full at the ends (slow).
+    const g = buildPoolGradient({
+      lengthPx: 400,
+      startEndBuildup: 0,
+      color: "#000",
+      opacity: 0.5,
+      coreStopCount: 9,
+      depositAt: (f) => 1 - 0.6 * (1 - Math.abs(f - 0.5) * 2), // V-shape: 0.4 at f=0.5, 1 at ends
+    });
+    const core = g.stops.slice(1, -1).map((s) => s.opacity!);
+    const mid = core[Math.floor(core.length / 2)];
+    // The middle core stop is the lightest (fastest swipe → least ink).
+    expect(mid).toBeLessThan(core[0]);
+    expect(mid).toBeLessThan(core[core.length - 1]);
   });
 });
 

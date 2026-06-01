@@ -24,8 +24,10 @@ import type {
   ResolvedInk,
   ResolvedOptions,
   ResolvedPaper,
+  ResolvedSpeedDynamics,
   ResolvedTip,
 } from "../types.js";
+import { clamp } from "../internal/math.js";
 import { applyColorantAxis, normalizeColorant } from "./colorant.js";
 import { DEFAULT_OPTIONS } from "./defaults.js";
 import { defaultSwatch, resolveSwatch } from "./palettes.js";
@@ -75,7 +77,7 @@ function positiveOr(value: number | undefined, fallback: number): number {
 }
 
 /** The namespaced option groups that are merged field-wise rather than replaced. */
-const GROUP_KEYS = ["tip", "ink", "edge", "paper", "glow", "animation"] as const;
+const GROUP_KEYS = ["tip", "ink", "speed", "edge", "paper", "glow", "animation"] as const;
 
 type GroupKey = (typeof GROUP_KEYS)[number];
 
@@ -203,6 +205,30 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     streakiness: finiteOr(merged.ink?.streakiness, d.ink.streakiness),
     dryout: finiteOr(merged.ink?.dryout, d.ink.dryout),
     startEndBuildup: finiteOr(merged.ink?.startEndBuildup, d.ink.startEndBuildup),
+    flowFade: finiteOr(merged.ink?.flowFade, d.ink.flowFade),
+  };
+
+  // Speed-dynamics: 0..1 weights clamp to range; the px/ms thresholds are free
+  // positives; `resolution` clamps to a sane stop count. All live-only — geometry
+  // and the static path ignore this block unless a drag velocity profile is present.
+  const sd = d.speed;
+  // Order the thresholds so fastSpeed >= slowSpeed even if a caller inverts them —
+  // otherwise the velocity normalizer's denominator collapses and the deposit
+  // curve degenerates into a near-instant step function.
+  const rawSlow = Math.max(0, finiteOr(merged.speed?.slowSpeed, sd.slowSpeed));
+  const rawFast = Math.max(0, finiteOr(merged.speed?.fastSpeed, sd.fastSpeed));
+  const speed: ResolvedSpeedDynamics = {
+    enabled: merged.speed?.enabled ?? sd.enabled,
+    sensitivity: clamp(finiteOr(merged.speed?.sensitivity, sd.sensitivity), 0, 1),
+    slowSpeed: Math.min(rawSlow, rawFast),
+    fastSpeed: Math.max(rawSlow, rawFast),
+    minDeposit: clamp(finiteOr(merged.speed?.minDeposit, sd.minDeposit), 0, 1),
+    smoothing: clamp(finiteOr(merged.speed?.smoothing, sd.smoothing), 0, 1),
+    resolution: Math.max(4, Math.min(24, Math.round(finiteOr(merged.speed?.resolution, sd.resolution)))),
+    dryoutBoost: clamp(finiteOr(merged.speed?.dryoutBoost, sd.dryoutBoost), 0, 1),
+    streakBoost: clamp(finiteOr(merged.speed?.streakBoost, sd.streakBoost), 0, 1),
+    featherReduce: clamp(finiteOr(merged.speed?.featherReduce, sd.featherReduce), 0, 1),
+    poolBoost: clamp(finiteOr(merged.speed?.poolBoost, sd.poolBoost), 0, 1),
   };
 
   const edge: ResolvedEdge = {
@@ -260,6 +286,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     blendMode,
     tip,
     ink,
+    speed,
     edge,
     paper,
     glow,

@@ -262,6 +262,53 @@ export interface InkOptions {
    * end darkening (the premium-marker look). Range `-1`–`1`.
    */
   startEndBuildup?: number;
+  /**
+   * Directional dry-out along the stroke (0–1): the ink starts saturated where
+   * the nib touches down and fades drier toward the end of each line, the way a
+   * marker runs low on ink as it slides. `0` is even coverage; higher dries the
+   * tail end more. Applied per visual line.
+   */
+  flowFade?: number;
+}
+
+/**
+ * Speed-aware ink deposit for the LIVE text selection (R17). **Beta — off by
+ * default**; opt in with `speed.enabled`. A real marker lays less ink the faster
+ * the nib travels (deposit ∝ dwell-time per unit length), so a
+ * quick swipe reads lighter/drier and a slow or decelerating one reads
+ * darker/wetter. The library measures the swipe speed of the live selection and
+ * maps it onto deposit + texture, CONTINUOUSLY — so within a single line a
+ * slow→fast→slow drag fades dark→light→dark along the band.
+ *
+ * Live-selection-only and fully optional: it engages only under
+ * {@link highlightSelection} during a real fine-pointer drag, and is a complete
+ * no-op (byte-identical output) for static marks, programmatic/keyboard
+ * selections, SSR, and whenever `enabled` is `false`. Every channel is
+ * independently tunable so the look can be dialed from subtle to dramatic.
+ */
+export interface SpeedDynamicsOptions {
+  /** Master enable. Default `false` — a Beta opt-in (engages only on a live fine-pointer drag). */
+  enabled?: boolean;
+  /** Overall strength, `0`–`1`. `0` disables the effect; `1` is full range. Default `1`. */
+  sensitivity?: number;
+  /** Swipe speed (px/ms) at/below which ink is wettest (deposit ×1). Default `2.5` — a normal drag stays full. */
+  slowSpeed?: number;
+  /** Swipe speed (px/ms) at/above which ink is driest (deposit ×`minDeposit`). Default `10.5` — only a fast flick. */
+  fastSpeed?: number;
+  /** Legibility floor `0`–`1`: the fastest swipe still deposits this fraction. Default `0.4`. */
+  minDeposit?: number;
+  /** Velocity EMA weight on the newest sample, `0`–`1` (`1` = raw/instant, `0` = heavy lag). Default `1`. */
+  smoothing?: number;
+  /** Core gradient stops per line — higher resolves finer mid-line variation. Default `24` (clamped `4`–`24`). */
+  resolution?: number;
+  /** Weight `0`–`1`: how much a fast swipe adds skipping (dryout). Default `1`. */
+  dryoutBoost?: number;
+  /** Weight `0`–`1`: how much a fast swipe adds railroading (streakiness). Default `0.08`. */
+  streakBoost?: number;
+  /** Weight `0`–`1`: how much a fast swipe sharpens the edge (less feather). Default `1`. */
+  featherReduce?: number;
+  /** Weight `0`–`1`: how much deceleration into a line end pools ink there. Default `1`. */
+  poolBoost?: number;
 }
 
 /**
@@ -366,6 +413,8 @@ export interface HighlightOptions {
   tip?: TipOptions;
   /** Ink behavior. */
   ink?: InkOptions;
+  /** Speed-aware ink deposit for the live selection (live-only; see {@link SpeedDynamicsOptions}). */
+  speed?: SpeedDynamicsOptions;
   /** Edge waviness/roughness/cap/radius. */
   edge?: EdgeOptions;
   /** Paper surface. */
@@ -429,6 +478,40 @@ export interface ResolvedInk {
   streakiness: number;
   dryout: number;
   startEndBuildup: number;
+  flowFade: number;
+}
+
+/** {@link SpeedDynamicsOptions} with every field resolved. */
+export interface ResolvedSpeedDynamics {
+  enabled: boolean;
+  sensitivity: number;
+  slowSpeed: number;
+  fastSpeed: number;
+  minDeposit: number;
+  smoothing: number;
+  resolution: number;
+  dryoutBoost: number;
+  streakBoost: number;
+  featherReduce: number;
+  poolBoost: number;
+}
+
+/**
+ * A per-line speed read, computed live from the selection's swipe velocity and
+ * injected into {@link buildMarkGeometry} as plain data (so geometry stays pure
+ * and SSR-safe). Absent for static marks and when no drag velocity was sampled.
+ */
+export interface LineSpeedProfile {
+  /**
+   * Deposit multiplier in `[minDeposit, 1]` at core fraction `f ∈ [0,1]` along the
+   * band — `1` where the swipe was slow (wet), `minDeposit` where it was fast (dry).
+   * Drives the per-stop gradient alpha, giving continuous mid-line variation.
+   */
+  depositAt: (fraction: number) => number;
+  /** Normalized mean swipe speed across the line, `0`–`1` — drives per-line texture. */
+  meanNorm: number;
+  /** Deceleration into the line end, `0`–`1` — drives extra end pooling. */
+  decel: number;
 }
 
 /** {@link EdgeOptions} with every field resolved. */
@@ -482,6 +565,7 @@ export interface ResolvedOptions {
   blendMode: BlendMode;
   tip: ResolvedTip;
   ink: ResolvedInk;
+  speed: ResolvedSpeedDynamics;
   edge: ResolvedEdge;
   paper: ResolvedPaper;
   glow: ResolvedGlow;
@@ -578,6 +662,24 @@ export interface PoolGradient {
   endInsetPx: number;
   /** Resolved color stops the pool ramps between. */
   stops: GradientStop[];
+  /**
+   * LIVE-SPEED PATH ONLY. Count of interior core stops between the two pool ends.
+   * Absent on the legacy 4-stop gradient (every static mark + every no-drag paint),
+   * which keeps the exact original CSS string.
+   */
+  coreStopCount?: number;
+  /**
+   * LIVE-SPEED PATH ONLY. Absolute-px position of each core stop (length ===
+   * {@link coreStopCount}), pre-computed so the renderer needs no nested calc/min/max.
+   */
+  coreStopsPositionsPx?: number[];
+  /**
+   * LIVE-SPEED PATH ONLY. Scales the renderer's layer opacity to encode the line's
+   * ABSOLUTE deposit (≤ 1): the gradient stops carry the relative shape (normalized
+   * to the brightest stop), so a uniformly-fast line must dim here or the
+   * normalization would cancel the dry-out. Absent → renderer uses `1`.
+   */
+  layerScale?: number;
 }
 
 /**

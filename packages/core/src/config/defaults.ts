@@ -44,6 +44,26 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     streakiness: 0.35,
     dryout: 0.15,
     startEndBuildup: 0.25,
+    // On by default: a real marker lays the most ink where it touches down and
+    // runs drier as it slides, so each line starts saturated and fades toward its end.
+    flowFade: 0.5,
+  }),
+  // Speed-aware deposit — a Beta effect, OFF by default (opt-in). When enabled it
+  // stays full thickness through a normal drag and only a genuinely fast flick
+  // lightens it (full at/below 2.5 px/ms, driest at 10.5), with strong dry-out,
+  // edge-sharpening, and end-pooling at the extreme.
+  speed: Object.freeze({
+    enabled: false,
+    sensitivity: 1,
+    slowSpeed: 2.5,
+    fastSpeed: 10.5,
+    minDeposit: 0.4,
+    smoothing: 1,
+    resolution: 24,
+    dryoutBoost: 1,
+    streakBoost: 0.08,
+    featherReduce: 1,
+    poolBoost: 1,
   }),
   edge: Object.freeze({
     waviness: 1.5,

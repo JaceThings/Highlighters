@@ -15,6 +15,7 @@ import type {
   GroupHandle,
   HighlightOptions,
   LineRect,
+  LineSpeedProfile,
   MarkGeometry,
   MarkHandle,
   RenderContext,
@@ -30,6 +31,7 @@ import { snapRangeToBounds } from "../geometry/snap.js";
 import { toRanges } from "../targeting/normalize.js";
 import { collectPageRanges } from "../targeting/include-exclude.js";
 import { computeAnchor, rangesToLineRects } from "../targeting/line-rects.js";
+import { SelectionVelocityTracker } from "../targeting/velocity.js";
 import { createMutationWatcher, createReflowObserver } from "../targeting/observers.js";
 import { createOverlayContainer, teardownContainer } from "./renderer.js";
 import { detectEnvironment, selectTier } from "./tier-select.js";
@@ -109,6 +111,8 @@ function buildLines(
   ranges: Range[],
   options: ResolvedOptions,
   container: HTMLElement,
+  flowReversed = false,
+  profileFor?: (local: LineRect) => LineSpeedProfile | undefined,
 ): MarkGeometry[] {
   if (ranges.length === 0) return [];
   // `getClientRects()` is viewport-relative; the overlay container sits at the
@@ -134,8 +138,25 @@ function buildLines(
       left: rect.left - origin.left,
       top: rect.top - origin.top,
     };
-    return buildMarkGeometry(local, options, seed);
+    // `profileFor` is supplied only by the live selection path; static callers pass
+    // nothing, so `buildMarkGeometry` receives `undefined` → byte-identical geometry.
+    return buildMarkGeometry(local, options, seed, flowReversed, profileFor?.(local));
   });
+}
+
+/**
+ * Is the live selection dragged right-to-left (backward) — its focus sitting
+ * BEFORE its anchor in document order? A backward drag started at the right, so
+ * the marker pours its dry-out ink from the right edge (the `flowReversed` path
+ * into the pool gradient). Collapsed or detached selections read as forward.
+ */
+function isSelectionBackward(selection: Selection): boolean {
+  const { anchorNode, focusNode } = selection;
+  if (selection.isCollapsed || !anchorNode || !focusNode) return false;
+  if (anchorNode === focusNode) return selection.focusOffset < selection.anchorOffset;
+  // compareDocumentPosition(focus) sets PRECEDING when focus comes before anchor.
+  const relation = anchorNode.compareDocumentPosition(focusNode);
+  return (relation & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
 }
 
 /**
@@ -362,22 +383,80 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   let renderer: Renderer | null = null;
   let currentRanges: Range[] = [];
 
-  const rebuild = (ranges: Range[]): RenderContext => {
+  // Speed-aware ink (R17), LIVE-DRAG ONLY. The tracker samples the focus caret's
+  // velocity while a primary fine-pointer drag is active and serves a per-line
+  // deposit profile. Created only when not reduced-motion; sampling and the
+  // per-line profile are additionally gated on `resolved.speed.enabled` (so a
+  // consumer can toggle it live via update()) and on `dragging` (so programmatic,
+  // keyboard, and instant selections build no field → byte-identical legacy paint).
+  const tracker = env.prefersReducedMotion ? null : new SelectionVelocityTracker();
+  let dragging = false;
+  const onPointerDown = (e: PointerEvent): void => {
+    // Primary-button, fine-pointer only (mouse/pen) — coarse touch and any future
+    // pointer type are excluded by default, matching the live-drag contract.
+    if (e.button !== 0 || (e.pointerType !== "mouse" && e.pointerType !== "pen")) return;
+    dragging = true;
+    tracker?.reset(); // a fresh gesture starts a fresh velocity field
+  };
+  const endDrag = (): void => {
+    dragging = false;
+  };
+  if (tracker) {
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointerup", endDrag, true);
+    document.addEventListener("pointercancel", endDrag, true);
+    // Safety net: a pointer released OUTSIDE the window fires no pointerup here, so
+    // window blur clears the drag flag too — otherwise it could stick `true` and let
+    // a later non-drag selection paint with speed.
+    window.addEventListener("blur", endDrag);
+  }
+
+  const rebuild = (ranges: Range[], flowReversed: boolean): RenderContext => {
     const snapped = snapRanges(ranges, resolved.snap);
-    const lines = buildLines(snapped, resolved, container);
+    // Per-line speed profile, only while a drag is ACTIVELY feeding the tracker and
+    // the feature is enabled — gating on `dragging` keeps a programmatic, keyboard,
+    // or post-release selection from reusing a finished gesture's stale samples (it
+    // paints the legacy geometry instead). A line with no samples also returns
+    // undefined → legacy geometry. The painted speed look persists after release
+    // because nothing repaints until the next gesture.
+    const speedOn = tracker !== null && resolved.speed.enabled && dragging;
+    const profileFor = speedOn
+      ? (local: LineRect): LineSpeedProfile | undefined =>
+          tracker!.profileForLine(
+            { top: local.top, height: local.height, left: local.left, width: local.width },
+            resolved.speed,
+          )
+      : undefined;
+    const lines = buildLines(snapped, resolved, container, flowReversed, profileFor);
     return { container, options: resolved, lines, ranges };
   };
 
   const renderSelection = (): void => {
     const selection = document.getSelection();
     const ranges: Range[] = [];
+    // A backward drag (focus before anchor) pours its ink from the right edge.
+    let flowReversed = false;
     if (selection && !selection.isCollapsed) {
+      flowReversed = isSelectionBackward(selection);
+      // One velocity sample per selection change while dragging, in the SAME
+      // container-local px space buildLines projects lines into (so the spatial
+      // lookup is exact during the drag).
+      if (tracker && dragging && resolved.speed.enabled) {
+        const origin = container.getBoundingClientRect();
+        tracker.recordSample(
+          selection,
+          origin.left,
+          origin.top,
+          performance.now(),
+          resolved.speed.smoothing,
+        );
+      }
       for (let i = 0; i < selection.rangeCount; i++) {
         ranges.push(selection.getRangeAt(i).cloneRange());
       }
     }
     currentRanges = ranges;
-    const context = rebuild(ranges);
+    const context = rebuild(ranges, flowReversed);
     if (!renderer) {
       const tier = selectTier(resolved.renderer, env, context.lines.length);
       renderer = rendererForTier(tier);
@@ -421,6 +500,13 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       removed = true;
       showing = false;
       document.removeEventListener("selectionchange", onSelectionChange);
+      if (tracker) {
+        document.removeEventListener("pointerdown", onPointerDown, true);
+        document.removeEventListener("pointerup", endDrag, true);
+        document.removeEventListener("pointercancel", endDrag, true);
+        window.removeEventListener("blur", endDrag);
+        tracker.reset();
+      }
       renderer?.unmount();
       renderer = null;
       teardownContainer(container);
