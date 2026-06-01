@@ -47,6 +47,19 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
       startEndBuildup: 0.3,
       flowFade: 0,
     },
+    speed: {
+      enabled: true,
+      sensitivity: 0.8,
+      slowSpeed: 0.2,
+      fastSpeed: 2,
+      minDeposit: 0.4,
+      smoothing: 0.35,
+      resolution: 12,
+      dryoutBoost: 0.7,
+      streakBoost: 0.3,
+      featherReduce: 0.5,
+      poolBoost: 0.6,
+    },
     edge: { waviness: 1, frequency: 30, roughness: 0.3, cap: "round", radius: 3 },
     paper: { absorbency: 0.3 },
     glow: { enabled: false, intensity: 0, spread: 0, color: "#ffffff" },
@@ -576,6 +589,61 @@ describe("buildPoolGradient", () => {
       expect(s.opacity).toBeGreaterThanOrEqual(0);
       expect(s.opacity).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("with no speed args is byte-identical legacy: 4 stops, no speed fields", () => {
+    const g = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0.3, color: "#000", opacity: 0.5 });
+    expect(g.stops).toHaveLength(4);
+    expect(g.stops.map((s) => s.offset)).toEqual([0, 0.4, 0.6, 1]);
+    expect(g.coreStopCount).toBeUndefined();
+    expect(g.coreStopsPositionsPx).toBeUndefined();
+    expect(g.layerScale).toBeUndefined();
+  });
+
+  it("speed path emits N core stops between two pool ends, monotonic px positions", () => {
+    const g = buildPoolGradient({
+      lengthPx: 400,
+      startEndBuildup: 0.25,
+      color: "#000",
+      opacity: 0.5,
+      coreStopCount: 12,
+      depositAt: () => 1,
+    });
+    expect(g.coreStopCount).toBe(12);
+    expect(g.stops).toHaveLength(14); // 2 ends + 12 core
+    expect(g.coreStopsPositionsPx).toHaveLength(12);
+    const pos = g.coreStopsPositionsPx!;
+    for (let i = 1; i < pos.length; i++) expect(pos[i]).toBeGreaterThanOrEqual(pos[i - 1]);
+    // Core plateau stays between the px-clamped pool insets.
+    expect(pos[0]).toBeGreaterThanOrEqual(0);
+    expect(pos[pos.length - 1]).toBeLessThanOrEqual(400);
+  });
+
+  it("layerScale dims a uniformly-fast line but not a uniformly-slow one", () => {
+    const common = { lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.6, coreStopCount: 8 } as const;
+    const slow = buildPoolGradient({ ...common, depositAt: () => 1 });
+    const fast = buildPoolGradient({ ...common, depositAt: () => 0.4 });
+    expect(slow.layerScale).toBeCloseTo(1);
+    // Uniformly fast → every stop scaled by 0.4 → normalization cancels the shape,
+    // so layerScale must carry the absolute dimming instead.
+    expect(fast.layerScale).toBeCloseTo(0.4);
+  });
+
+  it("speed deposit profile varies the core stop alphas mid-line (slow→fast→slow)", () => {
+    // deposit dips in the middle (fast) and is full at the ends (slow).
+    const g = buildPoolGradient({
+      lengthPx: 400,
+      startEndBuildup: 0,
+      color: "#000",
+      opacity: 0.5,
+      coreStopCount: 9,
+      depositAt: (f) => 1 - 0.6 * (1 - Math.abs(f - 0.5) * 2), // V-shape: 0.4 at f=0.5, 1 at ends
+    });
+    const core = g.stops.slice(1, -1).map((s) => s.opacity!);
+    const mid = core[Math.floor(core.length / 2)];
+    // The middle core stop is the lightest (fastest swipe → least ink).
+    expect(mid).toBeLessThan(core[0]);
+    expect(mid).toBeLessThan(core[core.length - 1]);
   });
 });
 

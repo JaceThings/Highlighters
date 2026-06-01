@@ -251,7 +251,11 @@ export function createSvgRenderer(): Renderer {
     // flow adds opacity on top, viscous ink subtracts it (drier, thinner).
     const saturationGain = 0.35 + 0.65 * clamp01(ink.saturation);
     const flowGain = 1 + 0.35 * (clamp01(ink.flow) - clamp01(ink.viscosity));
-    const effectiveAlpha = clamp01(options.opacity * saturationGain * flowGain);
+    // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
+    // so a uniformly-fast swipe dims the layer instead of being normalized to full.
+    const effectiveAlpha = clamp01(
+      options.opacity * saturationGain * flowGain * (line.pool.layerScale ?? 1),
+    );
     s.opacity = String(round3(effectiveAlpha));
 
     setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool));

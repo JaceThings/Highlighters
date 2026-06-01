@@ -53,6 +53,23 @@ export function poolGradientToCss(pool: PoolGradient): string {
 
   // Absolute-px insets with min()/max() clamps keep the cap-pool width constant:
   //   2px, min(10px, 40%), max(100% - 10px, 60%), 100% - 2px.
+  // Live-speed path: N core stops at pre-computed px positions between the two
+  // px-pool ends — the same color-mix normalization, generalized over the array.
+  // No nested calc/min/max (positions are already px), so it parses everywhere.
+  const positions = pool.coreStopsPositionsPx;
+  if (positions) {
+    const parts: string[] = [
+      `linear-gradient(${pool.angle}deg`,
+      `${fill(0)} ${pool.startInsetPx}px`,
+    ];
+    for (let i = 0; i < positions.length; i++) {
+      parts.push(`${fill(i + 1)} ${round2(positions[i])}px`);
+    }
+    parts.push(`${fill(stops.length - 1)} calc(100% - ${pool.endInsetPx}px))`);
+    return parts.join(", ");
+  }
+
+  // Legacy 4-stop gradient — absolute-px insets with min()/max() clamps.
   const startCore = `min(${pool.startCorePx}px, ${pool.startCorePct}%)`;
   const endCore = `max(calc(100% - ${pool.endCorePx}px), ${pool.endCorePct}%)`;
 
@@ -63,6 +80,11 @@ export function poolGradientToCss(pool: PoolGradient): string {
     `${fill(2)} ${endCore}`,
     `${fill(3)} calc(100% - ${pool.endInsetPx}px))`,
   ].join(", ");
+}
+
+/** Round a px position to 2 decimals for a compact, stable gradient string. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 /**
@@ -88,7 +110,9 @@ export function createCssRenderer(): Renderer {
     s.height = "100%";
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
-    s.opacity = String(options.opacity);
+    // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
+    // — so a uniformly-fast swipe dims here rather than being normalized back to full.
+    s.opacity = String(options.opacity * (line.pool.layerScale ?? 1));
     // The pool gradient already carries the end-pooling; box-decoration-break is
     // set for parity with an inline rendering of the same band.
     s.backgroundImage = poolGradientToCss(line.pool);

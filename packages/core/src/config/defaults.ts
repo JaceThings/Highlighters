@@ -48,6 +48,22 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     // runs drier as it slides, so each line starts saturated and fades toward its end.
     flowFade: 0.5,
   }),
+  // Speed-aware deposit, on by default — but a no-op until the user actually drags
+  // a live selection (static marks never sample velocity). Faster swipe → lighter,
+  // drier, sharper; slow/decelerating → darker, wetter, pooled.
+  speed: Object.freeze({
+    enabled: true,
+    sensitivity: 0.8,
+    slowSpeed: 0.2,
+    fastSpeed: 2,
+    minDeposit: 0.4,
+    smoothing: 0.35,
+    resolution: 12,
+    dryoutBoost: 0.7,
+    streakBoost: 0.3,
+    featherReduce: 0.5,
+    poolBoost: 0.6,
+  }),
   edge: Object.freeze({
     waviness: 1.5,
     // px segmentLength of the wave grid — width-independent (R22c).

@@ -72,6 +72,7 @@ export type {
   // Namespaced option groups
   TipOptions,
   InkOptions,
+  SpeedDynamicsOptions,
   EdgeOptions,
   PaperOptions,
   GlowOptions,
@@ -80,11 +81,13 @@ export type {
   HighlightOptions,
   ResolvedTip,
   ResolvedInk,
+  ResolvedSpeedDynamics,
   ResolvedEdge,
   ResolvedPaper,
   ResolvedGlow,
   ResolvedAnimation,
   ResolvedOptions,
+  LineSpeedProfile,
   // Geometry (absolute-px mark-space)
   Box,
   LineRect,

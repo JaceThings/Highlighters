@@ -2,11 +2,13 @@ import type {
   Box,
   EdgeVertex,
   LineRect,
+  LineSpeedProfile,
   MarkGeometry,
   MaskOffset,
   NoiseTile,
   ResolvedOptions,
 } from "../types.js";
+import { clamp } from "../internal/math.js";
 import { buildClipPath, chiselSlant, minVisibleFront } from "./clip-path.js";
 import { buildEdge } from "./edges.js";
 import { buildNoiseTile } from "./noise-tile.js";
@@ -87,14 +89,19 @@ function resolveBand(
  * @param flowReversed - Pour the dry-out gradient from the right (the nib's
  *   touchdown end on a right-to-left / backward live selection). Forward by
  *   default; only the live-selection path sets it.
+ * @param speedProfile - Live-only per-line swipe-speed read (see
+ *   {@link LineSpeedProfile}). When present, the line gets speed-aware deposit
+ *   (per-x, in the pool gradient) and texture (per-line). Absent for every static
+ *   mark and no-drag paint, leaving byte-identical geometry.
  */
 export function buildMarkGeometry(
   lineRect: LineRect,
   options: ResolvedOptions,
   seed: number,
   flowReversed = false,
+  speedProfile?: LineSpeedProfile,
 ): MarkGeometry {
-  const { edge, ink, tip, paper } = options;
+  const { edge, ink, tip, paper, speed } = options;
 
   // --- End extensions (deterministic per seed) ------------------------------
   // `tip.overshoot` governs how far EACH end of EVERY line runs past (positive)
@@ -190,11 +197,26 @@ export function buildMarkGeometry(
   // streakiness → lengthwise lanes, feathering (+ absorbency) → soft blotches,
   // dryout → probabilistic transparent skip-holes (viscosity raises dryout, since
   // a more viscous ink skips more on a dry pass).
+  // Speed-aware texture (live drag only): a faster MEAN swipe lays a drier,
+  // streakier, sharper line. This is per-line — the noise tile is one sample window
+  // per line and can't vary within it — so it tracks the line's mean speed; the
+  // continuous per-x dry-out lives in the pool gradient below. With no profile, the
+  // three values reduce to exactly the original expressions (byte-identical).
+  const sp = speedProfile;
+  const m = sp ? sp.meanNorm : 0;
+  const sens = speed.sensitivity;
+  const baseDryout = ink.dryout + ink.viscosity * 0.2;
+  const baseStreak = ink.streakiness;
+  const baseFeather = ink.feathering + paper.absorbency * 0.25;
   const noiseTile: NoiseTile = buildNoiseTile({
     seed,
-    streakiness: ink.streakiness,
-    feathering: ink.feathering + paper.absorbency * 0.25,
-    dryout: ink.dryout + ink.viscosity * 0.2,
+    streakiness: sp
+      ? clamp(baseStreak + speed.streakBoost * sens * m * Math.max(0, 1 - baseStreak), 0, 1)
+      : baseStreak,
+    feathering: sp ? Math.max(0, baseFeather * (1 - speed.featherReduce * sens * m)) : baseFeather,
+    dryout: sp
+      ? clamp(baseDryout + speed.dryoutBoost * sens * m * Math.max(0, 1 - baseDryout), 0, 1)
+      : baseDryout,
   });
   const maskOffset: MaskOffset = {
     x: -mod(seed * MASK_X_MULT, noiseTile.width),
@@ -210,6 +232,15 @@ export function buildMarkGeometry(
     angle: options.gradient?.angle ?? undefined,
     flowFade: ink.flowFade,
     flowReversed,
+    // Live speed path: per-x deposit across N stops + extra end pooling from
+    // deceleration into the line. Omitted entirely without a profile (legacy 4-stop).
+    ...(sp
+      ? {
+          coreStopCount: speed.resolution,
+          depositAt: sp.depositAt,
+          decelBuildup: speed.poolBoost * sens * sp.decel,
+        }
+      : {}),
   });
 
   return {

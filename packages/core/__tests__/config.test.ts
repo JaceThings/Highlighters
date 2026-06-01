@@ -273,6 +273,28 @@ describe("resolveOptions", () => {
     expect(resolveOptions({ opacity: 0.42 }).opacity).toBe(0.42);
   });
 
+  it("resolves the speed-dynamics group with defaults, clamps, and partial merge", () => {
+    const d = DEFAULT_OPTIONS.speed;
+    // Defaults flow through untouched.
+    expect(resolveOptions().speed).toEqual(d);
+    // resolution clamps into [4, 24] and rounds.
+    expect(resolveOptions({ speed: { resolution: 999 } }).speed.resolution).toBe(24);
+    expect(resolveOptions({ speed: { resolution: 1 } }).speed.resolution).toBe(4);
+    expect(resolveOptions({ speed: { resolution: 9.6 } }).speed.resolution).toBe(10);
+    // 0..1 weights clamp.
+    expect(resolveOptions({ speed: { sensitivity: 5 } }).speed.sensitivity).toBe(1);
+    expect(resolveOptions({ speed: { minDeposit: -3 } }).speed.minDeposit).toBe(0);
+    // px/ms thresholds floor at 0 but otherwise pass through.
+    expect(resolveOptions({ speed: { fastSpeed: 3.5 } }).speed.fastSpeed).toBe(3.5);
+    expect(resolveOptions({ speed: { slowSpeed: -1 } }).speed.slowSpeed).toBe(0);
+    // A partial override merges field-wise (other fields keep their defaults).
+    const partial = resolveOptions({ speed: { enabled: false } }).speed;
+    expect(partial.enabled).toBe(false);
+    expect(partial.sensitivity).toBe(d.sensitivity);
+    // NaN falls back to the default.
+    expect(resolveOptions({ speed: { sensitivity: NaN } }).speed.sensitivity).toBe(d.sensitivity);
+  });
+
   it("the minimal preset resolves truly flat (quality no longer re-injects variance)", () => {
     const r = resolveOptions({ preset: "minimal" });
     expect(r.ink.feathering).toBe(0);

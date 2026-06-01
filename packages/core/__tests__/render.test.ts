@@ -275,6 +275,40 @@ describe("createCssRenderer", () => {
     expect(css).toContain("calc(100% - 2px)");
   });
 
+  it("renders a speed gradient as N px-positioned core stops (no min/max clamps)", () => {
+    // A live-speed PoolGradient (coreStopsPositionsPx present) → the px-stop path.
+    const speedPool = {
+      angle: 85,
+      startInsetPx: 2,
+      startCorePx: 10,
+      startCorePct: 40,
+      endCorePx: 10,
+      endCorePct: 60,
+      endInsetPx: 2,
+      coreStopCount: 4,
+      coreStopsPositionsPx: [16, 80, 160, 240],
+      layerScale: 0.6,
+      stops: [
+        { offset: 0, color: "#000", opacity: 0.5 },
+        { offset: 0, color: "#000", opacity: 0.5 },
+        { offset: 0.33, color: "#000", opacity: 0.3 },
+        { offset: 0.66, color: "#000", opacity: 0.3 },
+        { offset: 1, color: "#000", opacity: 0.5 },
+        { offset: 1, color: "#000", opacity: 0.5 },
+      ],
+    };
+    const css = poolGradientToCss(speedPool);
+    expect(css).toContain("linear-gradient(85deg");
+    expect(css).toContain("16px");
+    expect(css).toContain("240px");
+    expect(css).toContain("calc(100% - 2px)");
+    // The speed path uses pre-computed px, never the legacy min()/max() clamps.
+    expect(css).not.toContain("min(10px");
+    expect(css).not.toContain("max(calc");
+    // Relative-alpha normalization (color-mix to the brightest stop) still applies.
+    expect(css).toContain("color-mix(in srgb");
+  });
+
   it("retains surviving line nodes by identity on update", () => {
     const renderer = createCssRenderer();
     const container = createOverlayContainer(host);
