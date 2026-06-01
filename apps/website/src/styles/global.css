@@ -1,0 +1,198 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  /* Inter v4 ships an `opsz` axis; pair with the `standard` variant in main.tsx. */
+  font-optical-sizing: auto;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  /*
+   * `font-feature-settings` overrides the browser default, so we re-list
+   * the always-on features (kern/liga/calt) alongside Inter's `cv05`
+   * alt 'l' with curved tail. Verified against Figma file f6JlgIPQFMFIJSpiJbviOG.
+   */
+  font-feature-settings:
+    "kern" 1,
+    "liga" 1,
+    "calt" 1,
+    "cv05" 1;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: -0.25px;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+/* Default selection style = the brown @highlighters marker (see
+ * SelectionMarker.tsx). Once that component has mounted and added
+ * `selection-marker-ready` to <html>, we suppress the browser's native blue
+ * selection band so the painted brown marker REPLACES it (text color stays
+ * intact since the overlay floats a translucent band over the glyphs).
+ *
+ * Gated on the class: if JS fails to load, `selection-marker-ready` is never
+ * added and the browser's own native selection still works as a fallback. */
+html.selection-marker-ready ::selection {
+  background-color: transparent;
+  color: inherit;
+}
+html.selection-marker-ready ::-moz-selection {
+  background-color: transparent;
+  color: inherit;
+}
+
+p {
+  text-wrap: pretty;
+  /* Justified body text relies on hyphenation to avoid huge word-spacing
+     gaps in narrow columns. Harmless on non-justified text — the browser
+     only inserts hyphens at line-break points where they would otherwise
+     overflow. Monospace contexts (install commands) don't use <p>, so
+     they're unaffected. */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* The focus ring is rendered globally by <FocusRingOverlay> — it springs
+ * between any element marked with [data-focus-ring]. Suppress the browser's
+ * default outline on those targets so it doesn't double up with the overlay. */
+[data-focus-ring]:focus,
+[data-focus-ring]:focus-visible {
+  outline: none;
+}
+
+/* Lets `width: auto` participate in CSS transitions, so a pill button
+   that sizes to its content can smoothly resize when its label changes
+   without any JS measurement. Chrome 129+, Safari 26+; falls back to
+   snapping in older browsers. */
+:root {
+  interpolate-size: allow-keywords;
+}
+
+/* sr-only content is for assistive tech only — exclude it from text
+ * selection so Cmd+A + Cmd+C doesn't paste screen-reader headings,
+ * pronunciation glosses, or live-region descriptions into user
+ * clipboards. Screen readers still announce this content; they
+ * ignore `user-select`. */
+.sr-only {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Native range input restyle for the Playground sliders. We layer a
+ * styled track + fill div underneath the input (see Slider.tsx); the
+ * input itself stays interactive (keyboard focus, drag, accessibility)
+ * but its visuals are stripped so the layered div shows through. The
+ * thumb is intentionally invisible — the fill bar's right edge is the
+ * value indicator, matching the Figma reference. */
+.playground-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+.playground-slider::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 100%;
+  border: none;
+}
+.playground-slider::-moz-range-track {
+  background: transparent;
+  height: 100%;
+  border: none;
+}
+/* iOS Safari paints the default thumb chrome even with appearance:none +
+ * transparent background + opacity:0. The input has pointer-events:none
+ * (the wrapper div handles drag), so the thumb doesn't need to be
+ * hit-testable — collapse it to 0×0 and force every visual property off. */
+.playground-slider::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 0;
+  height: 0;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  opacity: 0;
+}
+.playground-slider::-moz-range-thumb {
+  -moz-appearance: none;
+  appearance: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  opacity: 0;
+}
+
+/* Click-to-type affordance on the value readout. The span gets cursor:text
+ * on hover so users see they can click and edit; the input replaces it
+ * in-place with matching font features, right-aligned, no border or
+ * outline (FocusRingOverlay handles focus visuals). */
+.playground-slider-value {
+  cursor: text;
+  font-feature-settings: "ss03" 1, "ss04" 1;
+  /* Explicit on the readout so the digits don't shift width as values
+     count from 10 → 100. <input> doesn't inherit body's variant by
+     default, so it gets the same rule below. */
+  font-variant-numeric: tabular-nums;
+}
+.playground-slider-input {
+  width: 4ch;
+  min-width: 2ch;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  text-align: right;
+  font: inherit;
+  letter-spacing: inherit;
+  font-feature-settings: "ss03" 1, "ss04" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The agentation dev toolbar is chrome, not content — it must never be
+ * selectable (and so never painted by the brown selection marker). Cascades to
+ * the toolbar + settings panel; form fields inside stay typeable. */
+[data-agentation-root] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+[data-agentation-root] input,
+[data-agentation-root] textarea,
+[data-agentation-root] [contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}

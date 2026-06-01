@@ -1,0 +1,9 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+  - "benchmarks"
+  - "tests/browser-smoke"
+# tests/consumer-smoke is NOT a workspace — it consumes packed tarballs
+# at runtime via the consumer-smoke script. Including it here would make
+# pnpm try to link @highlighters/* as workspace deps, defeating the
+# test's purpose.

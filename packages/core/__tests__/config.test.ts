@@ -1,0 +1,303 @@
+import { describe, expect, it } from "vitest";
+
+import { applyColorantAxis, normalizeColorant } from "../src/config/colorant.js";
+import { DEFAULT_OPTIONS } from "../src/config/defaults.js";
+import { mergeOptions, resolveOptions } from "../src/config/merge.js";
+import {
+  defaultSwatch,
+  getPalette,
+  PALETTES,
+  resolveSwatch,
+} from "../src/config/palettes.js";
+import { getPreset, PRESETS } from "../src/config/presets.js";
+
+describe("palettes", () => {
+  it("ships the five curated families with yellow-first fluorescent", () => {
+    expect(Object.keys(PALETTES).sort()).toEqual(
+      ["calm", "fluorescent", "mild", "neutral", "vintage"].sort(),
+    );
+    // Fluorescent yellow is the canonical default — least text-obscuring (R15).
+    expect(Object.keys(PALETTES.fluorescent.swatches)[0]).toBe("yellow");
+  });
+
+  it("resolves swatches and throws on unknown family / swatch", () => {
+    expect(resolveSwatch({ palette: "fluorescent", swatch: "yellow" })).toBe(
+      PALETTES.fluorescent.swatches.yellow,
+    );
+    // @ts-expect-error — deliberately invalid family name.
+    expect(() => getPalette("rainbow")).toThrow(/unknown palette/);
+    expect(() =>
+      resolveSwatch({ palette: "fluorescent", swatch: "chartreuse" }),
+    ).toThrow(/unknown swatch/);
+  });
+
+  it("defaultSwatch picks the least-obscuring hue per family", () => {
+    expect(defaultSwatch("fluorescent")).toBe(
+      PALETTES.fluorescent.swatches.yellow,
+    );
+    expect(defaultSwatch("mild")).toBe(PALETTES.mild.swatches.yellow);
+  });
+});
+
+describe("DEFAULT_OPTIONS", () => {
+  it("encodes the documented defaults and is frozen", () => {
+    expect(DEFAULT_OPTIONS.markType).toBe("highlight");
+    expect(DEFAULT_OPTIONS.blendMode).toBe("multiply");
+    expect(DEFAULT_OPTIONS.color).toBe(defaultSwatch("fluorescent"));
+    expect(DEFAULT_OPTIONS.quality).toBe("standard");
+    expect(DEFAULT_OPTIONS.snap).toBe("line");
+    expect(DEFAULT_OPTIONS.renderer).toBe("auto");
+    expect(DEFAULT_OPTIONS.glow.enabled).toBe(false);
+    expect(DEFAULT_OPTIONS.colorant).toBe(0.5);
+    expect(DEFAULT_OPTIONS.seed).toBeNull();
+    expect(DEFAULT_OPTIONS.edge.cap).toBe("round");
+    expect(Object.isFrozen(DEFAULT_OPTIONS)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_OPTIONS.ink)).toBe(true);
+  });
+});
+
+describe("normalizeColorant", () => {
+  it("maps named anchors to axis positions", () => {
+    expect(normalizeColorant("dye")).toBe(0);
+    expect(normalizeColorant("balanced")).toBe(0.5);
+    expect(normalizeColorant("pigment")).toBe(1);
+  });
+
+  it("clamps numbers into [0,1]", () => {
+    expect(normalizeColorant(0.42)).toBe(0.42);
+    expect(normalizeColorant(-3)).toBe(0);
+    expect(normalizeColorant(9)).toBe(1);
+  });
+});
+
+describe("applyColorantAxis", () => {
+  it("sweeping dye→pigment moves params monotonically in the documented directions", () => {
+    // Sample the axis at evenly-spaced positions with no ink set.
+    const samples = [0, 0.25, 0.5, 0.75, 1].map(
+      (c) => applyColorantAxis({}, c).ink!,
+    );
+
+    const monotoneDecreasing = (values: number[]) =>
+      values.every((v, i) => i === 0 || v <= values[i - 1]);
+
+    expect(monotoneDecreasing(samples.map((s) => s.saturation!))).toBe(true);
+    expect(monotoneDecreasing(samples.map((s) => s.feathering!))).toBe(true);
+    expect(monotoneDecreasing(samples.map((s) => s.streakiness!))).toBe(true);
+    expect(monotoneDecreasing(samples.map((s) => s.startEndBuildup!))).toBe(
+      true,
+    );
+
+    // Endpoints: dye is saturated/feathery/pooling; pigment is muted/clean.
+    expect(samples[0].saturation!).toBeGreaterThan(samples[4].saturation!);
+    expect(samples[0].feathering!).toBeGreaterThan(samples[4].feathering!);
+    // Pigment engages the anti-pool guardrail (negative build-up).
+    expect(samples[4].startEndBuildup!).toBeLessThan(0);
+    expect(samples[0].startEndBuildup!).toBeGreaterThan(0);
+  });
+
+  it("opacity tracks the axis: denser at dye, translucent at pigment", () => {
+    expect(applyColorantAxis({}, 0).opacity!).toBeGreaterThan(
+      applyColorantAxis({}, 1).opacity!,
+    );
+  });
+
+  it("only fills unset fields — explicit user values always win", () => {
+    const out = applyColorantAxis(
+      { ink: { saturation: 0.123, feathering: 0.999 }, opacity: 0.05 },
+      0,
+    );
+    expect(out.ink!.saturation).toBe(0.123);
+    expect(out.ink!.feathering).toBe(0.999);
+    expect(out.opacity).toBe(0.05);
+    // …but unset siblings are still defaulted from the axis.
+    expect(out.ink!.streakiness).toBeTypeOf("number");
+  });
+
+  it("does not mutate its input", () => {
+    const input = { ink: { flow: 0.5 } };
+    const before = JSON.stringify(input);
+    applyColorantAxis(input, 0.3);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+});
+
+describe("getPreset", () => {
+  it("returns every shipped preset as a shallow clone", () => {
+    for (const name of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) {
+      const clone = getPreset(name);
+      expect(clone).toEqual(PRESETS[name]);
+      expect(clone).not.toBe(PRESETS[name]);
+    }
+    // @ts-expect-error — deliberately invalid preset name.
+    expect(() => getPreset("neon")).toThrow(/unknown preset/);
+  });
+
+  it("mutating a clone does not corrupt the shared constant", () => {
+    const clone = getPreset("mild");
+    clone.opacity = 0;
+    expect(PRESETS.mild.opacity).not.toBe(0);
+  });
+});
+
+describe("mergeOptions", () => {
+  it("override wins per top-level field", () => {
+    const merged = mergeOptions({ opacity: 0.5 }, { opacity: 0.9 });
+    expect(merged.opacity).toBe(0.9);
+  });
+
+  it("merges namespaced groups field-wise rather than replacing them", () => {
+    const merged = mergeOptions(
+      { ink: { flow: 0.5, saturation: 0.8 } },
+      { ink: { saturation: 0.2 } },
+    );
+    // flow survives from base; saturation overridden.
+    expect(merged.ink).toEqual({ flow: 0.5, saturation: 0.2 });
+  });
+
+  it("reconciles the shape/markType synonyms onto markType", () => {
+    const fromShape = mergeOptions({}, { shape: "underline" });
+    expect(fromShape.markType).toBe("underline");
+    expect(fromShape.shape).toBeUndefined();
+
+    // markType wins over shape when both are present in the override.
+    const both = mergeOptions({}, { shape: "underline", markType: "strike-through" });
+    expect(both.markType).toBe("strike-through");
+
+    // override.shape beats base.markType.
+    const overrideShape = mergeOptions({ markType: "highlight" }, { shape: "underline" });
+    expect(overrideShape.markType).toBe("underline");
+  });
+
+  it("is pure (does not mutate either argument)", () => {
+    const base = { ink: { flow: 0.5 } };
+    const override = { ink: { saturation: 0.2 } };
+    mergeOptions(base, override);
+    expect(base).toEqual({ ink: { flow: 0.5 } });
+    expect(override).toEqual({ ink: { saturation: 0.2 } });
+  });
+});
+
+describe("resolveOptions", () => {
+  it("produces a fully-resolved object with no undefined fields", () => {
+    const r = resolveOptions();
+    for (const value of Object.values(r)) {
+      expect(value).not.toBeUndefined();
+    }
+    expect(r.tip.type).toBeDefined();
+    expect(r.ink.flow).toBeTypeOf("number");
+    expect(r.animation.duration).toBeTypeOf("number");
+  });
+
+  it("defaults to the mild preset when none is given (R19)", () => {
+    const r = resolveOptions();
+    // mild = muted palette + low opacity + multiply + word snap + soft edges.
+    expect(r.color).toBe(PALETTES.mild.swatches.yellow);
+    expect(r.opacity).toBe(PRESETS.mild.opacity);
+    expect(r.blendMode).toBe("multiply");
+    expect(r.snap).toBe("word");
+    // mild pins colorant to pigment → normalized to 1.
+    expect(r.colorant).toBe(1);
+  });
+
+  it("applies the precedence defaults → preset → quality → colorant → user", () => {
+    // User opacity beats the preset.
+    expect(resolveOptions({ opacity: 0.33 }).opacity).toBe(0.33);
+
+    // Preset selection changes the resolved color.
+    expect(resolveOptions({ preset: "classic-yellow" }).color).toBe(
+      PALETTES.fluorescent.swatches.yellow,
+    );
+
+    // Quality bundle fills unset ink params; user ink still wins over it.
+    const cheap = resolveOptions({ preset: "wet", quality: "cheap" });
+    expect(cheap.quality).toBe("cheap");
+    const userWins = resolveOptions({ quality: "cheap", ink: { streakiness: 0.01 } });
+    expect(userWins.ink.streakiness).toBe(0.01);
+  });
+
+  it("resolves a palette swatch reference and a named palette default", () => {
+    expect(
+      resolveOptions({ color: { palette: "calm", swatch: "mint" } }).color,
+    ).toBe(PALETTES.calm.swatches.mint);
+    // palette-only (no explicit color) → that family's default swatch.
+    expect(resolveOptions({ preset: "wet", palette: "vintage" }).color).toBe(
+      defaultSwatch("vintage"),
+    );
+  });
+
+  it("normalizes the colorant value to a number", () => {
+    expect(resolveOptions({ colorant: "dye" }).colorant).toBe(0);
+    expect(resolveOptions({ colorant: "balanced" }).colorant).toBe(0.5);
+    expect(resolveOptions({ colorant: 0.7 }).colorant).toBe(0.7);
+  });
+
+  it("setting waviness and roughness to 0 yields clean straight edges (V3/R13)", () => {
+    const r = resolveOptions({ edge: { waviness: 0, roughness: 0 } });
+    expect(r.edge.waviness).toBe(0);
+    expect(r.edge.roughness).toBe(0);
+  });
+
+  // --- input hardening (correctness audit) ---
+
+  it("a user palette wins over a preset's own color object (palette-only)", () => {
+    // The default `mild` preset ships a color object; a palette-only call must
+    // still draw the requested palette's default, not mild's yellow.
+    expect(resolveOptions({ palette: "calm" }).color).toBe(defaultSwatch("calm"));
+    expect(
+      resolveOptions({ preset: "classic-yellow", palette: "calm" }).color,
+    ).toBe(defaultSwatch("calm"));
+    // An explicit color still wins over a palette.
+    expect(resolveOptions({ color: "#abcabc", palette: "calm" }).color).toBe("#abcabc");
+  });
+
+  it("treats an empty/whitespace color as unset", () => {
+    expect(resolveOptions({ color: "" }).color).toBe(DEFAULT_OPTIONS.color);
+    expect(resolveOptions({ color: "   " }).color).toBe(DEFAULT_OPTIONS.color);
+    expect(resolveOptions({ color: "", palette: "calm" }).color).toBe(defaultSwatch("calm"));
+  });
+
+  it("substitutes the default for a non-finite or non-positive duration", () => {
+    const dflt = DEFAULT_OPTIONS.animation.duration;
+    expect(resolveOptions({ animation: { duration: Infinity } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: NaN } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: 0 } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: -5 } }).animation.duration).toBe(dflt);
+    expect(resolveOptions({ animation: { duration: 250 } }).animation.duration).toBe(250);
+  });
+
+  it("substitutes the default for NaN/Infinity numeric knobs", () => {
+    expect(resolveOptions({ opacity: NaN }).opacity).toBe(DEFAULT_OPTIONS.opacity);
+    expect(resolveOptions({ ink: { flow: NaN } }).ink.flow).toBe(DEFAULT_OPTIONS.ink.flow);
+    expect(resolveOptions({ edge: { radius: Infinity } }).edge.radius).toBe(DEFAULT_OPTIONS.edge.radius);
+    // A valid value still passes through.
+    expect(resolveOptions({ opacity: 0.42 }).opacity).toBe(0.42);
+  });
+
+  it("the minimal preset resolves truly flat (quality no longer re-injects variance)", () => {
+    const r = resolveOptions({ preset: "minimal" });
+    expect(r.ink.feathering).toBe(0);
+    expect(r.ink.streakiness).toBe(0);
+    expect(r.ink.dryout).toBe(0);
+    expect(r.ink.startEndBuildup).toBe(0);
+    expect(r.edge.waviness).toBe(0);
+    expect(r.edge.roughness).toBe(0);
+  });
+
+  it("honors an explicit seed and the shape synonym", () => {
+    expect(resolveOptions({ seed: 42 }).seed).toBe(42);
+    expect(resolveOptions().seed).toBeNull();
+    expect(resolveOptions({ shape: "strike-through" }).markType).toBe(
+      "strike-through",
+    );
+  });
+
+  it("the premium preset engages the anti-pool guardrail (negative build-up)", () => {
+    expect(resolveOptions({ preset: "premium" }).ink.startEndBuildup).toBeLessThan(0);
+  });
+
+  it("does not mutate DEFAULT_OPTIONS", () => {
+    const before = JSON.stringify(DEFAULT_OPTIONS);
+    resolveOptions({ opacity: 0.1, ink: { flow: 0.9 }, preset: "wet" });
+    expect(JSON.stringify(DEFAULT_OPTIONS)).toBe(before);
+  });
+});
