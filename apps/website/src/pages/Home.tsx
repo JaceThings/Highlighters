@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { CopyablePackages } from "../components/CopyablePackages.tsx";
 import { pickNextExcerpt } from "./excerpts.ts";
 
 // The homepage IS the demonstration: a sheet of ruled paper with real text and a
@@ -42,13 +43,9 @@ export function Home() {
       <p className="m-0">{INTRO}</p>
       <p className="m-0">{FEATURES}</p>
 
-      {/* The npm packages, one per line. Monospace so they read as code; still on
-          the 24px grid (four lines = four rows). */}
-      <div className="m-0 font-mono text-[0.8125rem]">
-        {PACKAGES.map((name) => (
-          <div key={name}>{name}</div>
-        ))}
-      </div>
+      {/* The npm packages, one per line — monospace, click-to-copy, still on the
+          24px grid (four lines = four rows). See CopyablePackages. */}
+      <CopyablePackages items={PACKAGES} />
 
       {/* Divider: a hairline centred in one ruled row, so the grid is untouched.
           select-none keeps this decorative rule out of any text selection. */}
