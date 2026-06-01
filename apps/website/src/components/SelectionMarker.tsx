@@ -4,7 +4,7 @@ import {
   type MarkHandle,
   highlightSelection,
 } from "@highlighters/core";
-import { DEFAULT_INK, penToTip, useSelectionStyle } from "../selection-style.tsx";
+import { DEFAULT_INK, penToTip, SPEED_DEFAULTS, useSelectionStyle } from "../selection-style.tsx";
 
 /**
  * Document-global live text-selection marker for the site.
@@ -78,17 +78,18 @@ const BASE_SELECTION_OPTIONS: HighlightOptions = {
 const READY_CLASS = "selection-marker-ready";
 
 export function SelectionMarker(): null {
-  const { style } = useSelectionStyle();
+  const { style, speed } = useSelectionStyle();
   const handleRef = useRef<MarkHandle | null>(null);
 
-  // Wire the live selection once. The initial colour and nib match the dock
-  // defaults, so the first paint already agrees with the dock's default swatch
-  // and pen (the update effect below then keeps them in sync).
+  // Wire the live selection once. The initial colour, nib, and speed config match
+  // the defaults, so the first paint already agrees with the controls (the update
+  // effect below then keeps them in sync).
   useEffect(() => {
     const handle = highlightSelection({
       ...BASE_SELECTION_OPTIONS,
       color: DEFAULT_INK,
       ...penToTip("slant"),
+      speed: SPEED_DEFAULTS,
     });
     handleRef.current = handle;
     document.documentElement.classList.add(READY_CLASS);
@@ -99,11 +100,12 @@ export function SelectionMarker(): null {
     };
   }, []);
 
-  // Re-style the live selection whenever the dock's colour or pen changes; the
-  // handle re-resolves options and repaints the current selection in place.
+  // Re-style the live selection whenever the colour, pen, or speed-dynamics config
+  // changes; the handle re-resolves options and repaints in place. Speed dynamics
+  // is live-only, so it only shows once the user actually drags a selection.
   useEffect(() => {
-    handleRef.current?.update({ color: style.color, ...penToTip(style.pen) });
-  }, [style.color, style.pen]);
+    handleRef.current?.update({ color: style.color, ...penToTip(style.pen), speed });
+  }, [style.color, style.pen, speed]);
 
   return null;
 }
