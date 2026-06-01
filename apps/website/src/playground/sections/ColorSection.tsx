@@ -146,7 +146,7 @@ export function ColorSection() {
         >
           <label
             htmlFor="playground-custom-color"
-            className="text-[14px] leading-none font-medium tracking-[-0.25px] text-text-input"
+            className="text-[14px] leading-[1.2] font-medium tracking-[-0.25px] text-text-input"
           >
             Custom color
           </label>

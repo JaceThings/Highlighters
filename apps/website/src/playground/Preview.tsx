@@ -101,7 +101,7 @@ export function Preview({ replayNonce = 0 }: PreviewProps) {
       {/* The exhibit: position:relative scopes the @highlighters overlay inside
           this block, and select-none means the reader can never grab it. */}
       <div className="relative flex max-w-[420px] select-none flex-col gap-3 text-text-primary">
-        <h3 className="text-[19px] leading-[1.3] font-[560] tracking-[-0.4px]">
+        <h3 className="text-[20px] leading-[1.3] font-[560] tracking-[-0.4px]">
           {mark("The anchored-grid method", headingRun)}
         </h3>
 
