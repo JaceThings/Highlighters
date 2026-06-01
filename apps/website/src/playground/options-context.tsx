@@ -154,9 +154,6 @@ export interface PlaygroundOptionsContextValue {
    */
   options: PlaygroundOptions;
 
-  /** The spring-animated options the Preview renders (eased toward `options`). */
-  previewOptions: PlaygroundOptions;
-
   /**
    * Replace the value at a dotted `path`. Supports one level of nesting:
    *
@@ -198,6 +195,15 @@ export interface PlaygroundOptionsContextValue {
 
 const PlaygroundOptionsContext =
   createContext<PlaygroundOptionsContextValue | null>(null);
+
+// `previewOptions` changes on EVERY spring frame (~20 frames per committed
+// change). It lives in its OWN context so that only <Preview> — its sole
+// consumer — re-renders per frame. The ~11 control sections read the main
+// context above, whose value identity now changes only on a committed
+// option/setter change (not per frame), so their chrome no longer re-renders
+// during the preview tween. The split is invisible: Preview still receives
+// every frame, and Slider/pill visuals animate via their own motion values.
+const PlaygroundPreviewContext = createContext<PlaygroundOptions | null>(null);
 
 /** Shallow-merge `patch` onto `base`, deep-merging one level for object groups. */
 function mergeOptionsShallow(
@@ -386,15 +392,20 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
 
   const previewOptions = useAnimatedOptions(options, fromDrag);
 
+  // NB: previewOptions is deliberately NOT in this value (nor its deps) — it
+  // rides the separate PlaygroundPreviewContext below so the sections don't
+  // re-render every spring frame.
   const value = useMemo<PlaygroundOptionsContextValue>(
-    () => ({ options, previewOptions, set, merge, applyRecipe, setShape, reset }),
-    [options, previewOptions, set, merge, applyRecipe, setShape, reset],
+    () => ({ options, set, merge, applyRecipe, setShape, reset }),
+    [options, set, merge, applyRecipe, setShape, reset],
   );
 
   return (
-    <PlaygroundOptionsContext.Provider value={value}>
-      {children}
-    </PlaygroundOptionsContext.Provider>
+    <PlaygroundPreviewContext.Provider value={previewOptions}>
+      <PlaygroundOptionsContext.Provider value={value}>
+        {children}
+      </PlaygroundOptionsContext.Provider>
+    </PlaygroundPreviewContext.Provider>
   );
 }
 
@@ -407,6 +418,22 @@ export function usePlaygroundOptions(): PlaygroundOptionsContextValue {
   if (!ctx) {
     throw new Error(
       "usePlaygroundOptions must be used within a <PlaygroundOptionsProvider>",
+    );
+  }
+  return ctx;
+}
+
+/**
+ * Read the spring-animated options the {@link Preview} renders (eased toward the
+ * committed `options`). Kept in a SEPARATE context from {@link usePlaygroundOptions}
+ * so consuming this per-frame value doesn't re-render the control sections.
+ * Must be called under a {@link PlaygroundOptionsProvider}.
+ */
+export function usePreviewOptions(): PlaygroundOptions {
+  const ctx = useContext(PlaygroundPreviewContext);
+  if (!ctx) {
+    throw new Error(
+      "usePreviewOptions must be used within a <PlaygroundOptionsProvider>",
     );
   }
   return ctx;

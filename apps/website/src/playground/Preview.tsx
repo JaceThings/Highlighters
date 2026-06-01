@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { Highlight } from "@highlighters/react";
 import type { HighlightOptions } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
-import { toCoreOptions, usePlaygroundOptions } from "./options-context.tsx";
+import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
 
 /**
  * The live preview EXHIBIT. Mirrors the Lisse Preview's framing — a centered
@@ -50,7 +50,7 @@ interface PreviewProps {
 }
 
 export function Preview({ replayNonce = 0 }: PreviewProps) {
-  const { previewOptions } = usePlaygroundOptions();
+  const previewOptions = usePreviewOptions();
   // Gate the marks on the Stagger entrance: before the text has fully faded
   // in, render the phrases as plain text; only paint marks once entered.
   const entered = useEntranceComplete();
