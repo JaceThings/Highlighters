@@ -17,8 +17,8 @@ import { creditLine, pickNextExcerpt } from "./excerpts.ts";
 // and inter-block gap are each one ruled row, the column starts on a row boundary
 // (Layout's 4.5rem top padding), sizes are rem-based — so every line sits within
 // two rules. The wordmark steps up to the 550 heading weight used across the
-// site; body weight, letter-spacing, colour and the cv05 stylistic set inherit
-// from <body>.
+// site; body weight, letter-spacing, colour and the ss02 stylistic set (the
+// tailed lowercase l) inherit from <body>.
 
 const INTRO =
   "This library allows you to draw marker strokes over web text. Not a coloured box sitting behind the words, an actual stroke off a nib: ink that pools where a line starts and stops, streaks left behind as it dries, a little bleed past the last letter. There are three nibs, the kind you'd find in a desk drawer. A broad chisel, a rounded bullet, a fine point.";
