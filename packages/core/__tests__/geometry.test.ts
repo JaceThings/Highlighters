@@ -35,6 +35,7 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
       angle: 8,
       overshoot: 2,
       overshootJitter: 1,
+      angleJitter: 0,
     },
     ink: {
       flow: 0.5,
@@ -322,6 +323,7 @@ describe("buildClipPath", () => {
     angle: 8,
     overshoot: 0,
     overshootJitter: 0,
+    angleJitter: 0,
   } as const;
 
   it("returns a bare path(...) value with no clip-path: prefix", () => {
@@ -383,6 +385,7 @@ describe("buildClipPath", () => {
         angle: 0,
         overshoot: 0,
         overshootJitter: 0,
+        angleJitter: 0,
       },
       topEdge: [],
       bottomEdge: [],
@@ -405,6 +408,7 @@ describe("buildClipPath", () => {
         angle: 0,
         overshoot: 0,
         overshootJitter: 0,
+        angleJitter: 0,
       },
       topEdge: [],
       bottomEdge: [],
@@ -424,7 +428,7 @@ describe("buildClipPath", () => {
     const slantStartX = (angle: number): number => {
       const s = buildClipPath({
         box,
-        tip: { type: "chisel", width: 12, thickness: 3, angle, overshoot: 0, overshootJitter: 0 },
+        tip: { type: "chisel", width: 12, thickness: 3, angle, overshoot: 0, overshootJitter: 0, angleJitter: 0 },
         topEdge: [],
         bottomEdge: [],
         cap: "flat",
@@ -605,7 +609,7 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
 
 describe("buildClipPath front truncation", () => {
   const tip = {
-    type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0,
+    type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0, angleJitter: 0,
   } as const;
   const args = (front?: number) => ({
     box: { x: 0, y: 0, width: 200, height: 24 },
@@ -804,21 +808,21 @@ describe("buildMarkGeometry", () => {
     const flush = buildMarkGeometry(
       rect,
       makeOptions({
-        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0 },
+        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0, angleJitter: 0 },
       }),
       seed,
     );
     const over = buildMarkGeometry(
       rect,
       makeOptions({
-        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 10, overshootJitter: 0 },
+        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 10, overshootJitter: 0, angleJitter: 0 },
       }),
       seed,
     );
     const under = buildMarkGeometry(
       rect,
       makeOptions({
-        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: -6, overshootJitter: 0 },
+        tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: -6, overshootJitter: 0, angleJitter: 0 },
       }),
       seed,
     );
@@ -837,7 +841,7 @@ describe("buildMarkGeometry", () => {
     const seed = 71;
     const rect = makeLineRect({ seed, left: 100, width: 300 });
     const opts = makeOptions({
-      tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 4, overshootJitter: 4 },
+      tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 4, overshootJitter: 4, angleJitter: 0 },
     });
     const a = buildMarkGeometry(rect, opts, seed);
     const b = buildMarkGeometry(rect, opts, seed);
@@ -853,6 +857,22 @@ describe("buildMarkGeometry", () => {
       expect(inset).toBeGreaterThanOrEqual(4 - 4);
       expect(inset).toBeLessThanOrEqual(4 + 4);
     }
+  });
+
+  it("angleJitter leans each line by a different (deterministic) slant; off by default", () => {
+    const rect = makeLineRect({ width: 300 });
+    // Default (angleJitter 0): the slant is the same regardless of seed.
+    expect(buildMarkGeometry(rect, makeOptions(), 10).slant).toBe(
+      buildMarkGeometry(rect, makeOptions(), 20).slant,
+    );
+    // With angleJitter, two seeds lean by different amounts, yet a given seed is
+    // deterministic.
+    const opts = makeOptions({
+      tip: { type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0, angleJitter: 6 },
+    });
+    const a = buildMarkGeometry(rect, opts, 10);
+    expect(a.slant).not.toBe(buildMarkGeometry(rect, opts, 20).slant);
+    expect(buildMarkGeometry(rect, opts, 10).slant).toBe(a.slant);
   });
 
   it("positions underline and strike-through as thin bands within the line", () => {

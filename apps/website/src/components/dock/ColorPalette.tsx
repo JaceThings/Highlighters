@@ -1,10 +1,13 @@
-// The compact ink well: two rows of three. The last is the "custom" hue wheel
+import colorPickerUrl from "./color-picker.svg";
+
+// The compact ink well: two rows of three. The last is the "custom" swatch
 // (placeholder for a future picker). Controlled — the selected swatch is the one
 // matching `value`; clicking reports its ink colour.
 //
 // `color` is the ink value (and what click reports). `ring` is the selected-state
-// outline — solid, since box-shadow can't take a gradient, so the wheel borrows a
-// neutral warm grey. `background` defaults to `color`; the wheel paints a conic gradient.
+// outline — solid, since box-shadow can't take a gradient, so the custom swatch
+// borrows a neutral warm grey. `background` defaults to `color`; the custom swatch
+// paints the ColorPicker SVG (a soft, blurred colour wheel).
 interface Swatch {
   id: string;
   label: string;
@@ -24,8 +27,7 @@ const SWATCHES: Swatch[] = [
     label: "Custom colour",
     color: "#a855f7",
     ring: "#9a918a",
-    background:
-      "conic-gradient(from 90deg, #ff3b30, #ffcc00, #34c759, #00c7be, #007aff, #af52de, #ff2d55, #ff3b30)",
+    background: `url("${colorPickerUrl}") center / cover no-repeat`,
   },
 ];
 

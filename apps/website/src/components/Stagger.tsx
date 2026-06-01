@@ -2,6 +2,7 @@ import { motion, type MotionProps } from "framer-motion";
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -22,6 +23,9 @@ interface StaggerProps {
   /** Stagger slot — child entrance is delayed by `index × STEP` seconds. */
   index: number;
   children: ReactNode;
+  /** Fired once this block's entrance has landed (or immediately if skipped on a
+   *  revisit). Used to tell the dock the last text block has arrived. */
+  onComplete?: () => void;
 }
 
 // Items rack in from out-of-focus to crisp while fading in. No Y
@@ -102,15 +106,26 @@ export function useStaggerEntrance({
   return { initial, animate, transition };
 }
 
-export function Stagger({ index, children }: StaggerProps) {
+export function Stagger({ index, children, onComplete }: StaggerProps) {
   const props = useStaggerEntrance({ index });
   // When the entrance is SKIPPED (initial === false) there's no animation to
   // complete, so seed `done` true — revisits/instant renders get marks
   // immediately. Otherwise wait for framer-motion's onAnimationComplete, which
   // fires exactly when opacity/blur finish and the text has fully arrived.
-  const [done, setDone] = useState(props.initial === false);
+  const skipped = props.initial === false;
+  const [done, setDone] = useState(skipped);
+  // A skipped entrance never fires onAnimationComplete — report it once on mount.
+  useEffect(() => {
+    if (skipped) onComplete?.();
+  }, [skipped, onComplete]);
   return (
-    <motion.div {...props} onAnimationComplete={() => setDone(true)}>
+    <motion.div
+      {...props}
+      onAnimationComplete={() => {
+        setDone(true);
+        onComplete?.();
+      }}
+    >
       <EntranceCompleteContext.Provider value={done}>
         {children}
       </EntranceCompleteContext.Provider>

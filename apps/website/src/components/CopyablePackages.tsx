@@ -1,19 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-// The npm packages, one per line — monospace so they read as code, each line a
-// click-to-copy control. Resting, a copy glyph sits faint at the trailing edge
-// so the row reads as interactive even on touch (where there's no hover); the
-// glyph brightens on hover/focus and flips to a check for a beat after a copy.
+// The npm packages, one per line — monospace, each row a click-to-copy control:
+// a faint copy glyph at the trailing edge brightens on hover/focus and flips to a
+// check for a beat after a copy.
 //
-// WEIGHT. The names sit beside Inter-500 body copy, but the mono renders lighter
-// and reads as "thinner". Bumping font-weight does nothing here: only a single
-// SF Mono *medium* (500) face is loaded and `font-synthesis: none` is set
-// globally (styles/global.css), so the browser just reuses the 500 face. A
-// hairline text-stroke in the ink colour adds the missing apparent weight
-// without faux-bold. It's paint-only, so the grid is untouched: each row stays
-// h-6 (one 1.5rem ruled band, four names = four rows), and the column hugs its
-// content (items-start) so hover/focus wrap the name, not the column width.
-// NAME_STROKE is the one knob — nudge it up for heavier, down for lighter.
+// WEIGHT: only a single SF Mono 500 face is loaded and `font-synthesis: none` is
+// set globally, so font-weight can't thicken the names next to the Inter-500 body.
+// A hairline text-stroke (NAME_STROKE) adds the apparent weight — paint-only, so
+// the grid is untouched (each row stays h-6).
 
 const RESET_MS = 1600;
 const NAME_STROKE = "0.3px";

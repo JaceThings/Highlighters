@@ -230,6 +230,12 @@ export interface TipOptions {
    * a machine-perfect identical inset. Default `1`.
    */
   overshootJitter?: number;
+  /**
+   * Per-line random variance of the chisel {@link angle}, in degrees (≥0).
+   * Deterministically nudges each visual line's slant so a wrapped mark doesn't
+   * lean at one identical angle on every line. `0` keeps a fixed slant. Default `0`.
+   */
+  angleJitter?: number;
 }
 
 /**
@@ -410,6 +416,8 @@ export interface ResolvedTip {
   overshoot: number;
   /** Per-end px variance of {@link overshoot} (≥0). */
   overshootJitter: number;
+  /** Per-line degrees of variance on the chisel {@link angle} (≥0). */
+  angleJitter: number;
 }
 
 /** {@link InkOptions} with every field resolved. */

@@ -22,15 +22,16 @@ body {
   font-family: var(--font-sans);
   font-weight: 500;
   /*
-   * `font-feature-settings` overrides the browser default, so we re-list
-   * the always-on features (kern/liga/calt) alongside Inter's `cv05`
-   * alt 'l' with curved tail. Verified against Figma file f6JlgIPQFMFIJSpiJbviOG.
+   * `font-feature-settings` overrides the browser default, so we re-list the
+   * always-on features (kern/liga/calt) alongside `ss02` — Inter's
+   * "Disambiguation" set, which gives the lowercase l its tail (the design
+   * intent; in this Inter build the tail lives on ss02, not the cvNN alternates).
    */
   font-feature-settings:
     "kern" 1,
     "liga" 1,
     "calt" 1,
-    "cv05" 1;
+    "ss02" 1;
   font-variant-numeric: tabular-nums;
   font-size: 14px;
   line-height: 1.2;
