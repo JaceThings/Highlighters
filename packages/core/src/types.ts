@@ -272,8 +272,9 @@ export interface InkOptions {
 }
 
 /**
- * Speed-aware ink deposit for the LIVE text selection (R17). A real marker lays
- * less ink the faster the nib travels (deposit ∝ dwell-time per unit length), so a
+ * Speed-aware ink deposit for the LIVE text selection (R17). **Beta — off by
+ * default**; opt in with `speed.enabled`. A real marker lays less ink the faster
+ * the nib travels (deposit ∝ dwell-time per unit length), so a
  * quick swipe reads lighter/drier and a slow or decelerating one reads
  * darker/wetter. The library measures the swipe speed of the live selection and
  * maps it onto deposit + texture, CONTINUOUSLY — so within a single line a
@@ -286,27 +287,27 @@ export interface InkOptions {
  * independently tunable so the look can be dialed from subtle to dramatic.
  */
 export interface SpeedDynamicsOptions {
-  /** Master enable. Default `true` (engages only on a live fine-pointer drag). */
+  /** Master enable. Default `false` — a Beta opt-in (engages only on a live fine-pointer drag). */
   enabled?: boolean;
-  /** Overall strength, `0`–`1`. `0` disables the effect; `1` is full range. Default `0.8`. */
+  /** Overall strength, `0`–`1`. `0` disables the effect; `1` is full range. Default `1`. */
   sensitivity?: number;
   /** Swipe speed (px/ms) at/below which ink is wettest (deposit ×1). Default `2.5` — a normal drag stays full. */
   slowSpeed?: number;
-  /** Swipe speed (px/ms) at/above which ink is driest (deposit ×`minDeposit`). Default `9` — only a fast flick. */
+  /** Swipe speed (px/ms) at/above which ink is driest (deposit ×`minDeposit`). Default `10.5` — only a fast flick. */
   fastSpeed?: number;
   /** Legibility floor `0`–`1`: the fastest swipe still deposits this fraction. Default `0.4`. */
   minDeposit?: number;
-  /** Velocity EMA weight on the newest sample, `0`–`1` (`1` = raw/instant, `0` = heavy lag). Default `0.35`. */
+  /** Velocity EMA weight on the newest sample, `0`–`1` (`1` = raw/instant, `0` = heavy lag). Default `1`. */
   smoothing?: number;
-  /** Core gradient stops per line — higher resolves finer mid-line variation. Default `12` (clamped `4`–`24`). */
+  /** Core gradient stops per line — higher resolves finer mid-line variation. Default `24` (clamped `4`–`24`). */
   resolution?: number;
-  /** Weight `0`–`1`: how much a fast swipe adds skipping (dryout). Default `0.7`. */
+  /** Weight `0`–`1`: how much a fast swipe adds skipping (dryout). Default `1`. */
   dryoutBoost?: number;
-  /** Weight `0`–`1`: how much a fast swipe adds railroading (streakiness). Default `0.3`. */
+  /** Weight `0`–`1`: how much a fast swipe adds railroading (streakiness). Default `0.08`. */
   streakBoost?: number;
-  /** Weight `0`–`1`: how much a fast swipe sharpens the edge (less feather). Default `0.5`. */
+  /** Weight `0`–`1`: how much a fast swipe sharpens the edge (less feather). Default `1`. */
   featherReduce?: number;
-  /** Weight `0`–`1`: how much deceleration into a line end pools ink there. Default `0.6`. */
+  /** Weight `0`–`1`: how much deceleration into a line end pools ink there. Default `1`. */
   poolBoost?: number;
 }
 
