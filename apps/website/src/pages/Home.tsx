@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CopyablePackages } from "../components/CopyablePackages.tsx";
-import { pickNextExcerpt } from "./excerpts.ts";
+import { creditLine, pickNextExcerpt } from "./excerpts.ts";
 
 // The homepage IS the demonstration: a sheet of ruled paper with real text and a
 // pen tray floating below, so marking it up is the obvious thing to do —
@@ -64,7 +64,7 @@ export function Home() {
           </p>
         ))}
         <figcaption className="m-0" style={{ color: "var(--color-text-secondary)" }}>
-          from {excerpt.title} by {excerpt.author}
+          from {creditLine(excerpt)}
         </figcaption>
       </figure>
     </div>
