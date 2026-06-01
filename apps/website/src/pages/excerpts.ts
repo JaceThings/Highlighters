@@ -1,8 +1,8 @@
-// A small shelf of public-domain classics. The homepage shows one passage per
-// load, drawn from a shuffle bag (see pickNextExcerpt) so the demo reads a
-// little differently each time and there is always plenty of real, human prose
-// to mark up. All of these are long out of copyright. Straight ASCII
-// apostrophes throughout; the em dashes inside the passages are the authors' own.
+// A small shelf of passages — public-domain classics alongside a few hand-picked
+// favourites. The homepage shows one per load, drawn from a shuffle bag (see
+// pickNextExcerpt) so the demo reads a little differently each time and there is
+// always plenty of real, human prose to mark up. Straight ASCII apostrophes
+// throughout; the em dashes inside the passages are the authors' own.
 
 export interface Excerpt {
   /** Work title, for the quiet attribution line under the passage. */
@@ -52,6 +52,21 @@ export const EXCERPTS: Excerpt[] = [
     title: "Jane Eyre",
     author: "Charlotte Bronte",
     text: "There was no possibility of taking a walk that day. We had been wandering, indeed, in the leafless shrubbery an hour in the morning; but since dinner (Mrs. Reed, when there was no company, dined early) the cold winter wind had brought with it clouds so sombre, and a rain so penetrating, that further out-door exercise was now out of the question.\n\nI was glad of it: I never liked long walks, especially on chilly afternoons: dreadful to me was the coming home in the raw twilight, with nipped fingers and toes, and a heart saddened by the chidings of Bessie, the nurse.",
+  },
+  {
+    title: "The Cherry-Colored Kitten",
+    author: "Emily Williams",
+    text: "One day Uncle Bob came running up the steps and asked Barbara what she supposed he had in his pocket. 'Oh, I know—my kitten!' said Barbara; and, sure enough, he put his hand in his pocket and pulled out a dear little black kitten.\n\n'That isn't mine,' said Barbara. 'Mine is a pink kitten; you said so.'\n\n'No, indeed, I said \"cherry-colored,\"' laughed Uncle Bob, 'all cherries aren't the same color; some of them are black, just like the kitten.'",
+  },
+  {
+    title: "You Might as Well Enjoy It",
+    author: "William Moulton Marston",
+    text: "Most people spend at least a third of their lives being bored; and the strange part of it is that their so-called amusements bore them more than work.\n\nPut five or six people together on a business task and each will take considerable interest in it. They have to; their jobs depend upon it. But gather a similar group of persons together at home and each is bored to extinction by the pet subjects of the others.\n\nAnd why? Because they have not mastered the art of acquiring new interests. They have not learned to enjoy the variety of entertainments this world offers.",
+  },
+  {
+    title: "Doctor Who: Pompadour",
+    author: "Steven Moffat",
+    text: "You are so quiet, my love. If I could see your face more clearly, I should know if you were cross. Are you cross, my lonely angel?\n\nThe sigh is silent now. I have often complained of the ceaseless chatter, but I fear I've come to miss it. What has become of all the merry chatter? Where are all the people? Why are you so quiet, doctor?\n\nIn the many years I waited for you, I imagined we would talk the night away, you and I, and yet the dark remains and you are silent. Why can't I see your face, doctor?\n\nI have been assailed by a gleam of late, and yet not precisely a dream. I have thoughts in the dark which troubled me. Those clockwork monsters who came to take my head — you told me once that they were in the habit of making portraits of my mind. I believe you said they were scanning my brain, but then you always had such a comical turn of phrase. I took your words to mean that they had made a catalogue of my thoughts and memories and stored them for safekeeping in something I think you called a group computer, a computer inside a vessel lost in a distant void. The idea makes me shiver. This computer, doctor, full of my thoughts and memories and secrets — might it not in time come to mistake itself for me? I fear for this computer creature, doctor. Abandoned in infinite silence. I am prone to loneliness. Perhaps it will share my weakness. I look to you for comfort, but I cannot see you. Why can't I see you? Why is it so quiet, doctor? Why can't I feel the breath in my lungs, the air stirring on my skin? Where am I doctor? Where am I, doctor? Where am I?",
   },
 ];
 
