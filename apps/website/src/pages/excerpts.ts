@@ -21,7 +21,9 @@ export interface Excerpt {
  */
 export function creditLine(e: Excerpt): string {
   if (e.title && e.author) return `${e.title} by ${e.author}`;
-  return e.title ?? e.author ?? "";
+  // "Unknown" (as the doc promises) rather than "" so an untitled, anonymous
+  // passage never renders a bare dash with no attribution.
+  return e.title ?? e.author ?? "Unknown";
 }
 
 export const EXCERPTS: Excerpt[] = [
