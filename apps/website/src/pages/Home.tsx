@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { CopyablePackages } from "../components/CopyablePackages.tsx";
-import { SpeedControls } from "../components/SpeedControls.tsx";
 import { Stagger } from "../components/Stagger.tsx";
 import { useDockEntrance } from "../dock-entrance.tsx";
 import { creditLine, pickNextExcerpt } from "./excerpts.ts";
@@ -95,13 +94,6 @@ export function Home() {
             – {creditLine(excerpt)}
           </figcaption>
         </figure>
-      </Stagger>
-
-      {/* Optional, live controls for the speed-aware ink. Tuning any knob patches
-          the shared selection style, so the NEXT drag deposits ink to match (see
-          SpeedControls / SelectionMarker). Last block in the cascade. */}
-      <Stagger index={7}>
-        <SpeedControls />
       </Stagger>
     </div>
   );
