@@ -26,46 +26,6 @@ export function creditLine(e: Excerpt): string {
 
 export const EXCERPTS: Excerpt[] = [
   {
-    title: "Moby-Dick",
-    author: "Herman Melville",
-    text: "Call me Ishmael. Some years ago—never mind how long precisely—having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world. It is a way I have of driving off the spleen and regulating the circulation. Whenever I find myself growing grim about the mouth; whenever it is a damp, drizzly November in my soul; whenever I find myself involuntarily pausing before coffin warehouses, and bringing up the rear of every funeral I meet; and especially whenever my hypos get such an upper hand of me, that it requires a strong moral principle to prevent me from deliberately stepping into the street, and methodically knocking people's hats off—then, I account it high time to get to sea as soon as I can.",
-  },
-  {
-    title: "A Tale of Two Cities",
-    author: "Charles Dickens",
-    text: "It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the season of Darkness, it was the spring of hope, it was the winter of despair, we had everything before us, we had nothing before us, we were all going direct to Heaven, we were all going direct the other way—in short, the period was so far like the present period, that some of its noisiest authorities insisted on its being received, for good or for evil, in the superlative degree of comparison only.",
-  },
-  {
-    title: "Pride and Prejudice",
-    author: "Jane Austen",
-    text: "It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife. However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered as the rightful property of some one or other of their daughters.\n\n'My dear Mr. Bennet,' said his lady to him one day, 'have you heard that Netherfield Park is let at last?'",
-  },
-  {
-    title: "Walden",
-    author: "Henry David Thoreau",
-    text: "I went to the woods because I wished to live deliberately, to front only the essential facts of life, and see if I could not learn what it had to teach, and not, when I came to die, discover that I had not lived. I did not wish to live what was not life, living is so dear; nor did I wish to practise resignation, unless it was quite necessary. I wanted to live deep and suck out all the marrow of life, to live so sturdily and Spartan-like as to put to rout all that was not life, to cut a broad swath and shave close, to drive life into a corner, and reduce it to its lowest terms.",
-  },
-  {
-    title: "Alice's Adventures in Wonderland",
-    author: "Lewis Carroll",
-    text: "Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, 'and what is the use of a book,' thought Alice, 'without pictures or conversations?'\n\nSo she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.",
-  },
-  {
-    title: "Frankenstein",
-    author: "Mary Shelley",
-    text: "You will rejoice to hear that no disaster has accompanied the commencement of an enterprise which you have regarded with such evil forebodings. I arrived here yesterday, and my first task is to assure my dear sister of my welfare and increasing confidence in the success of my undertaking.\n\nI am already far north of London, and as I walk in the streets of Petersburgh, I feel a cold northern breeze play upon my cheeks, which braces my nerves and fills me with delight. Do you understand this feeling?",
-  },
-  {
-    title: "The Time Machine",
-    author: "H. G. Wells",
-    text: "The Time Traveller (for so it will be convenient to speak of him) was expounding a recondite matter to us. His pale grey eyes shone and twinkled, and his usually pale face was flushed and animated. The fire burned brightly, and the soft radiance of the incandescent lights in the lilies of silver caught the bubbles that flashed and passed in our glasses. Our chairs, being his patents, embraced and caressed us rather than submitted to be sat upon, and there was that luxurious after-dinner atmosphere when thought roams gracefully free of the trammels of precision.",
-  },
-  {
-    title: "Jane Eyre",
-    author: "Charlotte Bronte",
-    text: "There was no possibility of taking a walk that day. We had been wandering, indeed, in the leafless shrubbery an hour in the morning; but since dinner (Mrs. Reed, when there was no company, dined early) the cold winter wind had brought with it clouds so sombre, and a rain so penetrating, that further out-door exercise was now out of the question.\n\nI was glad of it: I never liked long walks, especially on chilly afternoons: dreadful to me was the coming home in the raw twilight, with nipped fingers and toes, and a heart saddened by the chidings of Bessie, the nurse.",
-  },
-  {
     title: "The Cherry-Colored Kitten",
     author: "Emily Williams",
     text: "One day Uncle Bob came running up the steps and asked Barbara what she supposed he had in his pocket. 'Oh, I know—my kitten!' said Barbara; and, sure enough, he put his hand in his pocket and pulled out a dear little black kitten.\n\n'That isn't mine,' said Barbara. 'Mine is a pink kitten; you said so.'\n\n'No, indeed, I said \"cherry-colored,\"' laughed Uncle Bob, 'all cherries aren't the same color; some of them are black, just like the kitten.'",
@@ -110,6 +70,14 @@ export const EXCERPTS: Excerpt[] = [
     title: "Worm Tutorial",
     text: "Hey everybody! Today we're going to be showing you how to rinse. A lot of people forget about rinsing. That's okay, don't feel bad. Just don't make that mistake again, alright? Learn from your mistakes. You've got to rinse afterwards, otherwise everything will be all soapy. Even if it doesn't look soapy, the soap particles are still there, and if you don't rinse properly, you'll ruin everything. You'll ruin everything. You're ruining everything. You've ruined everything.",
   },
+  {
+    author: "Carl Sagan",
+    text: "For example, a kid asks mommy, 'Why is the grass green?' And very often you get an answer like, 'Oh, don't ask dumb questions,' or, 'Who knows?' When in fact, it's an extremely profound question. Or 'Why is the sky blue?' In both those cases, it goes to the fundamentals, in one case of biology and the other of a kind of physics. How much better would it be to say to the child, 'That's a good question, Johnny. I don't know the answer. Maybe we can look it up,' or, 'Nobody knows, maybe when you grow up you'll be the person to find out.' I think kids who are discouraged from asking those questions wind up learning the lesson that there's something bad about using the mind, and we lose resources. And we need people able to think complex and subtle thoughts. I believe a great many children have that capability if only they're encouraged.",
+  },
+  {
+    author: "L, Death Note",
+    text: "There are many types of monsters in this world: monsters who will not show themselves and who cause trouble, monsters who abduct children, monsters who devour dreams, monsters who suck blood... and monsters who always tell lies.\n\nLying monsters are a real nuisance; they are much more cunning than other monsters.\n\nThey pose as humans even though they have no understanding of the human heart; they eat even though they've never experienced hunger; they study even though they have no interest in academics; they seek friendship even though they do not know how to love.\n\nIf I were to encounter such monsters, I would likely be eaten by it... because in truth, I am that monster.",
+  },
 ];
 
 // Where the shuffle bag lives between loads. Each refresh is a full page reload,
@@ -142,7 +110,8 @@ function readBag(): BagState | null {
     // Drop anything that no longer points at a real excerpt (e.g. the shelf
     // shrank since this bag was saved) so we never index out of range.
     const order = parsed.order.filter((i) => i >= 0 && i < EXCERPTS.length);
-    const last = parsed.last >= 0 && parsed.last < EXCERPTS.length ? parsed.last : -1;
+    const last =
+      parsed.last >= 0 && parsed.last < EXCERPTS.length ? parsed.last : -1;
     return { order, last };
   } catch {
     return null; // private mode, disabled storage, or corrupt JSON: fall through to a fresh bag.
