@@ -110,7 +110,7 @@ export function SpeedControls() {
       <Group>
         <Range label="Strength" field="sensitivity" min={0} max={1} step={0.01} format={fmt2} accent={accent} disabled={off} />
         <Range label="Min ink" field="minDeposit" min={0.05} max={1} step={0.01} format={fmt2} accent={accent} disabled={off} />
-        <Range label="Fast at" field="fastSpeed" min={0.3} max={5} step={0.1} format={fmtPx} accent={accent} disabled={off} />
+        <Range label="Fast at" field="fastSpeed" min={1} max={14} step={0.5} format={fmtPx} accent={accent} disabled={off} />
       </Group>
 
       <button
@@ -126,7 +126,7 @@ export function SpeedControls() {
       {advanced && (
         <div className="mt-3">
           <Group>
-            <Range label="Slow at" field="slowSpeed" min={0} max={1} step={0.01} format={fmtPx} accent={accent} disabled={off} />
+            <Range label="Slow at" field="slowSpeed" min={0} max={6} step={0.1} format={fmtPx} accent={accent} disabled={off} />
             <Range label="Smoothing" field="smoothing" min={0.05} max={1} step={0.01} format={fmt2} accent={accent} disabled={off} />
             <Range label="Detail" field="resolution" min={4} max={24} step={1} format={fmtInt} accent={accent} disabled={off} />
             <Range label="Dry-out" field="dryoutBoost" min={0} max={1} step={0.01} format={fmt2} accent={accent} disabled={off} />
