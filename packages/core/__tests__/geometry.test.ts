@@ -551,6 +551,20 @@ describe("buildPoolGradient", () => {
     expect(a[2]).toBeGreaterThanOrEqual(a[3]);
   });
 
+  it("flowReversed mirrors the dry-out — wet end, dry start (backward drag)", () => {
+    const base = { lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5, flowFade: 0.5 };
+    const fwd = buildPoolGradient(base);
+    const rev = buildPoolGradient({ ...base, flowReversed: true });
+    // Reversed is the forward ramp flipped end for end: start↔end alphas swap.
+    expect(rev.stops[0].opacity).toBeCloseTo(fwd.stops[3].opacity!);
+    expect(rev.stops[3].opacity).toBeCloseTo(fwd.stops[0].opacity!);
+    // Now the END is the wettest and it dries toward the start (monotonic up).
+    const a = rev.stops.map((s) => s.opacity!);
+    expect(a[0]).toBeLessThanOrEqual(a[1]);
+    expect(a[1]).toBeLessThanOrEqual(a[2]);
+    expect(a[2]).toBeLessThanOrEqual(a[3]);
+  });
+
   it("clamps alpha into [0, 1] even at extreme opacity + buildup", () => {
     const g = buildPoolGradient({
       lengthPx: 400,

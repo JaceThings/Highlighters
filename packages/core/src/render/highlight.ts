@@ -109,6 +109,7 @@ function buildLines(
   ranges: Range[],
   options: ResolvedOptions,
   container: HTMLElement,
+  flowReversed = false,
 ): MarkGeometry[] {
   if (ranges.length === 0) return [];
   // `getClientRects()` is viewport-relative; the overlay container sits at the
@@ -134,8 +135,23 @@ function buildLines(
       left: rect.left - origin.left,
       top: rect.top - origin.top,
     };
-    return buildMarkGeometry(local, options, seed);
+    return buildMarkGeometry(local, options, seed, flowReversed);
   });
+}
+
+/**
+ * Is the live selection dragged right-to-left (backward) — its focus sitting
+ * BEFORE its anchor in document order? A backward drag started at the right, so
+ * the marker pours its dry-out ink from the right edge (the `flowReversed` path
+ * into the pool gradient). Collapsed or detached selections read as forward.
+ */
+function isSelectionBackward(selection: Selection): boolean {
+  const { anchorNode, focusNode } = selection;
+  if (selection.isCollapsed || !anchorNode || !focusNode) return false;
+  if (anchorNode === focusNode) return selection.focusOffset < selection.anchorOffset;
+  // compareDocumentPosition(focus) sets PRECEDING when focus comes before anchor.
+  const relation = anchorNode.compareDocumentPosition(focusNode);
+  return (relation & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
 }
 
 /**
@@ -362,22 +378,25 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   let renderer: Renderer | null = null;
   let currentRanges: Range[] = [];
 
-  const rebuild = (ranges: Range[]): RenderContext => {
+  const rebuild = (ranges: Range[], flowReversed: boolean): RenderContext => {
     const snapped = snapRanges(ranges, resolved.snap);
-    const lines = buildLines(snapped, resolved, container);
+    const lines = buildLines(snapped, resolved, container, flowReversed);
     return { container, options: resolved, lines, ranges };
   };
 
   const renderSelection = (): void => {
     const selection = document.getSelection();
     const ranges: Range[] = [];
+    // A backward drag (focus before anchor) pours its ink from the right edge.
+    let flowReversed = false;
     if (selection && !selection.isCollapsed) {
+      flowReversed = isSelectionBackward(selection);
       for (let i = 0; i < selection.rangeCount; i++) {
         ranges.push(selection.getRangeAt(i).cloneRange());
       }
     }
     currentRanges = ranges;
-    const context = rebuild(ranges);
+    const context = rebuild(ranges, flowReversed);
     if (!renderer) {
       const tier = selectTier(resolved.renderer, env, context.lines.length);
       renderer = rendererForTier(tier);

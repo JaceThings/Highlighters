@@ -62,6 +62,13 @@ export interface PoolOptions {
    * end-pool. Defaults to `0`.
    */
   flowFade?: number;
+  /**
+   * Reverse the dry-out direction so the moist start sits at the END of the band
+   * (offset 1) and it dries toward the start. Set for a right-to-left (backward)
+   * live selection, where the nib touches down at the right edge. No effect when
+   * `flowFade` is `0`. Defaults to `false`.
+   */
+  flowReversed?: boolean;
 }
 
 /** Round an alpha to 3 decimals for stable, compact stop strings. */
@@ -86,7 +93,8 @@ function roundAlpha(value: number): number {
  * `flowFade` then tilts the whole ramp directionally: each stop's alpha is scaled
  * by `1 - flowFade * offset`, full at the start and `1 - flowFade` at the end, so
  * the stroke lays its heaviest ink where the nib touches down and dries toward the
- * end (R17). `flowFade = 0` leaves the symmetric end-pool untouched.
+ * end (R17). `flowFade = 0` leaves the symmetric end-pool untouched. `flowReversed`
+ * mirrors that ramp — moist end, drying start — for a right-to-left drag.
  */
 export function buildPoolGradient(opts: PoolOptions): PoolGradient {
   const buildup = clamp(opts.startEndBuildup, -1, 1);
@@ -98,8 +106,11 @@ export function buildPoolGradient(opts: PoolOptions): PoolGradient {
   // lighter, anti-pooled end). The strong gain makes the knob read in a screenshot.
   const endBase = base * (1 + 0.7 * buildup);
   const coreBase = base;
-  // Directional dry-out: ×1 at the start (offset 0) → ×(1-fade) at the end.
-  const dryAt = (offset: number): number => 1 - fade * offset;
+  // Directional dry-out: full ink where the nib touches down, drying along the
+  // swipe. Forward → moist at offset 0 (left); reversed → moist at offset 1
+  // (right), so a backward drag pours its ink from the right edge.
+  const dryAt = (offset: number): number =>
+    1 - fade * (opts.flowReversed ? 1 - offset : offset);
 
   const color: ColorValue = opts.color;
   const stops: GradientStop[] = [

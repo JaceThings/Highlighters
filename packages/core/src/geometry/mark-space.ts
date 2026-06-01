@@ -84,11 +84,15 @@ function resolveBand(
  * @param options - Fully-resolved options (the single source of truth).
  * @param seed - The stable seed every value derives from. The caller passes the
  *   line's anchor-relative seed (or an explicit `options.seed`).
+ * @param flowReversed - Pour the dry-out gradient from the right (the nib's
+ *   touchdown end on a right-to-left / backward live selection). Forward by
+ *   default; only the live-selection path sets it.
  */
 export function buildMarkGeometry(
   lineRect: LineRect,
   options: ResolvedOptions,
   seed: number,
+  flowReversed = false,
 ): MarkGeometry {
   const { edge, ink, tip, paper } = options;
 
@@ -205,6 +209,7 @@ export function buildMarkGeometry(
     opacity: options.opacity,
     angle: options.gradient?.angle ?? undefined,
     flowFade: ink.flowFade,
+    flowReversed,
   });
 
   return {
