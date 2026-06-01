@@ -39,6 +39,7 @@ const SEED_LEFT_OVER = 0;
 const SEED_RIGHT_OVER = 11;
 const SEED_TOP_EDGE = 200;
 const SEED_BOTTOM_EDGE = 300;
+const SEED_ANGLE = 400;
 
 /** Mask-sample offset multipliers (A14 §1 / source). */
 const MASK_X_MULT = 37;
@@ -103,6 +104,16 @@ export function buildMarkGeometry(
   const leftExt = endOver(seed + SEED_LEFT_OVER);
   const rightExt = endOver(seed + SEED_RIGHT_OVER);
 
+  // --- Per-line slant jitter ------------------------------------------------
+  // `tip.angleJitter` nudges the chisel angle by a deterministic ±jitter per line
+  // (seeded by the line seed, so it's stable under scroll/resize/draw-on) — a
+  // hand never repeats the exact lean. Drives BOTH the clip-path and the
+  // `slant`/`minFront` fields, so the painted shape and the draw-on front agree.
+  const slantTip =
+    tip.angleJitter > 0
+      ? { ...tip, angle: tip.angle + hashJitter(seed + SEED_ANGLE) * tip.angleJitter }
+      : tip;
+
   // --- Band box in absolute px ----------------------------------------------
   const band = resolveBand(options.markType, lineRect.height);
   const boxX = lineRect.left - leftExt;
@@ -162,7 +173,7 @@ export function buildMarkGeometry(
   const clipAtFront = (front: number): string =>
     buildClipPath({
       box,
-      tip,
+      tip: slantTip,
       topEdge,
       bottomEdge,
       cap: edge.cap,
@@ -201,9 +212,9 @@ export function buildMarkGeometry(
     clipPath,
     clipAtFront,
     // Same slant the clip-path uses (top leads bottom by this many px).
-    slant: chiselSlant(tip, box.width, box.height),
+    slant: chiselSlant(slantTip, box.width, box.height),
     // The tip touchdown width the draw-on starts from (no sub-tip pause).
-    minFront: Math.min(minVisibleFront(tip, edge.cap, box.width, box.height, edge.radius), box.width),
+    minFront: Math.min(minVisibleFront(slantTip, edge.cap, box.width, box.height, edge.radius), box.width),
     topEdge,
     bottomEdge,
     noiseTile,

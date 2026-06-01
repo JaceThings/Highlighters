@@ -34,6 +34,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     // default "real swipe" end behaviour (R12); fully tunable via the Ends knobs.
     overshoot: 2,
     overshootJitter: 1,
+    angleJitter: 0,
   }),
   ink: Object.freeze({
     flow: 0.5,

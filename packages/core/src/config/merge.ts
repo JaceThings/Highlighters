@@ -192,6 +192,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     angle: finiteOr(merged.tip?.angle, d.tip.angle),
     overshoot: finiteOr(merged.tip?.overshoot, d.tip.overshoot),
     overshootJitter: finiteOr(merged.tip?.overshootJitter, d.tip.overshootJitter),
+    angleJitter: finiteOr(merged.tip?.angleJitter, d.tip.angleJitter),
   };
 
   const ink: ResolvedInk = {
