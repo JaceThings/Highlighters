@@ -54,8 +54,10 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   speed: Object.freeze({
     enabled: true,
     sensitivity: 0.8,
-    slowSpeed: 0.2,
-    fastSpeed: 2,
+    // Forgiving by default: ink stays full thickness through a normal drag and only
+    // a genuinely fast flick lightens it (full at/below 2.5 px/ms, driest at 9).
+    slowSpeed: 2.5,
+    fastSpeed: 9,
     minDeposit: 0.4,
     smoothing: 0.35,
     resolution: 12,

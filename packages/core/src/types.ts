@@ -290,9 +290,9 @@ export interface SpeedDynamicsOptions {
   enabled?: boolean;
   /** Overall strength, `0`–`1`. `0` disables the effect; `1` is full range. Default `0.8`. */
   sensitivity?: number;
-  /** Swipe speed (px/ms) at/below which ink is wettest (deposit ×1). Default `0.2`. */
+  /** Swipe speed (px/ms) at/below which ink is wettest (deposit ×1). Default `2.5` — a normal drag stays full. */
   slowSpeed?: number;
-  /** Swipe speed (px/ms) at/above which ink is driest (deposit ×`minDeposit`). Default `2`. */
+  /** Swipe speed (px/ms) at/above which ink is driest (deposit ×`minDeposit`). Default `9` — only a fast flick. */
   fastSpeed?: number;
   /** Legibility floor `0`–`1`: the fastest swipe still deposits this fraction. Default `0.4`. */
   minDeposit?: number;
