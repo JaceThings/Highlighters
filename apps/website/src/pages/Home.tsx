@@ -13,7 +13,9 @@ import { pickNextExcerpt } from "./excerpts.ts";
 // Type is locked to the paper's 1.5rem (24px) rhythm (Figma 2017:781): line-height
 // and inter-block gap are each one ruled row, the column starts on a row boundary
 // (Layout's 4.5rem top padding), sizes are rem-based — so every line sits within
-// two rules. Weight, letter-spacing, colour and cv05 inherit from <body>.
+// two rules. The wordmark steps up to the 550 heading weight used across the
+// site; body weight, letter-spacing, colour and the cv05 stylistic set inherit
+// from <body>.
 
 const INTRO =
   "highlighters draws marker strokes over web text. Not a coloured box sitting behind the words, an actual stroke off a nib: ink that pools where a line starts and stops, streaks left behind as it dries, a little bleed past the last letter. There are three nibs, the kind you'd find in a desk drawer. A broad chisel, a rounded bullet, a fine point.";
@@ -35,7 +37,7 @@ export function Home() {
 
   return (
     <div className="flex flex-col gap-6 leading-6">
-      <h1 className="m-0 text-[1rem] font-medium">highlighters</h1>
+      <h1 className="m-0 text-[1rem] font-[550]">Highlighters</h1>
 
       <p className="m-0">{INTRO}</p>
       <p className="m-0">{FEATURES}</p>
