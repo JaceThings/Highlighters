@@ -22,7 +22,7 @@ const INTRO =
   "highlighters draws marker strokes over web text. Not a coloured box sitting behind the words, an actual stroke off a nib: ink that pools where a line starts and stops, streaks left behind as it dries, a little bleed past the last letter. There are three nibs, the kind you'd find in a desk drawer. A broad chisel, a rounded bullet, a fine point.";
 
 const FEATURES =
-  "It never touches your text. The marks are painted on top, so the words stay selectable and searchable, and a mark you put down holds its place through scrolling, a resize, a reload. Lay one over another and the overlap darkens the way two real passes would. Some colours glow, fluorescent. The library itself is small and runs anywhere, with bindings for React, Vue and Svelte when you want them.";
+  "It never touches your text. The marks are painted on top, so the words stay selectable and searchable, and a mark you put down holds its place through scrolling and a resize. Lay one over another and the overlap darkens the way two real passes would. Some colours glow, fluorescent. The library itself is small and runs anywhere, with bindings for React, Vue and Svelte when you want them.";
 
 const PACKAGES = [
   "@highlighters/core",
@@ -70,7 +70,7 @@ export function Home() {
           </p>
         ))}
         <figcaption className="m-0" style={{ color: "var(--color-text-secondary)" }}>
-          from {creditLine(excerpt)}
+          – {creditLine(excerpt)}
         </figcaption>
       </figure>
     </div>
