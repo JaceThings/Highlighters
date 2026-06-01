@@ -151,6 +151,7 @@ function mountMark(
   resolved: ResolvedOptions,
   extraCleanup: (() => void)[] = [],
   hostOverride?: HTMLElement | null,
+  rangeSource?: () => Range[],
 ): MarkHandle {
   const host = hostOverride ?? hostFor(ranges);
   if (!host) return inertHandle();
@@ -158,12 +159,17 @@ function mountMark(
   const container = createOverlayContainer(host);
   const env = detectEnvironment();
 
+  // The live range set. For a static mark this never changes; for a watched page
+  // mark (`rangeSource` set, R8) each update() re-collects it, so newly-added
+  // nodes are painted and removed ones drop out.
+  let activeRanges = ranges;
+
   // The geometry build closure: a fresh read phase → per-line geometry →
   // RenderContext. Called for initial mount, update(), and reflow (R21/R22d).
   const buildContext = (opts: ResolvedOptions): RenderContext => {
-    const snapped = snapRanges(ranges, opts.snap);
+    const snapped = snapRanges(activeRanges, opts.snap);
     const lines = buildLines(snapped, opts, container);
-    return { container, options: opts, lines, ranges };
+    return { container, options: opts, lines, ranges: activeRanges };
   };
 
   const initialContext = buildContext(resolved);
@@ -209,6 +215,10 @@ function mountMark(
       // On update, the new resolved options replace `resolved` for future reflow
       // builds too, so the closure stays consistent.
       Object.assign(resolved, opts);
+      // A watched page mark re-collects here, so an update() fired by the mutation
+      // watcher paints newly-added nodes and drops removed ones (R8). Reflow calls
+      // buildContext directly (above), so a resize never re-scans the DOM.
+      if (rangeSource) activeRanges = rangeSource();
       return buildContext(resolved);
     },
   });
@@ -277,28 +287,28 @@ export function highlightAll(options?: HighlightOptions): MarkHandle {
     // inert-but-observed handle by mounting an empty container on the root.
     const host = root instanceof HTMLElement ? root : document.body;
     if (!host) return inertHandle();
-    const handle = mountMark([], userOptions, resolved, [], host);
-    return wrapWithWatcher(handle, root, () => collect());
+    const handle = mountMark([], userOptions, resolved, [], host, collect);
+    return wrapWithWatcher(handle, root);
   }
 
-  const handle = mountMark(ranges, userOptions, resolved);
-  return wrapWithWatcher(handle, root, () => collect());
+  const handle = mountMark(ranges, userOptions, resolved, [], undefined, collect);
+  return wrapWithWatcher(handle, root);
 }
 
 /**
- * Attach a debounced mutation watcher to `root` that re-runs `collect` and
- * re-renders the handle's mark on subtree changes (R8). The watcher's disconnect
- * is folded into the handle's teardown via `remove()` override.
+ * Attach a debounced mutation watcher to `root` that re-renders the handle's mark
+ * on subtree changes (R8). The handle's `update({})` re-collects ranges via the
+ * `rangeSource` threaded into `mountMark`, so added nodes are painted and removed
+ * ones drop out. The watcher's disconnect is folded into teardown via `remove()`.
  */
 function wrapWithWatcher(
   handle: MarkHandle,
   root: Element | Document,
-  collect: () => Range[],
 ): MarkHandle {
   const watcher = createMutationWatcher(root, () => {
-    // Re-collecting and pushing through update() keeps geometry stable for
-    // surviving nodes (identity-keyed pool) while adding/removing changed nodes.
-    void collect();
+    // update() re-collects (via the handle's rangeSource) and re-renders, keeping
+    // geometry stable for surviving nodes (identity-keyed pool) while painting
+    // added nodes and dropping removed ones.
     handle.update({});
   });
 
