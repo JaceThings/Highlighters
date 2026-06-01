@@ -120,26 +120,24 @@ function PersistentFooter() {
 // (router.tsx) mounts this as the root route's component.
 export function RootLayout() {
   return (
-    <>
-      <MotionConfig reducedMotion="user">
-        <LayoutGroup>
-          <Layout>
-            <Header staggerFrom={0} />
-            <AnimatedBody />
-            <PersistentFooter />
-          </Layout>
-        </LayoutGroup>
-        <RouteHeadUpdater />
-        <FocusRingOverlay />
-        {/* Document-global default selection style: paints the brown Lisse
-            marker over any selected non-exhibit text (exhibits are select-none,
-            so they're never touched). Mounted once, covers Home AND Playground. */}
-        <SelectionMarker />
-        {/* The PencilKit-style tool tray: fixed at the bottom-centre, persists
-            across routes like the other root-level overlays. */}
-        <Dock />
-        <DevAgentation />
-      </MotionConfig>
-    </>
+    <MotionConfig reducedMotion="user">
+      <LayoutGroup>
+        <Layout>
+          <Header staggerFrom={0} />
+          <AnimatedBody />
+          <PersistentFooter />
+        </Layout>
+      </LayoutGroup>
+      <RouteHeadUpdater />
+      <FocusRingOverlay />
+      {/* Document-global default selection style: paints the brown Lisse
+          marker over any selected non-exhibit text (exhibits are select-none,
+          so they're never touched). Mounted once, covers Home AND Playground. */}
+      <SelectionMarker />
+      {/* The PencilKit-style tool tray: fixed at the bottom-centre, persists
+          across routes like the other root-level overlays. */}
+      <Dock />
+      <DevAgentation />
+    </MotionConfig>
   );
 }

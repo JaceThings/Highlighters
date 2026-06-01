@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
 import { RuledPaper } from "./RuledPaper.tsx";
+import { DOCK_H } from "./dock/constants.ts";
+
+// Bottom clearance so the footer always clears the fixed dock when scrolled to
+// the end: the dock is DOCK_H tall, rests `bottom-6` (24px) off the bottom, plus
+// ~7px breathing room. Derived from DOCK_H so it tracks the dock if that changes.
+const FOOTER_CLEARANCE_PX = DOCK_H + 24 + 7;
 
 // `@container/column` lets descendants read the column width via `100cqi`
 // (used by the playground preview). Overlay effects (`FocusRingOverlay`,
@@ -18,9 +24,12 @@ export function Layout({
   articleClassName?: string;
 }) {
   return (
-    // `relative` anchors the ruled-paper layer; `pb` reserves clearance so the
-    // footer always clears the fixed bottom dock when scrolled to the end.
-    <main className="relative flex min-h-dvh w-full items-stretch justify-center bg-bg pb-[176px]">
+    // `relative` anchors the ruled-paper layer; the bottom padding (derived from
+    // DOCK_H, see FOOTER_CLEARANCE_PX) keeps the footer clear of the fixed dock.
+    <main
+      className="relative flex min-h-dvh w-full items-stretch justify-center bg-bg"
+      style={{ paddingBottom: FOOTER_CLEARANCE_PX }}
+    >
       <RuledPaper />
       <article className={`${ARTICLE_BASE} ${articleClassName ?? "gap-9"}`}>
         {children}
