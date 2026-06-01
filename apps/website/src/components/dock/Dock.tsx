@@ -1,10 +1,10 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import { CapsuleBackground } from "./CapsuleBackground.tsx";
 import { ColorPalette } from "./ColorPalette.tsx";
 import { DockButton } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
 import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.tsx";
+import { useSelectionStyle } from "../../selection-style.tsx";
 import { DOCK_H } from "./constants.ts";
 
 // Entrance offset: start the whole tray well below the viewport so it rises in
@@ -15,18 +15,19 @@ const ENTER_FROM = DOCK_H + 96;
 /**
  * The PencilKit-style tool tray: a floating squircle capsule holding nav buttons,
  * the three marker pens, the ink well, action buttons, and a drawer grab-handle up
- * top. Presentational — selecting a pen or colour is local state so the tray feels
- * alive.
+ * top. The selected pen and ink come from the shared selection style, so picking
+ * one here drives the document-wide live selection marker in real time (see
+ * selection-style.tsx / SelectionMarker).
  *
  * Mounted fixed at the bottom-centre of the viewport (see App). The outer layer is
  * pointer-events:none so clicks pass through the empty margins; only the capsule is
  * interactive.
  */
 export function Dock() {
-  // Ink picked from the palette (instant). MarkerRow crossfades between inks (a
-  // clean dissolve) rather than morphing the colour — complementary inks can't
-  // morph without a false green or a grey dip (gamut geometry).
-  const [ink, setInk] = useState("#6f584c");
+  // Ink + pen come from the shared selection style. MarkerRow crossfades between
+  // inks (a clean dissolve) rather than morphing the colour — complementary inks
+  // can't morph without a false green or a grey dip (gamut geometry).
+  const { style, setColor, setPen } = useSelectionStyle();
   return (
     <div
       className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex select-none justify-center"
@@ -59,9 +60,9 @@ export function Dock() {
 
           <div className="flex h-full items-center gap-[40px]">
             <div className="flex h-full items-end">
-              <MarkerRow color={ink} />
+              <MarkerRow color={style.color} selected={style.pen} onSelect={setPen} />
             </div>
-            <ColorPalette value={ink} onChange={setInk} />
+            <ColorPalette value={style.color} onChange={setColor} />
           </div>
 
           <div className="flex items-center gap-[12px] pr-[32px]">

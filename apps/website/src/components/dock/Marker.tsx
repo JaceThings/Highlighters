@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { DOCK_H } from "./constants.ts";
 import { Pen } from "./PenSvg.tsx";
 import { hexToOklch, oklchToCss } from "./oklch.ts";
+import type { PenTip } from "../../selection-style.tsx";
 
 // Body must read as 27px wide, but the body spans only 26.1475 of the SVG's 43
 // viewBox units, so we render the whole SVG wider to land the body at 27px.
@@ -23,10 +24,8 @@ const GAP = 71 - SVG_W; // pen centres sit 71px apart
 // or a grey dip (gamut geometry).
 const INK_FADE_MS = 180;
 
-type Tip = "slant" | "flat" | "round";
-
 interface PenDef {
-  id: Tip;
+  id: PenTip;
   label: string;
 }
 
@@ -40,9 +39,15 @@ const PENS: PenDef[] = [
 // Hex ink -> oklch() string for the Pen (its tip shading reads OKLCH lightness).
 const toPen = (hex: string) => oklchToCss(hexToOklch(hex));
 
-export function MarkerRow({ color }: { color: string }) {
-  const [selected, setSelected] = useState<Tip>("slant");
-
+export function MarkerRow({
+  color,
+  selected,
+  onSelect,
+}: {
+  color: string;
+  selected: PenTip;
+  onSelect: (pen: PenTip) => void;
+}) {
   // Crossfade the ink: the new colour shows instantly on the base pen while the
   // PREVIOUS colour renders on top and dissolves out — a clean fade, never a hue
   // sweep through green or a grey midpoint.
@@ -81,7 +86,7 @@ export function MarkerRow({ color }: { color: string }) {
             type="button"
             aria-label={p.label}
             aria-pressed={isSelected}
-            onClick={() => setSelected(p.id)}
+            onClick={() => onSelect(p.id)}
             data-focus-ring
             className="dock-pen relative block shrink-0 overflow-hidden"
             style={{ width: SVG_W, height: FRAME_H }}

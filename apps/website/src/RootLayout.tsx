@@ -5,6 +5,7 @@ import { Dock } from "./components/dock/Dock.tsx";
 import { FocusRingOverlay } from "./components/FocusRingOverlay.tsx";
 import { Layout } from "./components/Layout.tsx";
 import { SelectionMarker } from "./components/SelectionMarker.tsx";
+import { SelectionStyleProvider } from "./selection-style.tsx";
 
 // Loads the agentation dev-feedback toolbar in dev only.
 function DevAgentation() {
@@ -26,15 +27,19 @@ function DevAgentation() {
 export function RootLayout() {
   return (
     <MotionConfig reducedMotion="user">
-      <Layout>
-        <Outlet />
-      </Layout>
-      <FocusRingOverlay />
-      {/* Document-global brown selection marker (see SelectionMarker.tsx). */}
-      <SelectionMarker />
-      {/* The PencilKit-style tool tray, fixed at the bottom-centre. */}
-      <Dock />
-      <DevAgentation />
+      {/* The dock and the live selection marker share one ink/pen state, so
+          picking a swatch or pen restyles the selection in real time. */}
+      <SelectionStyleProvider>
+        <Layout>
+          <Outlet />
+        </Layout>
+        <FocusRingOverlay />
+        {/* Document-global live selection marker (see SelectionMarker.tsx). */}
+        <SelectionMarker />
+        {/* The PencilKit-style tool tray, fixed at the bottom-centre. */}
+        <Dock />
+        <DevAgentation />
+      </SelectionStyleProvider>
     </MotionConfig>
   );
 }
