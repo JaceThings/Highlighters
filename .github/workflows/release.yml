@@ -1,8 +1,11 @@
 name: Release
 
+# Manual-only. A real release needs npm publish auth (OIDC trusted publishing
+# configured on npmjs, or an NPM token) AND changesets to lift versions off the
+# 0.0.0 placeholders — none of which is set up yet. Until it is, dispatch this by
+# hand so a push to main can never trigger a premature/accidental publish.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -18,8 +21,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       - uses: actions/setup-node@v4
         with:

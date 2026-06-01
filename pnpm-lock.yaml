@@ -35,9 +35,6 @@ importers:
       tsup:
         specifier: ^8.4.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.15)(tsx@4.22.3)(typescript@5.9.3)(yaml@2.9.0)
-      tsx:
-        specifier: ^4.8.1
-        version: 4.22.3
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -129,9 +126,8 @@ importers:
       '@highlighters/core':
         specifier: workspace:*
         version: link:../core
-    devDependencies:
       svelte:
-        specifier: ^5.0.0
+        specifier: '>=3.0.0'
         version: 5.55.10
 
   packages/vue:
@@ -5029,6 +5025,7 @@ snapshots:
       esbuild: 0.28.0
     optionalDependencies:
       fsevents: 2.3.3
+    optional: true
 
   typescript@5.6.1-rc: {}
 
