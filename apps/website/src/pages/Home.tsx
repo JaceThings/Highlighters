@@ -47,6 +47,12 @@ export function Home() {
           24px grid (four lines = four rows). See CopyablePackages. */}
       <CopyablePackages items={PACKAGES} />
 
+      {/* A playful nudge that the passage below is the demo surface. Muted so it
+          reads as a quiet aside; still selectable, so you can mark it up too. */}
+      <p className="m-0" style={{ color: "var(--color-text-secondary)" }}>
+        Below's a passage to take a highlighter to, if you fancy it.
+      </p>
+
       {/* Divider: a hairline centred in one ruled row, so the grid is untouched.
           select-none keeps this decorative rule out of any text selection. */}
       <div className="flex h-6 select-none items-center" aria-hidden="true">
