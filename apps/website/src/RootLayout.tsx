@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { MotionConfig } from "framer-motion";
 import { Outlet } from "@tanstack/react-router";
 import { Dock } from "./components/dock/Dock.tsx";
@@ -32,6 +32,9 @@ export function RootLayout() {
   // arrives on its own after a beat.
   const [dockReady, setDockReady] = useState(false);
   const signalReady = useCallback(() => setDockReady(true), []);
+  // Memoized so the provider value is stable across renders — consumers only
+  // re-render when `dockReady` actually flips, not on every RootLayout render.
+  const dockEntrance = useMemo(() => ({ ready: dockReady, signalReady }), [dockReady, signalReady]);
   useEffect(() => {
     const t = setTimeout(() => setDockReady(true), 2500);
     return () => clearTimeout(t);
@@ -42,7 +45,7 @@ export function RootLayout() {
       {/* The dock and the live selection marker share one ink/pen state, so
           picking a swatch or pen restyles the selection in real time. */}
       <SelectionStyleProvider>
-        <DockEntranceContext.Provider value={{ ready: dockReady, signalReady }}>
+        <DockEntranceContext.Provider value={dockEntrance}>
           <Layout>
             <Outlet />
           </Layout>
