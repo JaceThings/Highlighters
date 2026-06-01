@@ -1,115 +1,73 @@
-import { useMemo, type ReactNode } from "react";
-import { getPreset } from "@highlighters/core";
-import type { HighlightOptions } from "@highlighters/core";
-import { Highlight } from "@highlighters/react";
-import { FigureCard } from "../components/playground/FigureCard.tsx";
-import { GridBackground } from "../components/GridBackground.tsx";
-import { Install } from "../components/Install.tsx";
-import { Stagger, useEntranceComplete } from "../components/Stagger.tsx";
-import { useFontsReady } from "../hooks/useFontsReady.ts";
+import { useState } from "react";
+import { pickNextExcerpt } from "./excerpts.ts";
 
-// Indices 0–5 are the Header; body starts at 6.
-const INTRO_INDEX = 6;
-const HERO_INDEX = 7;
-const INSTALL_FIRST = 8;
+// The homepage IS the demonstration: a sheet of ruled paper with real text and a
+// pen tray floating below, so marking it up is the obvious thing to do —
+// selecting any text paints it live (SelectionMarker).
+//
+// Top to bottom: the wordmark, what the library is, what it does, the npm
+// packages (one per line), a divider, then a long public-domain passage drawn
+// from a shuffle bag per load (excerpts.ts) so there's always fresh prose to
+// highlight and the same passage never lands twice in a row.
+//
+// Type is locked to the paper's 1.5rem (24px) rhythm (Figma 2017:781): line-height
+// and inter-block gap are each one ruled row, the column starts on a row boundary
+// (Layout's 4.5rem top padding), sizes are rem-based — so every line sits within
+// two rules. Weight, letter-spacing, colour and cv05 inherit from <body>.
 
-// The hero is a static museum EXHIBIT: the prose is pre-highlighted with a
-// fixed, tasteful set of looks that showcase the library (a classic-yellow
-// highlight, a wet highlight, an underline, a strike-through). The exhibit is
-// non-selectable and its mark overlay is scoped to a position:relative
-// container, so it can never paint over the still-invisible text that fades in
-// via <Stagger>.
-const HERO_HEIGHT = 300;
+const INTRO =
+  "highlighters draws marker strokes over web text. Not a coloured box sitting behind the words, an actual stroke off a nib: ink that pools where a line starts and stops, streaks left behind as it dries, a little bleed past the last letter. There are three nibs, the kind you'd find in a desk drawer. A broad chisel, a rounded bullet, a fine point.";
 
-function Intro() {
-  return (
-    <section className="w-full pb-6 text-text-primary">
-      <Stagger index={INTRO_INDEX}>
-        {/* A plain brown PANEL — the museum label, normally selectable, never
-            highlighted. */}
-        <p className="text-[14px] leading-[1.4] font-medium tracking-[-0.25px] text-justify hyphens-auto">
-          highlighters draws realistic highlighter-pen marks over your text —
-          chisel-tip ink that pools at the ends, feathers into the paper, and
-          darkens where it overlaps. Works with React, Vue, Svelte, or plain
-          JavaScript.
-        </p>
-      </Stagger>
-    </section>
-  );
-}
+const FEATURES =
+  "It never touches your text. The marks are painted on top, so the words stay selectable and searchable, and a mark you put down holds its place through scrolling, a resize, a reload. Lay one over another and the overlap darkens the way two real passes would. Some colours glow, fluorescent. The library itself is small and runs anywhere, with bindings for React, Vue and Svelte when you want them.";
 
-function Hero() {
-  // A fixed showcase of looks for the hero exhibit. Preset-derived where it
-  // helps, with distinct stable seeds so each run has its own ink texture.
-  const yellow = useMemo<HighlightOptions>(
-    () => ({ ...getPreset("classic-yellow"), seed: 11 }),
-    [],
-  );
-  const wet = useMemo<HighlightOptions>(
-    () => ({ ...getPreset("wet"), color: "pink", seed: 22 }),
-    [],
-  );
-  const underline = useMemo<HighlightOptions>(
-    () => ({ markType: "underline", color: "#73574a", seed: 33 }),
-    [],
-  );
-  const strike = useMemo<HighlightOptions>(
-    () => ({ markType: "strike-through", color: "#73574a", seed: 44 }),
-    [],
-  );
-
-  // Gate the marks on BOTH the Stagger entrance and web-font load. Entrance: the
-  // Hero is inside <Stagger index={HERO_INDEX}>, so before the text has faded in
-  // we render the phrases plain. Fonts: a mark measures the heading's line box, so
-  // it must wait for the real font — otherwise it captures the fallback-font
-  // metrics and then resizes mid-entrance when the font swaps in. Identical text
-  // in both states + overlay marks => zero layout shift either way.
-  const entered = useEntranceComplete();
-  const fontsReady = useFontsReady();
-  const ready = entered && fontsReady;
-  const mark = (children: ReactNode, options: HighlightOptions) =>
-    ready ? (
-      <Highlight as="span" options={options}>
-        {children}
-      </Highlight>
-    ) : (
-      <span>{children}</span>
-    );
-
-  return (
-    <FigureCard>
-      <div
-        className="relative flex w-full items-center justify-center overflow-hidden px-8 py-7"
-        style={{ height: HERO_HEIGHT }}
-      >
-        <GridBackground />
-        {/* The exhibit: relative scopes the @highlighters overlay inside this
-            block; select-none means the reader can look but never touch. */}
-        <div className="relative flex max-w-[420px] select-none flex-col gap-3 text-text-primary">
-          <h3 className="text-[20px] leading-[1.3] font-[560] tracking-[-0.4px]">
-            {mark("Ink that behaves", yellow)} like a real marker
-          </h3>
-          <p className="text-[15px] leading-[1.7] font-medium tracking-[-0.2px] text-wrap-pretty">
-            Drop a highlight over any run of text and it{" "}
-            {mark("pools at the ends, feathers into the paper", wet)}, and stays
-            perfectly legible underneath. The same engine draws{" "}
-            {mark("underlines", underline)} and {mark("strike-throughs", strike)}
-            .
-          </p>
-        </div>
-      </div>
-    </FigureCard>
-  );
-}
+const PACKAGES = [
+  "@highlighters/core",
+  "@highlighters/react",
+  "@highlighters/vue",
+  "@highlighters/svelte",
+];
 
 export function Home() {
+  // Drawn once per mount from the shuffle bag, so each load advances through
+  // every passage before any repeats (see pickNextExcerpt).
+  const [excerpt] = useState(pickNextExcerpt);
+
   return (
-    <>
-      <Intro />
-      <Stagger index={HERO_INDEX}>
-        <Hero />
-      </Stagger>
-      <Install staggerFrom={INSTALL_FIRST} />
-    </>
+    <div className="flex flex-col gap-6 leading-6">
+      <h1 className="m-0 text-[1rem] font-medium">highlighters</h1>
+
+      <p className="m-0">{INTRO}</p>
+      <p className="m-0">{FEATURES}</p>
+
+      {/* The npm packages, one per line. Monospace so they read as code; still on
+          the 24px grid (four lines = four rows). */}
+      <div className="m-0 font-mono text-[0.8125rem]">
+        {PACKAGES.map((name) => (
+          <div key={name}>{name}</div>
+        ))}
+      </div>
+
+      {/* Divider: a hairline centred in one ruled row, so the grid is untouched.
+          select-none keeps this decorative rule out of any text selection. */}
+      <div className="flex h-6 select-none items-center" aria-hidden="true">
+        <span
+          className="block h-px w-full"
+          style={{ background: "rgba(var(--primary-rgb), 0.16)" }}
+        />
+      </div>
+
+      {/* The randomised classic passage, with a quiet attribution. */}
+      <figure className="m-0 flex flex-col gap-6">
+        {excerpt.text.split("\n\n").map((para, i) => (
+          <p key={i} className="m-0">
+            {para}
+          </p>
+        ))}
+        <figcaption className="m-0" style={{ color: "var(--color-text-secondary)" }}>
+          from {excerpt.title} by {excerpt.author}
+        </figcaption>
+      </figure>
+    </div>
   );
 }
