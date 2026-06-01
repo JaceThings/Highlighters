@@ -262,6 +262,13 @@ export interface InkOptions {
    * end darkening (the premium-marker look). Range `-1`–`1`.
    */
   startEndBuildup?: number;
+  /**
+   * Directional dry-out along the stroke (0–1): the ink starts saturated where
+   * the nib touches down and fades drier toward the end of each line, the way a
+   * marker runs low on ink as it slides. `0` is even coverage; higher dries the
+   * tail end more. Applied per visual line.
+   */
+  flowFade?: number;
 }
 
 /**
@@ -429,6 +436,7 @@ export interface ResolvedInk {
   streakiness: number;
   dryout: number;
   startEndBuildup: number;
+  flowFade: number;
 }
 
 /** {@link EdgeOptions} with every field resolved. */

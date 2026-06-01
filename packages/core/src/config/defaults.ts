@@ -44,6 +44,9 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     streakiness: 0.35,
     dryout: 0.15,
     startEndBuildup: 0.25,
+    // On by default: a real marker lays the most ink where it touches down and
+    // runs drier as it slides, so each line starts saturated and fades toward its end.
+    flowFade: 0.5,
   }),
   edge: Object.freeze({
     waviness: 1.5,

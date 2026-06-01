@@ -203,6 +203,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     streakiness: finiteOr(merged.ink?.streakiness, d.ink.streakiness),
     dryout: finiteOr(merged.ink?.dryout, d.ink.dryout),
     startEndBuildup: finiteOr(merged.ink?.startEndBuildup, d.ink.startEndBuildup),
+    flowFade: finiteOr(merged.ink?.flowFade, d.ink.flowFade),
   };
 
   const edge: ResolvedEdge = {

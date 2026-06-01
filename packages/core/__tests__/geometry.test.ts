@@ -45,6 +45,7 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
       streakiness: 0.5,
       dryout: 0,
       startEndBuildup: 0.3,
+      flowFade: 0,
     },
     edge: { waviness: 1, frequency: 30, roughness: 0.3, cap: "round", radius: 3 },
     paper: { absorbency: 0.3 },
@@ -533,6 +534,21 @@ describe("buildPoolGradient", () => {
     });
     expect(g.stops[0].opacity!).toBeLessThan(g.stops[1].opacity!);
     expect(g.stops[3].opacity!).toBeLessThan(g.stops[2].opacity!);
+  });
+
+  it("flowFade dries the stroke directionally — start wetter than the end", () => {
+    const flat = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5 });
+    const dry = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5, flowFade: 0.5 });
+    // No flowFade → flat band, start alpha equals end alpha.
+    expect(flat.stops[0].opacity).toBe(flat.stops[3].opacity);
+    // flowFade leaves the start untouched and drops the end (drier as it slides).
+    expect(dry.stops[0].opacity).toBe(flat.stops[0].opacity);
+    expect(dry.stops[3].opacity!).toBeLessThan(dry.stops[0].opacity!);
+    // Monotonic dry-out across the four stops.
+    const a = dry.stops.map((s) => s.opacity!);
+    expect(a[0]).toBeGreaterThanOrEqual(a[1]);
+    expect(a[1]).toBeGreaterThanOrEqual(a[2]);
+    expect(a[2]).toBeGreaterThanOrEqual(a[3]);
   });
 
   it("clamps alpha into [0, 1] even at extreme opacity + buildup", () => {

@@ -204,6 +204,7 @@ export function buildMarkGeometry(
     color: options.color,
     opacity: options.opacity,
     angle: options.gradient?.angle ?? undefined,
+    flowFade: ink.flowFade,
   });
 
   return {

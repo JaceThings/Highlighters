@@ -55,6 +55,13 @@ export interface PoolOptions {
   opacity: number;
   /** Gradient angle in degrees; defaults to the canonical `85`. */
   angle?: number;
+  /**
+   * Directional dry-out, `0`–`1`. Scales every stop's alpha down from a saturated
+   * start (offset 0, ×1) to a drier end (offset 1, ×`1 - flowFade`), so the band
+   * reads like a marker running low on ink as it slides. `0` keeps the symmetric
+   * end-pool. Defaults to `0`.
+   */
+  flowFade?: number;
 }
 
 /** Round an alpha to 3 decimals for stable, compact stop strings. */
@@ -75,23 +82,31 @@ function roundAlpha(value: number): number {
  * below it (guardrail / suppressed pooling), and `b = 0` makes all four equal —
  * a flat band. The gain is deliberately strong so dragging the slider produces a
  * clearly visible wet-pool ↔ anti-pool delta at the ends. Alphas clamp to `[0,1]`.
+ *
+ * `flowFade` then tilts the whole ramp directionally: each stop's alpha is scaled
+ * by `1 - flowFade * offset`, full at the start and `1 - flowFade` at the end, so
+ * the stroke lays its heaviest ink where the nib touches down and dries toward the
+ * end (R17). `flowFade = 0` leaves the symmetric end-pool untouched.
  */
 export function buildPoolGradient(opts: PoolOptions): PoolGradient {
   const buildup = clamp(opts.startEndBuildup, -1, 1);
   const base = clamp(opts.opacity, 0, 1);
+  const fade = clamp(opts.flowFade ?? 0, 0, 1);
 
   // 0.7 is the pool-contrast gain: at full +1 the ends are 1.7× the core alpha
   // (clamped to 1) — an obvious wet pool; at full -1 they drop to 0.3× (a clearly
   // lighter, anti-pooled end). The strong gain makes the knob read in a screenshot.
-  const endAlpha = roundAlpha(base * (1 + 0.7 * buildup));
-  const coreAlpha = roundAlpha(base);
+  const endBase = base * (1 + 0.7 * buildup);
+  const coreBase = base;
+  // Directional dry-out: ×1 at the start (offset 0) → ×(1-fade) at the end.
+  const dryAt = (offset: number): number => 1 - fade * offset;
 
   const color: ColorValue = opts.color;
   const stops: GradientStop[] = [
-    { offset: 0, color, opacity: endAlpha },
-    { offset: 0.4, color, opacity: coreAlpha },
-    { offset: 0.6, color, opacity: coreAlpha },
-    { offset: 1, color, opacity: endAlpha },
+    { offset: 0, color, opacity: roundAlpha(endBase * dryAt(0)) },
+    { offset: 0.4, color, opacity: roundAlpha(coreBase * dryAt(0.4)) },
+    { offset: 0.6, color, opacity: roundAlpha(coreBase * dryAt(0.6)) },
+    { offset: 1, color, opacity: roundAlpha(endBase * dryAt(1)) },
   ];
 
   return {
