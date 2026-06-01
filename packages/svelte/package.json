@@ -54,8 +54,5 @@
   },
   "publishConfig": {
     "access": "public"
-  },
-  "devDependencies": {
-    "svelte": "^5.0.0"
   }
 }
