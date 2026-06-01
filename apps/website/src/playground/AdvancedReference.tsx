@@ -27,7 +27,7 @@ export function AdvancedReference() {
         <h2 className="text-[20px] leading-none font-[560] tracking-[-0.4px]">
           Advanced &amp; reference
         </h2>
-        <p className="text-[14px] leading-[1.5] font-medium tracking-[-0.25px] text-wrap-pretty text-text-secondary">
+        <p className="text-[14px] leading-[1.4] font-medium tracking-[-0.25px] text-wrap-pretty text-text-secondary">
           The Basics above are everything you need to build a good highlighter.
           Below is the full reference for the deeper controls — the complete ink
           model, edge detail, the paper surface, material and effect, boundary

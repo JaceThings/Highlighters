@@ -413,7 +413,10 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
     vi.spyOn(range, "getClientRects").mockReturnValue(domRectList(fakeRects));
 
     const anchor = { top: 100, left: 20 };
-    const lines = rangesToLineRects([range], anchor);
+    // Seeds are relative to the overlay container origin (3rd arg), not the
+    // anchor — so an upward drag that moves the anchor can't re-roll them. Pass
+    // originTop=100 so the line at top 100 still seeds to 0.
+    const lines = rangesToLineRects([range], anchor, 100);
     expect(lines).toHaveLength(2);
     expect(lines[0]).toMatchObject({ seed: 0, isFirst: true, isLast: false });
     // seed = round((130 - 100) * 7) = 210

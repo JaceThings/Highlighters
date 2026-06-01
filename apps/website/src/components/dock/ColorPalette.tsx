@@ -48,33 +48,44 @@ export function ColorPalette({
             aria-pressed={isSelected}
             onClick={() => onChange(s.color)}
             data-focus-ring
-            className="relative size-[43px] shrink-0 rounded-full transition-transform duration-150 active:scale-[0.96]"
-            style={{
-              // White gap + fixed ink ring live on the button, so the ring never
-              // moves. The value disc on top hides them until it shrinks.
-              background: "#fff",
-              boxShadow: `inset 0 0 0 3.57px ${s.ring}`,
-            }}
+            // The button is the click target and is NEVER scaled — its 43px hit
+            // area stays put. The press-scale lives on the (pointer-events:none)
+            // visual layer below, via group-active. Scaling the button itself
+            // shrank its bounds out from under the pointer on an edge press, so the
+            // pointerup landed outside and the click never fired (you'd see the
+            // bounce but the colour wouldn't swap).
+            className="group relative size-[43px] shrink-0 rounded-full"
           >
-            {/* The colour value disc: fills the swatch when unselected (covering
-                ring + gap). On select it scales down to ~30px, revealing the white
-                gap and fixed edge ring — the ring stays put, only the disc animates. */}
+            {/* Visual layer: white gap + fixed ink ring. Scales on press so the
+                whole swatch (ring + disc nested inside) gives the tactile dip,
+                while the button's hit area underneath is unaffected. */}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-full"
+              className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
               style={{
-                background: s.background ?? s.color,
-                transformOrigin: "center",
-                transform: isSelected ? "scale(0.703)" : "scale(1)",
-                // Directional: ring pops IN fast on select (disc shrinks away). On
-                // DESELECT the disc grows back slower with a gentle ease-in-out so it
-                // doesn't snap shut — you see the ring leave. (CSS uses the transition
-                // declared on the target state.)
-                transition: isSelected
-                  ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
-                  : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
+                background: "#fff",
+                boxShadow: `inset 0 0 0 3.57px ${s.ring}`,
               }}
-            />
+            >
+              {/* The colour value disc: fills the swatch when unselected (covering
+                  ring + gap). On select it scales down to ~30px, revealing the white
+                  gap and fixed edge ring — the ring stays put, only the disc animates. */}
+              <span
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: s.background ?? s.color,
+                  transformOrigin: "center",
+                  transform: isSelected ? "scale(0.703)" : "scale(1)",
+                  // Directional: ring pops IN fast on select (disc shrinks away). On
+                  // DESELECT the disc grows back slower with a gentle ease-in-out so it
+                  // doesn't snap shut — you see the ring leave. (CSS uses the transition
+                  // declared on the target state.)
+                  transition: isSelected
+                    ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
+                    : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
+                }}
+              />
+            </span>
           </button>
         );
       })}

@@ -11,8 +11,13 @@ const FOOTER_CLEARANCE_PX = DOCK_H + 24 + 7;
 // (used by the playground preview). Overlay effects (`FocusRingOverlay`,
 // the selection highlight) are intentionally mounted at App root, not
 // here, so they persist across route changes.
+// The column sits on the ruled-paper grid (1px rules every 1.5rem from the top
+// of <main>). The top padding is a 1.5rem multiple — 4.5rem (72px = 3 rows),
+// matching Figma 2017:781 — so a column whose own line-height is 1.5rem lands
+// every text line cleanly inside a ruled band. The 560px breakpoint's pt-6
+// (1.5rem) is already on the grid.
 const ARTICLE_BASE =
-  "@container/column relative flex w-[510px] max-w-full flex-col items-stretch py-20 max-[560px]:w-[calc(100vw-32px)] max-[560px]:pt-6 max-[560px]:pb-16";
+  "@container/column relative flex w-[510px] max-w-full flex-col items-stretch pt-[4.5rem] pb-20 max-[560px]:w-[calc(100vw-32px)] max-[560px]:pt-6 max-[560px]:pb-16";
 
 export function Layout({
   children,
