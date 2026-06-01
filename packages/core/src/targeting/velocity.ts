@@ -191,20 +191,24 @@ export class SelectionVelocityTracker {
     // scaled by sensitivity so 0 = no effect.
     const deposit = (v: number): number => 1 - sd.sensitivity * norm(v) * (1 - sd.minDeposit);
 
+    // `band` is sorted by x; binary-search the bracketing pair (this runs once
+    // per core stop on the drag-repaint path, so keep it O(log n)).
     const vAtX = (absX: number): number => {
       const first = band[0];
       const last = band[band.length - 1];
       if (absX <= first.x) return first.v;
       if (absX >= last.x) return last.v;
-      for (let i = 1; i < band.length; i++) {
-        const b = band[i];
-        if (b.x >= absX) {
-          const a = band[i - 1];
-          const t = (absX - a.x) / Math.max(1e-6, b.x - a.x);
-          return a.v + t * (b.v - a.v);
-        }
+      let lo = 0;
+      let hi = band.length - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (band[mid].x <= absX) lo = mid;
+        else hi = mid;
       }
-      return last.v;
+      const a = band[lo];
+      const b = band[hi];
+      const t = (absX - a.x) / Math.max(1e-6, b.x - a.x);
+      return a.v + t * (b.v - a.v);
     };
 
     let sum = 0;

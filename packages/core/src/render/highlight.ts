@@ -392,7 +392,9 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   const tracker = env.prefersReducedMotion ? null : new SelectionVelocityTracker();
   let dragging = false;
   const onPointerDown = (e: PointerEvent): void => {
-    if (e.button !== 0 || e.pointerType === "touch") return;
+    // Primary-button, fine-pointer only (mouse/pen) — coarse touch and any future
+    // pointer type are excluded by default, matching the live-drag contract.
+    if (e.button !== 0 || (e.pointerType !== "mouse" && e.pointerType !== "pen")) return;
     dragging = true;
     tracker?.reset(); // a fresh gesture starts a fresh velocity field
   };

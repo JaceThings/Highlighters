@@ -212,11 +212,16 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   // positives; `resolution` clamps to a sane stop count. All live-only — geometry
   // and the static path ignore this block unless a drag velocity profile is present.
   const sd = d.speed;
+  // Order the thresholds so fastSpeed >= slowSpeed even if a caller inverts them —
+  // otherwise the velocity normalizer's denominator collapses and the deposit
+  // curve degenerates into a near-instant step function.
+  const rawSlow = Math.max(0, finiteOr(merged.speed?.slowSpeed, sd.slowSpeed));
+  const rawFast = Math.max(0, finiteOr(merged.speed?.fastSpeed, sd.fastSpeed));
   const speed: ResolvedSpeedDynamics = {
     enabled: merged.speed?.enabled ?? sd.enabled,
     sensitivity: clamp(finiteOr(merged.speed?.sensitivity, sd.sensitivity), 0, 1),
-    slowSpeed: Math.max(0, finiteOr(merged.speed?.slowSpeed, sd.slowSpeed)),
-    fastSpeed: Math.max(0, finiteOr(merged.speed?.fastSpeed, sd.fastSpeed)),
+    slowSpeed: Math.min(rawSlow, rawFast),
+    fastSpeed: Math.max(rawSlow, rawFast),
     minDeposit: clamp(finiteOr(merged.speed?.minDeposit, sd.minDeposit), 0, 1),
     smoothing: clamp(finiteOr(merged.speed?.smoothing, sd.smoothing), 0, 1),
     resolution: Math.max(4, Math.min(24, Math.round(finiteOr(merged.speed?.resolution, sd.resolution)))),
