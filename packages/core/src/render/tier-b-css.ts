@@ -26,17 +26,30 @@ import { NodePool, applyBoxPosition } from "./renderer.js";
 /**
  * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` string in
  * absolute-px stop positions with the documented `min`/`max` clamps (A14 §3), so
- * a short mark cannot over-pool. The middle plateau uses the resolved stop
- * colours; the ends darken toward the pool stops.
+ * a short mark cannot over-pool.
+ *
+ * Each stop's alpha is folded into its colour with `color-mix(... transparent)`
+ * (matching Tier C), normalized to the brightest stop — so the gradient carries
+ * the RELATIVE pooling + dry-out variation while the band's layer opacity supplies
+ * the base. The darkest point therefore matches a flat band, and the pooled/dried
+ * regions read lighter (without this the per-stop alpha never rendered and the
+ * band was flat).
  *
  * @param pool - The absolute-px end-pool gradient from the mark geometry.
  * @returns A CSS `linear-gradient(...)` value.
  */
 export function poolGradientToCss(pool: PoolGradient): string {
   const stops = pool.stops;
-  const startColor = stops[0]?.color ?? "transparent";
-  const endColor = stops[stops.length - 1]?.color ?? startColor;
-  const coreColor = stops[Math.floor(stops.length / 2)]?.color ?? startColor;
+  let maxAlpha = 0;
+  for (const s of stops) maxAlpha = Math.max(maxAlpha, s.opacity ?? 1);
+
+  // Relative per-stop alpha (1 at the brightest stop) folded into the colour, so
+  // the layer opacity stays the absolute base. 100% = colour as-is, lower = drier.
+  const fill = (i: number): string => {
+    const stop = stops[i] ?? stops[0];
+    const rel = maxAlpha > 0 ? (stop?.opacity ?? 1) / maxAlpha : 1;
+    return `color-mix(in srgb, ${stop?.color ?? "transparent"} ${Math.round(rel * 100)}%, transparent)`;
+  };
 
   // Absolute-px insets with min()/max() clamps keep the cap-pool width constant:
   //   2px, min(10px, 40%), max(100% - 10px, 60%), 100% - 2px.
@@ -45,10 +58,10 @@ export function poolGradientToCss(pool: PoolGradient): string {
 
   return [
     `linear-gradient(${pool.angle}deg`,
-    `${startColor} ${pool.startInsetPx}px`,
-    `${coreColor} ${startCore}`,
-    `${coreColor} ${endCore}`,
-    `${endColor} calc(100% - ${pool.endInsetPx}px))`,
+    `${fill(0)} ${pool.startInsetPx}px`,
+    `${fill(1)} ${startCore}`,
+    `${fill(2)} ${endCore}`,
+    `${fill(3)} calc(100% - ${pool.endInsetPx}px))`,
   ].join(", ");
 }
 
