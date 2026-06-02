@@ -63,7 +63,16 @@ function MarkOption({
   const ink = useMemo(() => {
     // Tighter overshoot than the live nib so the small stroke + caps fit the cell.
     const tip = { ...penToTip(pen).tip, overshoot: 4, overshootJitter: 0 };
-    const resolved = resolveOptions({ ...BASE_SELECTION_OPTIONS, markType: type, tip });
+    // Chisel/flat ends square off on thin bands (a flat nib lays a flat end), so a
+    // thin under/over/strike doesn't read like the bullet's rounded cap. The bullet
+    // ignores this — its cap radius is height-driven — so it stays round regardless.
+    const radius = type === "highlight" ? (BASE_SELECTION_OPTIONS.edge?.radius ?? 3) : 0.8;
+    const resolved = resolveOptions({
+      ...BASE_SELECTION_OPTIONS,
+      markType: type,
+      tip,
+      edge: { ...BASE_SELECTION_OPTIONS.edge, radius },
+    });
     const line: LineRect = {
       left: 0, top: 0, width: LINE_W, height: LINE_H, seed, isFirst: true, isLast: true,
     };
