@@ -1,0 +1,51 @@
+import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { Outlet, useRouterState } from "@tanstack/react-router";
+import { useRef, type ComponentType } from "react";
+import { Home } from "../pages/Home.tsx";
+import { Docs } from "../pages/Docs.tsx";
+
+// Cross-fades the page text on navigation; the shell (RuledPaper + Dock) stays
+// mounted outside the fade so the dock's shadow never flickers.
+//
+// Pages come from a map, not <Outlet/>: the exiting copy must keep showing the OLD
+// page, but <Outlet/> snaps to the new route mid-fade in this router version.
+// Unmapped routes fall back to a plain Outlet.
+const PAGES: Record<string, ComponentType> = {
+  "/": Home,
+  "/docs": Docs,
+};
+
+// Sequential fade (mode="wait"): out, a brief empty hold (the enter `delay`), then in.
+const EASE: [number, number, number, number] = [0.2, 0, 0, 1];
+const PAUSE_S = 0.15;
+const FADE: Variants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.28, ease: EASE, delay: PAUSE_S } },
+  exit: { opacity: 0, transition: { duration: 0.2, ease: "easeIn" } },
+};
+
+export function PageFade() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Skip the wrapper fade on cold load so the page's Stagger cascade owns the
+  // entrance. `initial={false}` goes on the motion.div, NOT <AnimatePresence> —
+  // there it propagates a PresenceContext that suppresses the nested cascade.
+  const firstRef = useRef(true);
+  const isFirst = firstRef.current;
+  firstRef.current = false;
+
+  const Page = PAGES[pathname];
+  if (!Page) return <Outlet />;
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={pathname}
+        variants={FADE}
+        initial={isFirst ? false : "initial"}
+        animate="animate"
+        exit="exit"
+      >
+        <Page />
+      </motion.div>
+    </AnimatePresence>
+  );
+}
