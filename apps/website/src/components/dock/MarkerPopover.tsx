@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { SmoothCorners } from "@lisse/react";
 import type { ShadowConfig } from "@lisse/core";
 import { buildMarkGeometry, resolveOptions } from "@highlighters/core";
@@ -18,23 +18,30 @@ const MARK_OPTIONS: { type: MarkType; label: string }[] = [
   { type: "underline", label: "Underline" },
 ];
 
-// The preview "line" the band is shaped against. The nib shape (chisel/bullet/flat)
-// + mark type drive the band's silhouette and position; the cell clips any overshoot.
+// The preview "line" the band is shaped against. The nib (chisel/bullet/flat) + mark
+// type drive the band's silhouette and position; the cell clips any overshoot.
 const LINE_W = 24;
 const LINE_H = 22;
-// Fixed, legible opacity (the slider owns the live ink opacity) — like the swatches
-// these replace, always clearly readable.
-const PREVIEW_OPACITY = 0.82;
-// Ink crossfade, matching the dock pens.
+// Ink crossfade duration, matching the dock pens.
 const INK_FADE_MS = 180;
+
+// Endpoint-pooled translucent ink, like the real marker (denser at both ends). Built
+// from the animatable `--ink` via color-mix, so `transition: --ink` fades the whole
+// gradient — transparency and all — in one element, no second copy.
+const INK_GRADIENT =
+  "linear-gradient(90deg," +
+  " color-mix(in oklab, var(--ink) 50%, transparent) 0%," +
+  " color-mix(in oklab, var(--ink) 33%, transparent) 16%," +
+  " color-mix(in oklab, var(--ink) 33%, transparent) 84%," +
+  " color-mix(in oklab, var(--ink) 50%, transparent) 100%)";
 
 /**
  * One mark-type option: a real highlighter band — the active pen's actual
- * chisel/bullet/flat nib shape and wavy edge from the geometry engine — drawn as a
- * solid clipped fill rather than the full gradient renderer. Solid means the colour
- * lives in `background-color`, so a palette swap just CSS-transitions it (no two
- * crossfading copies). Geometry is colour-independent, so it's memoised and only the
- * fill colour animates.
+ * chisel/bullet/flat nib shape, wavy edge, and noise texture from the geometry
+ * engine, filled with the endpoint-pooled translucent ink. The shape + texture are
+ * colour-independent, so they're computed ONCE (memoised); only the `--ink` colour
+ * changes, and it CSS-transitions, so a palette swap fades the ink with no extra mark
+ * and no geometry rebuild.
  */
 function MarkOption({
   type,
@@ -53,14 +60,36 @@ function MarkOption({
   seed: number;
   onSelect: (next: MarkType) => void;
 }) {
-  const geo = useMemo(() => {
-    // A tighter overshoot than the live nib so the small stroke + caps fit the cell.
+  const ink = useMemo(() => {
+    // Tighter overshoot than the live nib so the small stroke + caps fit the cell.
     const tip = { ...penToTip(pen).tip, overshoot: 4, overshootJitter: 0 };
     const resolved = resolveOptions({ ...BASE_SELECTION_OPTIONS, markType: type, tip });
     const line: LineRect = {
       left: 0, top: 0, width: LINE_W, height: LINE_H, seed, isFirst: true, isLast: true,
     };
-    return buildMarkGeometry(line, resolved, seed);
+    const geo = buildMarkGeometry(line, resolved, seed);
+    // Static style (everything but the live colour), so the colour can transition.
+    const style: CSSProperties = {
+      position: "absolute",
+      left: geo.box.x,
+      top: geo.box.y,
+      width: geo.box.width,
+      height: geo.box.height,
+      clipPath: geo.clipPath,
+      WebkitClipPath: geo.clipPath,
+      backgroundImage: INK_GRADIENT,
+      maskImage: `url("${geo.noiseTile.dataUrl}")`,
+      WebkitMaskImage: `url("${geo.noiseTile.dataUrl}")`,
+      maskRepeat: "repeat",
+      WebkitMaskRepeat: "repeat",
+      maskSize: `${geo.noiseTile.width}px ${geo.noiseTile.height}px`,
+      WebkitMaskSize: `${geo.noiseTile.width}px ${geo.noiseTile.height}px`,
+      maskPosition: `${geo.maskOffset.x}px ${geo.maskOffset.y}px`,
+      WebkitMaskPosition: `${geo.maskOffset.x}px ${geo.maskOffset.y}px`,
+      mixBlendMode: "multiply",
+      transition: `--ink ${INK_FADE_MS}ms ease`,
+    };
+    return style;
   }, [type, pen, seed]);
 
   return (
@@ -76,22 +105,7 @@ function MarkOption({
         className="relative transition-transform duration-150 group-active:scale-[0.96]"
         style={{ width: LINE_W, height: LINE_H }}
       >
-        <div
-          aria-hidden
-          style={{
-            position: "absolute",
-            left: geo.box.x,
-            top: geo.box.y,
-            width: geo.box.width,
-            height: geo.box.height,
-            clipPath: geo.clipPath,
-            WebkitClipPath: geo.clipPath,
-            backgroundColor: color,
-            opacity: PREVIEW_OPACITY,
-            mixBlendMode: "multiply",
-            transition: `background-color ${INK_FADE_MS}ms ease`,
-          }}
-        />
+        <div aria-hidden style={{ ...ink, ["--ink" as string]: color } as CSSProperties} />
       </span>
     </button>
   );

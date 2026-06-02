@@ -7,6 +7,15 @@ body {
   overscroll-behavior: none;
 }
 
+/* Animatable ink colour for the marker-popover previews. Registering it as a
+   <color> lets `transition: --ink` crossfade the gradient ink on a palette swap in
+   a single element — no second mark to fade over the first. */
+@property --ink {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
 html {
   background: var(--color-bg);
   color: var(--color-text-primary);
