@@ -7,45 +7,23 @@ import {
 import { DEFAULT_INK, penToTip, useSelectionStyle } from "../selection-style.tsx";
 
 /**
- * Document-global live text-selection marker for the site.
- *
- * On mount it wires the user's live selection into @highlighters core via
- * {@link highlightSelection}, so any selectable text — anywhere on any route —
- * gets painted with the marker instead of the native blue band. Renders `null`
- * and paints nothing until a selection exists.
- *
- * The ink colour and nib are driven by the dock (see selection-style.tsx):
- * picking a swatch or a pen calls the handle's `update()`, which re-resolves the
- * options and repaints the current selection in place.
- *
- * The companion `selection-marker-ready` class on `<html>` gates the
- * native-selection suppression in global.css (`::selection { background:
- * transparent }`) on JS having loaded — if this never mounts, the browser's
- * own blue selection still works as a fallback.
- *
- * SEPARATION FROM THE EXHIBITS. The demonstration exhibits (Preview.tsx) are
- * `select-none`, so the browser never creates a selection range inside them —
- * this document-wide marker never touches their prose, and their pre-highlighted,
- * live-updating marks are left entirely alone.
+ * Document-global live text-selection marker. Wires the user's selection into
+ * @highlighters core so any selectable text is painted with the marker instead of
+ * the native blue band; the dock drives colour/pen/opacity/mark via update(). The
+ * `selection-marker-ready` class gates the native-selection suppression in
+ * global.css, so the blue band survives if JS never loads. Exhibits (Preview.tsx)
+ * are select-none, so this never touches them.
  */
 
-// Colour- and nib-independent base. The dock supplies `color` + `tip` on top of
-// this (see penToTip / the update effect below).
+// Colour/nib-independent base; the dock supplies colour + tip on top.
 const BASE_SELECTION_OPTIONS: HighlightOptions = {
   markType: "highlight",
-
-  // Intensity ~0.58 with multiply keeps the ink translucent so the text reads
-  // through the band rather than being covered.
+  // Translucent multiply so the text reads through the band.
   opacity: 0.58,
   blendMode: "multiply",
-
-  // Pigment-leaning master axis: muted, translucent, clean multiply — sets sane
-  // low-variance defaults for the texture knobs below.
+  // Pigment axis: muted, low-variance, clean multiply.
   colorant: "pigment",
-
-  // edgeWave { segmentLength: 30, amplitude: 1.0 } maps 1:1 — same anchored-grid
-  // semantics (waviness = px amplitude, frequency = px segmentLength). radius 3 is
-  // the tip corner; roughness adds the pressure-patch micro-jitter.
+  // Wavy edge: 1px amplitude, 30px wavelength, soft 3px tip corner.
   edge: {
     waviness: 1,
     frequency: 30,
@@ -53,25 +31,15 @@ const BASE_SELECTION_OPTIONS: HighlightOptions = {
     cap: "round",
     radius: 3,
   },
-
-  // Endpoint pooling: both ends darken (~1.5×) → a modest startEndBuildup.
-  // streakiness recreates the horizontal striation; a touch of dryout adds the
-  // patchy pressure variation.
+  // Endpoint pooling + horizontal striation + a little dry patchiness.
   ink: {
     streakiness: 0.35,
     dryout: 0.08,
     startEndBuildup: 0.25,
   },
-
-  // Non-fluorescent ink — no additive emission.
   glow: { enabled: false },
-
-  // Track the selection character by character — trim only leading/trailing
-  // whitespace, never expand out to whole-word boundaries — so the band follows
-  // the cursor exactly.
+  // Track the selection glyph-by-glyph (trim only outer whitespace).
   snap: "glyph",
-
-  // Premium tier matches the low-variance, controlled pooling of the original.
   quality: "premium",
 };
 
@@ -81,9 +49,7 @@ export function SelectionMarker(): null {
   const { style } = useSelectionStyle();
   const handleRef = useRef<MarkHandle | null>(null);
 
-  // Wire the live selection once. The initial colour and nib match the dock
-  // defaults, so the first paint already agrees with the dock's default swatch
-  // and pen (the update effect below then keeps them in sync).
+  // Wire the live selection once; defaults match the dock so the first paint agrees.
   useEffect(() => {
     const handle = highlightSelection({
       ...BASE_SELECTION_OPTIONS,
@@ -99,11 +65,15 @@ export function SelectionMarker(): null {
     };
   }, []);
 
-  // Re-style the live selection whenever the dock's colour or pen changes; the
-  // handle re-resolves options and repaints the current selection in place.
+  // Repaint the live selection when colour/pen/opacity/mark type changes.
   useEffect(() => {
-    handleRef.current?.update({ color: style.color, ...penToTip(style.pen) });
-  }, [style.color, style.pen]);
+    handleRef.current?.update({
+      color: style.color,
+      opacity: style.opacity,
+      markType: style.markType,
+      ...penToTip(style.pen),
+    });
+  }, [style.color, style.pen, style.opacity, style.markType]);
 
   return null;
 }

@@ -1,32 +1,49 @@
 import type { ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 
 const CLASSES =
   "flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#efeeed] text-[#7e756c] transition-[background-color,transform] duration-200 ease-out-quint hover:bg-[#e6e4e1] active:scale-[0.96]";
 
-/** A 42px round tool-tray button: light fill, muted glyph. The disabled Home
- *  button is shown by dimming the glyph, not the fill. With `href` it renders as
- *  an external link instead of a button, sharing identical styling. */
+/** A 42px round tool-tray button. `active` dims the glyph to mark the current
+ *  page; `to` is an internal router Link, `href` an external link, else a plain
+ *  button — all share one style. */
 export function DockButton({
   children,
   label,
-  dimmed,
+  active,
   onClick,
   href,
+  to,
 }: {
   children: ReactNode;
   label: string;
-  dimmed?: boolean;
+  active?: boolean;
   onClick?: () => void;
   href?: string;
+  to?: "/" | "/docs";
 }) {
   const glyph = (
     <span
-      className="flex items-center justify-center"
-      style={{ opacity: dimmed ? 0.25 : 1 }}
+      className="flex items-center justify-center transition-opacity duration-300 ease-out-quint"
+      style={{ opacity: active ? 0.25 : 1 }}
     >
       {children}
     </span>
   );
+
+  if (to !== undefined) {
+    return (
+      <Link
+        to={to}
+        aria-label={label}
+        aria-current={active ? "page" : undefined}
+        data-focus-ring
+        className={CLASSES}
+      >
+        {glyph}
+      </Link>
+    );
+  }
 
   if (href !== undefined) {
     return (

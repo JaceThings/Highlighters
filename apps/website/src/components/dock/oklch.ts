@@ -34,6 +34,13 @@ export function hexToOklch(hex: string): Oklch {
   return { L, C, H };
 }
 
+// #rrggbb -> "r, g, b" (0–255), for `rgba(<this>, α)` ink-gradient strings.
+export function hexToRgb(hex: string): string {
+  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
+  if (!m) return "0, 0, 0";
+  return [m[1], m[2], m[3]].map((h) => parseInt(h, 16)).join(", ");
+}
+
 // CSS Color 4 oklch() literal — modern Chrome/Safari accept it in SVG
 // fill/stop-color/flood-color.
 export function oklchToCss(c: Oklch): string {
