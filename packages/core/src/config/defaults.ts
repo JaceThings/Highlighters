@@ -87,6 +87,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   colorant: 0.5,
   quality: "standard",
   snap: "line",
+  fadeOnClear: true,
   renderer: "auto",
   animation: Object.freeze({
     draw: true,

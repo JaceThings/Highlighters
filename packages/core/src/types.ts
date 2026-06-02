@@ -33,12 +33,18 @@
 export type ColorValue = string;
 
 /**
- * The kind of mark drawn. All three share one band primitive and the full
- * physics model — they differ only in vertical position and thickness:
- * `highlight` is a tall band, `underline` a thin low band, `strike-through` a
- * thin centered band.
+ * The kind of mark drawn. All share one band primitive and the full physics
+ * model, differing mainly in vertical position/thickness:
+ * - `highlight` — a tall band over the text;
+ * - `underline` — a thin band at the baseline;
+ * - `overline` — a thin band along the top;
+ * - `strike-through` — a thin band centered on the x-height.
  */
-export type MarkType = "highlight" | "underline" | "strike-through";
+export type MarkType =
+  | "highlight"
+  | "underline"
+  | "overline"
+  | "strike-through";
 
 /**
  * Alias of {@link MarkType}. `shape` and `markType` are accepted as synonyms on
@@ -430,6 +436,11 @@ export interface HighlightOptions {
   /** Boundary-snapping mode. Default depends on target (see {@link Target}). */
   snap?: SnapMode;
 
+  /** Fade the live selection out when it's cleared (deselected), instead of
+   *  removing it instantly. Live-selection only ({@link highlightSelection});
+   *  static {@link highlight} ignores it. Default `true`. */
+  fadeOnClear?: boolean;
+
   /** Explicit deterministic seed; derived from target identity when omitted (A5). */
   seed?: number;
 
@@ -573,6 +584,7 @@ export interface ResolvedOptions {
   colorant: number;
   quality: QualityTier;
   snap: SnapMode;
+  fadeOnClear: boolean;
   renderer: RendererTierPreference;
   animation: ResolvedAnimation;
   semantic: boolean;
