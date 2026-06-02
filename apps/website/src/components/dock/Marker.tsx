@@ -24,7 +24,25 @@ const NUM_STYLE: CSSProperties = {
   fontSize: 9.5,
   letterSpacing: "-0.2px",
   color: "#86858a",
+  transition: "opacity 160ms ease",
 };
+
+// Per-pen opacity readout on the barrel, fading in/out across the 99↔100 boundary —
+// without ever rendering "100": at full opacity it keeps showing the last sub-100
+// value and just fades that away.
+function OpacityReadout({ pct }: { pct: number }) {
+  const visible = pct < 100;
+  const lastVisible = useRef(visible ? pct : 99);
+  if (visible) lastVisible.current = pct;
+  return (
+    <span
+      className="absolute left-0 w-full text-center tabular-nums"
+      style={{ ...NUM_STYLE, top: NUM_CENTER_Y, opacity: visible ? 1 : 0 }}
+    >
+      {lastVisible.current}
+    </span>
+  );
+}
 
 // Crossfade inks rather than interpolate — complementary inks can't morph without a
 // false green or a grey dip (gamut geometry).
@@ -111,20 +129,14 @@ export function MarkerRow({
                 style={{ ...place, animation: `dock-ink-out ${INK_FADE_MS}ms ease forwards` }}
               />
             )}
-            {/* Per-pen opacity readout. Outer layer rides the pen transform
-                (.dock-pen-art); inner span centres the digits. Rendering only below
-                100 makes it snap on/off — never a "100" that fades. */}
+            {/* Opacity readout. The outer layer rides the pen transform
+                (.dock-pen-art); OpacityReadout centres + fades the digits. */}
             <span
               aria-hidden
               className="dock-pen-art pointer-events-none absolute"
               style={{ left: 0, top: REST_TOP, width: SVG_W }}
             >
-              <span
-                className="absolute left-0 w-full text-center tabular-nums"
-                style={{ ...NUM_STYLE, top: NUM_CENTER_Y }}
-              >
-                {pct < 100 ? pct : null}
-              </span>
+              <OpacityReadout pct={pct} />
             </span>
           </button>
         );
