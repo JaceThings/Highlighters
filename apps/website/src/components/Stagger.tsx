@@ -9,9 +9,8 @@ import {
   type ReactNode,
 } from "react";
 
-// True once a Stagger's entrance has fully arrived (opacity/blur done).
-// Default true so any consumer NOT wrapped in a Stagger renders its
-// gated content immediately rather than waiting forever.
+// True once a Stagger's entrance has arrived. Default true so consumers outside a
+// Stagger render their gated content immediately.
 export const EntranceCompleteContext = createContext(true);
 
 /** Reads whether the nearest Stagger entrance has finished. */
@@ -24,22 +23,18 @@ interface StaggerProps {
   index: number;
   children: ReactNode;
   /** Fired once this block's entrance has landed (or immediately if skipped on a
-   *  revisit). Used to tell the dock the last text block has arrived. */
+   *  revisit). Tells the dock the last text block has arrived. */
   onComplete?: () => void;
 }
 
-// Items rack in from out-of-focus to crisp while fading in. No Y
-// translation — the cascade reads as "coming into focus" rather than
-// rising into place.
+// Items rack from out-of-focus to crisp as they fade in — no Y translation.
 const ENTRANCE_BLUR_PX = 4;
 
-// Anchor for cascade timing. Captured once at module load so later
-// navigations see targets already in the past and the skip-gate fires.
+// Cascade timing anchor, captured once so later navigations skip the cascade.
 const APP_MOUNT_MS = performance.now();
 
-// Skip only fires after first paint; without this guard a slow bundle
-// parse would push `now` past targetMs for early indices and suppress
-// the cascade entirely. Double-rAF lands on the frame after first paint.
+// Only skip after first paint — otherwise a slow bundle parse pushes `now` past the
+// targets and suppresses the cascade. Double-rAF = the frame after first paint.
 let hasFirstPainted = false;
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
@@ -47,10 +42,7 @@ requestAnimationFrame(() => {
   });
 });
 
-// 0.35s pause then 0.08s steps × 0.7s per item — a body of 8 items
-// spans ~1.3s, slow enough to read as a cascade. Softer ease than the
-// site's snappier [0.32, 0.72, 0, 1] so the movement registers across
-// the full span instead of finishing 70% in the first 150ms.
+// 0.35s pause, 0.08s steps, 0.7s per item — ~1.3s for 8 items, slow enough to read.
 const INITIAL_DELAY = 0.35;
 const STEP = 0.08;
 const DURATION = 0.7;
@@ -59,29 +51,21 @@ const EASE: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 interface UseStaggerEntranceOptions {
   /** Stagger slot — same semantics as `<Stagger index>`. */
   index: number;
-  /** Hold the entrance at the initial (blurred, faded) state until this
-   * flips true. Use to gate the cascade on async readiness — e.g. a
-   * heavy section that needs its critical assets to be loaded before it
-   * fades in, so a slow network doesn't pop content into a container
-   * that has already faded itself in empty. Defaults to true. */
+  /** Hold at the faded state until true — gates the cascade on async readiness so a
+   *  section doesn't fade in empty. Defaults to true. */
   ready?: boolean;
 }
 
 type EntranceMotionProps = Pick<MotionProps, "initial" | "animate" | "transition">;
 
-/**
- * Computes the motion props for a cascade entrance. Pull out into a hook so
- * sections that need to drive their own root element (rather than a wrapper
- * `<div>`) can apply the same entrance while gating it on extra conditions
- * via the `ready` flag.
- */
+/** Motion props for a cascade entrance — a hook so a section can drive its own root
+ *  element and gate on `ready` rather than wrap in a `<div>`. */
 export function useStaggerEntrance({
   index,
   ready = true,
 }: UseStaggerEntranceOptions): EntranceMotionProps {
-  // Lock readiness at mount: a late-arriving asset (ready: false → true)
-  // must still play a fresh fade rather than tripping the slot-passed
-  // shortcut, which exists only to make cross-route remounts instant.
+  // Lock readiness at mount so a late asset (false→true) still plays a fresh fade
+  // rather than tripping the slot-passed shortcut (which keeps remounts instant).
   const wasReadyAtMount = useRef(ready).current;
 
   const { skip, delay } = useMemo(() => {
@@ -108,10 +92,8 @@ export function useStaggerEntrance({
 
 export function Stagger({ index, children, onComplete }: StaggerProps) {
   const props = useStaggerEntrance({ index });
-  // When the entrance is SKIPPED (initial === false) there's no animation to
-  // complete, so seed `done` true — revisits/instant renders get marks
-  // immediately. Otherwise wait for framer-motion's onAnimationComplete, which
-  // fires exactly when opacity/blur finish and the text has fully arrived.
+  // A skipped entrance (initial === false) has no animation to complete, so seed
+  // `done` true; otherwise wait for framer-motion's onAnimationComplete.
   const skipped = props.initial === false;
   const [done, setDone] = useState(skipped);
   // A skipped entrance never fires onAnimationComplete — report it once on mount.

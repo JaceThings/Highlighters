@@ -1,11 +1,8 @@
 import { useId, type CSSProperties } from "react";
 import { lightenOklch, oklchToCss, parseOklch } from "./oklch.ts";
 
-// The three nib shapes. Each path lives in its own 0–15 space (as exported), so
-// a transform places it: TX centres the 14.26-wide nib on the barrel, and a
-// per-tip `ty` drops its bottom onto the funnel top (~y16 in marker space) —
-// the shapes differ in height, hence the different offsets. Painted in the ink
-// `color` (with the band).
+// The three nib shapes, each in its own 0–15 space. TX centres the nib on the
+// barrel; the per-tip `ty` drops its base onto the funnel top.
 const TX = 13.943;
 const TIPS = {
   slant: {
@@ -22,9 +19,8 @@ const TIPS = {
   },
 } as const;
 
-// The coloured ink band near the funnel. Rendered outside the barrel's
-// drop-shadow so band + tip are the only coloured layer — letting MarkerRow
-// crossfade just the COLOUR over a static barrel + shadow.
+// The ink band near the funnel — outside the barrel's drop-shadow so MarkerRow can
+// crossfade just the colour (band + tip) over a static barrel.
 const BAND = "M8 57.0525H34.1475V67.7492H8V57.0525Z";
 
 interface PenProps {
@@ -41,17 +37,13 @@ interface PenProps {
 }
 
 export function Pen({ tip, color, width, className, style, colorOnly }: PenProps) {
-  // Namespace every gradient/filter/clipPath id so multiple <Pen> instances on
-  // one page never collide on shared defs. useId() gives a stable, unique base.
+  // Namespace the gradient/filter ids so multiple <Pen>s don't collide on shared defs.
   const id = useId();
-  // Parse the animated ink back out of its oklch() string so we derive the tip
-  // shading in OKLCH each frame.
+  // Parse the ink back out of its oklch() string to derive the tip shading.
   const ink = parseOklch(color);
-  // Lighter top of the tip gradient — also the top-rim colour, so the rim blends
-  // into the nib instead of reading as a dark line.
+  // Lighter tip-gradient top, also the rim colour so the rim blends into the nib.
   const tipTop = oklchToCss(lightenOklch(ink, 0.06));
-  // White specular highlight opacity, scaled off OKLCH lightness: dark inks
-  // (brown ~0.5) stay ~0.07, light inks (yellow/green) brighten.
+  // Specular highlight opacity, scaled off lightness so light inks brighten.
   const whiteAlpha = Math.max(0.07, Math.min(0.5, 0.07 + 0.7 * Math.max(0, ink.L - 0.5)));
 
   return (
@@ -64,8 +56,8 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
       className={className}
       style={{ width, height: "auto", ...style }}
     >
-      {/* Grey barrel + funnel and its drop-shadow. Skipped in colorOnly mode so
-          the dissolving overlay carries only ink (no doubled shadow). */}
+      {/* Grey barrel + funnel + shadow. Skipped in colorOnly so the fade overlay
+          carries only ink. */}
       {!colorOnly && (
         <g filter={`url(#${id}-filter0)`}>
           <g clipPath={`url(#${id}-clip0)`}>
@@ -80,8 +72,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           </g>
         </g>
       )}
-      {/* Coloured ink band — no drop-shadow, so it crossfades cleanly over a
-          static barrel; the grey body behind it carries the real shadow. */}
+      {/* Ink band — no shadow, so it crossfades cleanly over the static barrel. */}
       <path d={BAND} style={{ fill: color }} />
       <path
         d={BAND}
@@ -89,9 +80,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
         style={{ mixBlendMode: "color-dodge" }}
       />
       <g filter={`url(#${id}-filter1)`}>
-        {/* Nib, centred on the barrel and dropped onto the funnel. Vertical
-            ink-matched gradient: lighter at the nib, base toward the body
-            (replaces the original fixed-brown paint3, now colour-relative). */}
+        {/* Nib, ink-matched vertical gradient (lighter at the tip). */}
         <g transform={`translate(${TX} ${TIPS[tip].ty})`}>
           <path d={TIPS[tip].d} fill={`url(#${id}-tipgrad)`} />
         </g>
@@ -140,8 +129,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
         >
           <feFlood floodOpacity="0" result="BackgroundImageFix" />
           <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-          {/* White specular highlight at the nib's top inner edge; opacity
-              scales with ink luminance so it stays visible on light inks. */}
+          {/* Specular highlight at the nib's top edge; opacity scales with ink luminance. */}
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"
@@ -154,8 +142,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           <feFlood floodColor="#ffffff" floodOpacity={whiteAlpha} />
           <feComposite in2={`${id}-hlAlpha`} operator="in" />
           <feBlend mode="normal" in2="shape" result={`${id}-effect1_innerShadow`} />
-          {/* Top rim, tinted to the lighter top-gradient colour so it blends
-              into the nib (was a hardcoded dark line). */}
+          {/* Top rim, tinted to the lighter gradient colour so it blends in. */}
           <feColorMatrix
             in="SourceAlpha"
             type="matrix"

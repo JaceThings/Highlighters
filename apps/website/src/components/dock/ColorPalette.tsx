@@ -1,13 +1,8 @@
 import colorPickerUrl from "./color-picker.svg";
 
-// The compact ink well: two rows of three. The last is the "custom" swatch
-// (placeholder for a future picker). Controlled — the selected swatch is the one
-// matching `value`; clicking reports its ink colour.
-//
-// `color` is the ink value (and what click reports). `ring` is the selected-state
-// outline — solid, since box-shadow can't take a gradient, so the custom swatch
-// borrows a neutral warm grey. `background` defaults to `color`; the custom swatch
-// paints the ColorPicker SVG (a soft, blurred colour wheel).
+// The ink well: two rows of three swatches, controlled by `value`. The last is a
+// "custom" swatch painting the colour-wheel SVG. `ring` is the selected outline
+// (solid — box-shadow can't take a gradient).
 interface Swatch {
   id: string;
   label: string;
@@ -50,17 +45,12 @@ export function ColorPalette({
             aria-pressed={isSelected}
             onClick={() => onChange(s.color)}
             data-focus-ring
-            // The button is the click target and is NEVER scaled — its 43px hit
-            // area stays put. The press-scale lives on the (pointer-events:none)
-            // visual layer below, via group-active. Scaling the button itself
-            // shrank its bounds out from under the pointer on an edge press, so the
-            // pointerup landed outside and the click never fired (you'd see the
-            // bounce but the colour wouldn't swap).
+            // Never scale the button itself — that moves its hit area out from under
+            // the pointer and the click misfires. The press-scale is on the visual
+            // layer below.
             className="group relative size-[43px] shrink-0 rounded-full"
           >
-            {/* Visual layer: white gap + fixed ink ring. Scales on press so the
-                whole swatch (ring + disc nested inside) gives the tactile dip,
-                while the button's hit area underneath is unaffected. */}
+            {/* Visual layer (white gap + ink ring); scales on press for the dip. */}
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
@@ -69,19 +59,14 @@ export function ColorPalette({
                 boxShadow: `inset 0 0 0 3.57px ${s.ring}`,
               }}
             >
-              {/* The colour value disc: fills the swatch when unselected (covering
-                  ring + gap). On select it scales down to ~30px, revealing the white
-                  gap and fixed edge ring — the ring stays put, only the disc animates. */}
+              {/* Colour disc: fills when unselected; shrinks on select to reveal the ring. */}
               <span
                 className="absolute inset-0 rounded-full"
                 style={{
                   background: s.background ?? s.color,
                   transformOrigin: "center",
                   transform: isSelected ? "scale(0.703)" : "scale(1)",
-                  // Directional: ring pops IN fast on select (disc shrinks away). On
-                  // DESELECT the disc grows back slower with a gentle ease-in-out so it
-                  // doesn't snap shut — you see the ring leave. (CSS uses the transition
-                  // declared on the target state.)
+                  // Faster on select (ring pops in), slower on deselect (disc eases back).
                   transition: isSelected
                     ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
                     : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",

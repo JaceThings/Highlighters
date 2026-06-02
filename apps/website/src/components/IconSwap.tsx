@@ -1,9 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 
-// Cross-fade between icon variants. Every layer stays mounted (unmounting
-// kills the cross-fade window and breaks colour inheritance from the pill).
-// Motion is center-aligned — scale + blur + opacity, no translation —
-// so the icon stays vertically centred in its slot.
+// Cross-fade between icon variants. Every layer stays mounted (unmounting kills the
+// cross-fade and breaks colour inheritance). Centre-aligned scale + blur + opacity.
 
 const ACTIVE_STYLE: CSSProperties = {
   opacity: 1,
@@ -17,9 +15,8 @@ const INACTIVE_STYLE: CSSProperties = {
   filter: "blur(3px)",
 };
 
-// Spring curve matched to @numeric-text/core's default so the icon swap
-// shares the label morph's rhythm — the icon settles in step with the
-// per-glyph slide instead of riding a different ease.
+// Spring curve matched to @numeric-text/core so the icon settles in step with the
+// label morph rather than riding a different ease.
 const SPRING_EASE =
   "linear(0,.1052,.3155,.532,.7112,.8414,.9265,.9765,1.0023,1.013,1.0151,1.0133,1.01,1.0068,1.0041,1.0022,1.001,1)";
 

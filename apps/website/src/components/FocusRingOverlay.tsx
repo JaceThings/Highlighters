@@ -9,14 +9,10 @@ import {
 } from "framer-motion";
 import { generatePath } from "@lisse/core";
 
-// Persistent squircle ring tracking the focused `[data-focus-ring]`.
-// Within a `[data-focus-section]` group the ring springs between targets;
-// across groups it fades out, snaps while invisible, and fades back in —
-// soft cross-dissolve instead of a long visible slide.
-//
-// Position is in page coordinates (rect.x + scrollX) on an absolute SVG,
-// so it stays glued through scroll without a listener. Hides if modality
-// flips to mouse.
+// Persistent squircle ring on the focused `[data-focus-ring]`. Within a
+// `[data-focus-section]` it springs between targets; across groups it cross-
+// dissolves. Positioned in page coords on an absolute SVG, so it stays glued
+// through scroll. Hidden when modality flips to mouse.
 
 const RING_SELECTOR = "[data-focus-ring]";
 const SECTION_SELECTOR = "[data-focus-section]";
