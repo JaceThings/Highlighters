@@ -1,8 +1,5 @@
-// Inter `standard` variant ships both `wght` and `opsz` axes; paired with
-// `font-optical-sizing: auto` in global.css so the font adjusts between
-// display and text sizes.
-import "@fontsource-variable/inter/standard.css";
-import "@fontsource-variable/inter/standard-italic.css";
+// Inter is self-hosted (official rsms v4.1) via an @font-face in tokens.css —
+// see the note there for why the Google Fonts build won't do.
 import "./styles/tokens.css";
 import "./styles/global.css";
 

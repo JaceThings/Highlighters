@@ -15,12 +15,23 @@
   unicode-range: U+0020-007E, U+00A0-00FF, U+2000-206F;
 }
 
+/* Official rsms Inter v4.1, self-hosted — not the Google Fonts repackage, which
+ * ships none of the cv/ss features (we need cv05, the tailed l). Subset to
+ * latin+latin-ext, all layout features + wght/opsz axes kept. Upright only. */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+}
+
 /* Tokens lifted from Figma file f6JlgIPQFMFIJSpiJbviOG. */
 
 @theme {
   /* Surface + text */
-  --color-bg: #f7f6f2;
-  --color-surface: #f7f6f2;
+  --color-bg: #fbfbf9;
+  --color-surface: #fbfbf9;
   --color-text-primary: #73574a;
   /* RGB triplet of `--color-text-primary` for `rgba(var(--primary-rgb), α)`
      compositing — read by the selection highlight overlay. */
