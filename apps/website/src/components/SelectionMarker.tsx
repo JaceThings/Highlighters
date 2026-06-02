@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
+import { type MarkHandle, highlightSelection } from "@highlighters/core";
 import {
-  type HighlightOptions,
-  type MarkHandle,
-  highlightSelection,
-} from "@highlighters/core";
-import { DEFAULT_INK, penToTip, useSelectionStyle } from "../selection-style.tsx";
+  BASE_SELECTION_OPTIONS,
+  DEFAULT_INK,
+  penToTip,
+  useSelectionStyle,
+} from "../selection-style.tsx";
 
 /**
  * Document-global live text-selection marker. Wires the user's selection into
@@ -12,36 +13,9 @@ import { DEFAULT_INK, penToTip, useSelectionStyle } from "../selection-style.tsx
  * the native blue band; the dock drives colour/pen/opacity/mark via update(). The
  * `selection-marker-ready` class gates the native-selection suppression in
  * global.css, so the blue band survives if JS never loads. Exhibits (Preview.tsx)
- * are select-none, so this never touches them.
+ * are select-none, so this never touches them. The house style lives in
+ * selection-style.tsx (shared with the popover previews).
  */
-
-// Colour/nib-independent base; the dock supplies colour + tip on top.
-const BASE_SELECTION_OPTIONS: HighlightOptions = {
-  markType: "highlight",
-  // Translucent multiply so the text reads through the band.
-  opacity: 0.58,
-  blendMode: "multiply",
-  // Pigment axis: muted, low-variance, clean multiply.
-  colorant: "pigment",
-  // Wavy edge: 1px amplitude, 30px wavelength, soft 3px tip corner.
-  edge: {
-    waviness: 1,
-    frequency: 30,
-    roughness: 0.12,
-    cap: "round",
-    radius: 3,
-  },
-  // Endpoint pooling + horizontal striation + a little dry patchiness.
-  ink: {
-    streakiness: 0.35,
-    dryout: 0.08,
-    startEndBuildup: 0.25,
-  },
-  glow: { enabled: false },
-  // Track the selection glyph-by-glyph (trim only outer whitespace).
-  snap: "glyph",
-  quality: "premium",
-};
 
 const READY_CLASS = "selection-marker-ready";
 

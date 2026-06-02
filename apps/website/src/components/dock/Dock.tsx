@@ -158,6 +158,7 @@ export function Dock() {
             >
               <MarkerPopover
                 inkColor={style.color}
+                pen={style.pen}
                 opacity={style.opacity}
                 markType={style.markType}
                 onOpacity={setOpacity}

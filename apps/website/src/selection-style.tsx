@@ -108,3 +108,19 @@ export function penToTip(pen: PenTip): Pick<HighlightOptions, "tip"> {
       return { tip: { type: "chisel", angle: 8, angleJitter: 5, ...NIB } };
   }
 }
+
+// The colour/nib-independent house style — translucent multiply, pigment axis, wavy
+// edge, light streak/pool texture. Shared by the live SelectionMarker and the
+// popover's mark-type previews so the previews paint exactly what gets used. The
+// dock layers colour, tip, opacity, and markType on top.
+export const BASE_SELECTION_OPTIONS: HighlightOptions = {
+  markType: "highlight",
+  opacity: DEFAULT_OPACITY,
+  blendMode: "multiply",
+  colorant: "pigment",
+  edge: { waviness: 1, frequency: 30, roughness: 0.12, cap: "round", radius: 3 },
+  ink: { streakiness: 0.35, dryout: 0.08, startEndBuildup: 0.25 },
+  glow: { enabled: false },
+  snap: "glyph",
+  quality: "premium",
+};
