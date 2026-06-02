@@ -259,9 +259,19 @@ function mountMark(
  * @param target - Any {@link Target}: element, selector, `Range`, `Selection`,
  *   text query, or page target.
  * @param options - Optional {@link HighlightOptions}.
+ * @param host - Optional positioned element to mount the overlay inside, instead
+ *   of `document.body`. Use it to scope the overlay to a transformed, scrolling, or
+ *   stacked container (a popover, modal, or any element with a CSS transform) — the
+ *   overlay then moves and z-orders with that container rather than sitting in
+ *   document coordinates on the body. The element is promoted to `position:
+ *   relative` if static. Defaults to the body (document-coordinate overlay).
  * @returns A {@link MarkHandle}; an inert no-op handle outside a DOM (R34).
  */
-export function highlight(target: Target, options?: HighlightOptions): MarkHandle {
+export function highlight(
+  target: Target,
+  options?: HighlightOptions,
+  host?: HTMLElement | null,
+): MarkHandle {
   if (!hasDom()) return inertHandle();
 
   const userOptions: HighlightOptions = {
@@ -272,7 +282,7 @@ export function highlight(target: Target, options?: HighlightOptions): MarkHandl
   const ranges = toRanges(target);
   if (ranges.length === 0) return inertHandle();
 
-  return mountMark(ranges, userOptions, resolved);
+  return mountMark(ranges, userOptions, resolved, [], host ?? undefined);
 }
 
 /**
