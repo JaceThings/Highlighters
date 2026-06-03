@@ -27,8 +27,6 @@ export type {
   EdgeCap,
   BlendMode,
   SnapMode,
-  QualityTier,
-  ColorantValue,
   RendererTier,
   RendererTierPreference,
   GradientConfig,

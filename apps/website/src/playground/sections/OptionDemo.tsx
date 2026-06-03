@@ -9,7 +9,7 @@ import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
 import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
 import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
-import { Preview, CANVAS_HEIGHT } from "../Preview.tsx";
+import { Preview, SnapPreview, CANVAS_HEIGHT } from "../Preview.tsx";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
 
@@ -61,9 +61,6 @@ const getBool = (o: PlaygroundOptions, p: string, d: boolean): boolean => {
   const v = readPath(o, p);
   return typeof v === "boolean" ? v : d;
 };
-// colorant accepts a number or a named anchor; map anchors to the slider's 0–1.
-const colorantNum = (c: PlaygroundOptions["colorant"]): number =>
-  typeof c === "number" ? c : c === "dye" ? 0 : c === "pigment" ? 1 : 0.5;
 
 type Unit = "ratio" | "px" | "deg" | "ms";
 const FORMAT: Record<Unit, (v: number) => string> = {
@@ -87,7 +84,6 @@ type Demo =
   | (Base & { kind: "slider"; path: string; label: string; def: number; min: number; max: number; step: number; unit: Unit })
   | (Base & { kind: "pills"; path: string; aria: string; def: string; opts: ReadonlyArray<{ value: string; label: string }>; shape?: boolean })
   | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
-  | (Base & { kind: "colorant" })
   | (Base & { kind: "color" });
 
 // --- the controls --------------------------------------------------------------
@@ -112,22 +108,6 @@ function Control({ demo }: { demo: Exclude<Demo, { kind: "pills" | "toggle" }> }
           step={demo.step}
           format={FORMAT[demo.unit]}
           onChange={onNum(demo.path)}
-        />
-      </div>
-    );
-  }
-
-  if (demo.kind === "colorant") {
-    return (
-      <div className={SLIDER_ROW}>
-        <Slider
-          label="Dye ↔ pigment"
-          value={colorantNum(options.colorant)}
-          min={0}
-          max={1}
-          step={0.01}
-          format={fmt2}
-          onChange={(v, fromDrag) => set("colorant", v, fromDrag)}
         />
       </div>
     );
@@ -254,7 +234,11 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
       <div ref={ref}>
         <Section title={demo.title} description={demo.desc}>
           <PaperCard>
-            {seen && quote ? <Preview quote={quote} /> : <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />}
+            {seen && quote ? (
+              demo.path === "snap" ? <SnapPreview quote={quote} /> : <Preview quote={quote} />
+            ) : (
+              <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
+            )}
             <LegendControl demo={demo} />
           </PaperCard>
         </Section>
@@ -279,8 +263,6 @@ export const OPTION_DEMOS: Demo[] = [
   { kind: "color", title: "color", desc: "The ink hue. Pick a canonical highlighter swatch — a clean { palette, swatch } reference. Defaults to fluorescent yellow." },
   { kind: "slider", title: "opacity", label: "Opacity", path: "opacity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Overall ink alpha. Lower lets more of the text read through the band." },
   { kind: "toggle", title: "blendMode (stack)", aria: "Stack", path: "stack", def: true, desc: "Overlap optics. On = multiply: two passes darken where they cross, like real translucent ink. Off = normal: same-colour overlaps merge flat." },
-  { kind: "colorant", title: "colorant", desc: "Dye ↔ pigment master axis. Toward dye: saturated, feathery, smeary. Toward pigment: muted, translucent, clean. Sets correlated ink defaults." },
-  { kind: "pills", title: "quality", aria: "Quality", path: "quality", def: "standard", opts: [{ value: "premium", label: "Premium" }, { value: "standard", label: "Standard" }, { value: "cheap", label: "Cheap" }], desc: "Manufacturing-variance bundle. Premium = low variance, suppressed pooling; cheap = high variance, frequent skipping and pooling." },
   { kind: "pills", title: "tip.type", aria: "Nib", path: "tip.type", def: "chisel", opts: [{ value: "chisel", label: "Chisel" }, { value: "bullet", label: "Bullet" }, { value: "fine", label: "Fine" }], desc: "Nib shape — a broad slanted chisel, a rounded bullet, or a fine point." },
   { kind: "slider", title: "tip.angle", label: "Angle", path: "tip.angle", def: 35, min: 0, max: 90, step: 1, unit: "deg", desc: "Chisel slant baked into each band." },
   { kind: "slider", title: "tip.overshoot", label: "Overshoot", path: "tip.overshoot", def: 2, min: -8, max: 12, step: 1, unit: "px", desc: "How far each end runs past the text. Positive overruns like a real swipe; negative stops short of the glyphs." },
@@ -291,7 +273,6 @@ export const OPTION_DEMOS: Demo[] = [
   { kind: "slider", title: "ink.feathering", label: "Feathering", path: "ink.feathering", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Capillary lateral spread at the edges, the way ink wicks sideways into paper." },
   { kind: "slider", title: "ink.streakiness", label: "Streakiness", path: "ink.streakiness", def: 0.35, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Lengthwise lighter/darker lanes within a stroke — the single biggest “real highlighter” tell." },
   { kind: "slider", title: "ink.dryout", label: "Dryout", path: "ink.dryout", def: 0.15, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Probabilistic alpha gaps — the marker skipping as it runs dry." },
-  { kind: "slider", title: "ink.startEndBuildup", label: "Start/end buildup", path: "ink.startEndBuildup", def: 0.25, min: -1, max: 1, step: 0.01, unit: "ratio", desc: "Ink at the stroke ends. Positive pools (cheap/wet look); negative engages the anti-pool guardrail (premium look)." },
   { kind: "slider", title: "ink.flowFade", label: "Flow fade", path: "ink.flowFade", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Directional dry-out: each line starts saturated where the nib lands and fades drier toward its end." },
   { kind: "slider", title: "edge.waviness", label: "Waviness", path: "edge.waviness", def: 1.5, min: 0, max: 4, step: 0.1, unit: "px", desc: "Peak displacement of the wavy edge. Zero gives a clean straight edge." },
   { kind: "slider", title: "edge.frequency", label: "Frequency", path: "edge.frequency", def: 22, min: 8, max: 48, step: 1, unit: "px", desc: "Segment length between wave vertices — smaller is wavier. Width-independent." },
@@ -299,15 +280,6 @@ export const OPTION_DEMOS: Demo[] = [
   { kind: "pills", title: "edge.cap", aria: "Cap", path: "edge.cap", def: "round", opts: [{ value: "flat", label: "Flat" }, { value: "round", label: "Round" }, { value: "square", label: "Square" }], desc: "End-cap style for a band's leading and trailing edges." },
   { kind: "slider", title: "edge.radius", label: "Radius", path: "edge.radius", def: 4, min: 0, max: 12, step: 1, unit: "px", desc: "Corner radius, clamped against short marks." },
   { kind: "slider", title: "paper.absorbency", label: "Absorbency", path: "paper.absorbency", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "How thirsty the paper is. Higher wicks more ink, growing the feather and softening edges." },
-  { kind: "toggle", title: "glow.enabled", aria: "Glow", path: "glow.enabled", def: false, desc: "Additive fluorescence layered over the multiply ink — a mark can read brighter than its background. Off by default." },
-  { kind: "slider", title: "glow.intensity", label: "Glow intensity", path: "glow.intensity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Strength of the additive emission. (Enable glow above to see it.)" },
-  { kind: "slider", title: "glow.spread", label: "Glow spread", path: "glow.spread", def: 4, min: 0, max: 20, step: 1, unit: "px", desc: "Bloom radius of the glow. (Enable glow above to see it.)" },
   { kind: "pills", title: "snap", aria: "Snap", path: "snap", def: "word", opts: [{ value: "none", label: "None" }, { value: "word", label: "Word" }, { value: "line", label: "Line" }, { value: "glyph", label: "Glyph" }], desc: "Clamps each end to a text boundary before overshoot is applied, so a mark never starts or stops mid-whitespace." },
-  { kind: "toggle", title: "animation.draw", aria: "Draw on", path: "animation.draw", def: true, desc: "The entrance draw-on swipe — each band paints in like a pen stroke. Suppressed automatically under reduced-motion." },
-  { kind: "slider", title: "animation.duration", label: "Duration", path: "animation.duration", def: 420, min: 0, max: 1500, step: 10, unit: "ms", desc: "How long a single band takes to draw on." },
-  { kind: "slider", title: "animation.stagger", label: "Stagger", path: "animation.stagger", def: 90, min: 0, max: 400, step: 10, unit: "ms", desc: "Delay between consecutive lines/marks — the pen travelling down the page." },
-  { kind: "pills", title: "animation.easing", aria: "Easing", path: "animation.easing", def: "ease-out", opts: [{ value: "linear", label: "Linear" }, { value: "ease", label: "Ease" }, { value: "ease-in", label: "In" }, { value: "ease-out", label: "Out" }, { value: "ease-in-out", label: "In-out" }], desc: "Easing curve for the draw-on sweep (also accepts any CSS easing string in code)." },
-  { kind: "pills", title: "animation.direction", aria: "Direction", path: "animation.direction", def: "left-to-right", opts: [{ value: "left-to-right", label: "L→R" }, { value: "right-to-left", label: "R→L" }, { value: "center-out", label: "Center" }], desc: "Which way each band sweeps as it draws on." },
   { kind: "pills", title: "animation.trigger", aria: "Trigger", path: "animation.trigger", def: "immediate", opts: [{ value: "immediate", label: "Immediate" }, { value: "in-view", label: "In view" }], desc: "When the entrance begins — on mount, or when the mark scrolls into view (an IntersectionObserver)." },
-  { kind: "pills", title: "renderer", aria: "Renderer", path: "renderer", def: "auto", opts: [{ value: "auto", label: "Auto" }, { value: "svg", label: "SVG" }, { value: "css", label: "CSS" }, { value: "highlight-api", label: "Highlight API" }], desc: "Renderer tier. Auto picks the best supported and degrades gracefully; the others pin one (SVG = realistic, CSS = gradient band, Highlight API = flat/zero-DOM)." },
 ];

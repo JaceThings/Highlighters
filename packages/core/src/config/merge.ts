@@ -7,7 +7,7 @@
  *    field, the `shape`/`markType` synonyms reconciled).
  *  - {@link resolveOptions} — the single funnel that produces a fully-resolved
  *    {@link ResolvedOptions} via the documented precedence
- *    **defaults → preset → quality → colorant → user**.
+ *    **defaults → preset → user**.
  *
  * No DOM access — this module is path-safe (SSR).
  */
@@ -17,7 +17,6 @@ import type {
   ColorValue,
   HighlightOptions,
   PaletteSwatch,
-  QualityTier,
   ResolvedAnimation,
   ResolvedEdge,
   ResolvedGlow,
@@ -28,38 +27,9 @@ import type {
   ResolvedTip,
 } from "../types.js";
 import { clamp } from "../internal/math.js";
-import { applyColorantAxis, normalizeColorant } from "./colorant.js";
 import { DEFAULT_OPTIONS } from "./defaults.js";
 import { defaultSwatch, resolveSwatch } from "./palettes.js";
 import { getPreset } from "./presets.js";
-
-/**
- * The `quality` manufacturing-consistency bundles (R18). Quality is modeled as
- * variance injection: `premium` = low streak/feather/dryout and a suppressed
- * (anti-pool) end build-up; `cheap` = high streak/feather, frequent skipping,
- * pronounced pooling. `standard` is the neutral middle and contributes nothing.
- */
-const QUALITY_BUNDLES: Record<QualityTier, Partial<HighlightOptions>> = {
-  premium: {
-    ink: {
-      streakiness: 0.1,
-      feathering: 0.12,
-      dryout: 0.02,
-      startEndBuildup: -0.3,
-    },
-    edge: { roughness: 0.12 },
-  },
-  standard: {},
-  cheap: {
-    ink: {
-      streakiness: 0.7,
-      feathering: 0.55,
-      dryout: 0.55,
-      startEndBuildup: 0.6,
-    },
-    edge: { roughness: 0.55 },
-  },
-};
 
 /**
  * A finite number, else `fallback`. `??` only substitutes for `undefined`, so a
@@ -157,11 +127,9 @@ function resolveColor(
  * Precedence, lowest to highest:
  *   1. `DEFAULT_OPTIONS` (the baseline floor)
  *   2. the named preset (`input.preset`, default `"mild"`)
- *   3. the `quality` bundle
- *   4. the `colorant` dye↔pigment axis (defaults for unset ink params)
- *   5. the explicit `input`
+ *   3. the explicit `input`
  *
- * `color`/`palette`/`gradient`/`colorant`/`seed` are resolved to concrete values.
+ * `color`/`palette`/`gradient`/`seed` are resolved to concrete values.
  * Pure — no DOM access.
  */
 export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
@@ -169,20 +137,9 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
 
   // 2. Preset layer (mild by default).
   const preset = getPreset(input.preset ?? "mild");
-  let layered: HighlightOptions = preset;
+  const layered: HighlightOptions = preset;
 
-  // 3. Quality bundle. The effective quality is the user's, else the preset's,
-  // else the baseline standard.
-  const quality: QualityTier = input.quality ?? preset.quality ?? d.quality;
-  layered = mergeOptions(layered, QUALITY_BUNDLES[quality]);
-
-  // 4. Colorant axis fills unset ink params. The effective position is the
-  // user's, else the preset's, else the baseline midpoint.
-  const colorantRaw = input.colorant ?? preset.colorant ?? d.colorant;
-  const colorant = normalizeColorant(colorantRaw);
-  layered = applyColorantAxis(layered, colorant);
-
-  // 5. Explicit user options win last.
+  // 3. Explicit user options win last.
   const merged = mergeOptions(layered, input);
 
   // --- Flatten to ResolvedOptions, filling any still-unset field from d. ---
@@ -290,8 +247,6 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     edge,
     paper,
     glow,
-    colorant,
-    quality,
     snap: merged.snap ?? d.snap,
     fadeOnClear: merged.fadeOnClear ?? d.fadeOnClear,
     renderer: merged.renderer ?? d.renderer,

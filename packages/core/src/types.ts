@@ -77,13 +77,6 @@ export type BlendMode =
 export type SnapMode = "none" | "word" | "line" | "glyph";
 
 /**
- * Manufacturing-quality axis. Bundles ink/edge variance into a coherent look:
- * `premium` = low variance, suppressed end-pooling (anti-pool guardrails);
- * `cheap` = high variance, frequent skipping, pronounced pooling (R18).
- */
-export type QualityTier = "premium" | "standard" | "cheap";
-
-/**
  * Renderer tier. `auto` selects the best supported tier and enables
  * auto-degrade; the others pin a specific tier and disable auto-degrade (R27).
  */
@@ -188,14 +181,6 @@ export type PresetName =
   | "premium"
   | "minimal";
 
-/**
- * The `colorant` master axis (R17b): a single dye↔pigment knob that sets coherent
- * defaults for the correlated physical parameters. Accepts a number in `[0,1]`
- * (`0` = full dye: saturated, feathery, smeary; `1` = full pigment: muted,
- * translucent, clean multiply) or a named anchor. Individual parameters still
- * override the axis (it sets defaults, not ceilings).
- */
-export type ColorantValue = number | "dye" | "balanced" | "pigment";
 
 // --- Namespaced option groups (all optional on input) -----------------------
 
@@ -389,11 +374,11 @@ export interface AnimationOptions {
 /**
  * The full user-facing options object (A7). Every field is optional; values are
  * resolved into {@link ResolvedOptions} through the deep-merge order
- * defaults → preset → quality → colorant → user. `update()` accepts the same
- * shape via `Partial<HighlightOptions>`.
+ * defaults → preset → user. `update()` accepts the same shape via
+ * `Partial<HighlightOptions>`.
  *
- * Three altitudes of access over one schema: a string {@link preset}, the coarse
- * {@link quality} axis, and individual namespaced parameters.
+ * Two altitudes of access over one schema: a string {@link preset} and
+ * individual namespaced parameters.
  */
 export interface HighlightOptions {
   /** A named preset applied as a base layer before other options. Default `mild`. */
@@ -427,11 +412,6 @@ export interface HighlightOptions {
   paper?: PaperOptions;
   /** Additive fluorescence/glow. */
   glow?: GlowOptions;
-
-  /** Dye↔pigment master axis (R17b). Sets defaults for correlated ink params. */
-  colorant?: ColorantValue;
-  /** Manufacturing-quality bundle. Default `standard`. */
-  quality?: QualityTier;
 
   /** Boundary-snapping mode. Default depends on target (see {@link Target}). */
   snap?: SnapMode;
@@ -564,8 +544,8 @@ export interface ResolvedAnimation {
 /**
  * A fully-resolved configuration with **no optionals** — the single source of
  * truth handed to geometry and renderers. Produced by `resolveOptions()` via the
- * merge order defaults → preset → quality → colorant → user (A7). `color`,
- * `gradient`, and `seed` are concrete here; `colorant` is normalized to a number.
+ * merge order defaults → preset → user (A7). `color`, `gradient`, and `seed` are
+ * concrete here.
  */
 export interface ResolvedOptions {
   markType: MarkType;
@@ -580,9 +560,6 @@ export interface ResolvedOptions {
   edge: ResolvedEdge;
   paper: ResolvedPaper;
   glow: ResolvedGlow;
-  /** Normalized dye↔pigment position, `0` (dye) – `1` (pigment). */
-  colorant: number;
-  quality: QualityTier;
   snap: SnapMode;
   fadeOnClear: boolean;
   renderer: RendererTierPreference;

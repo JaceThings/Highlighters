@@ -2,17 +2,15 @@ import { useMemo } from "react";
 import { Stagger } from "../components/Stagger.tsx";
 import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { RecommendedLooks } from "./RecommendedLooks.tsx";
-import { CopyConfig } from "./CopyConfig.tsx";
 import { OptionDemo, OPTION_DEMOS, isPaperDemo } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
 import { buildQuoteSequence } from "./quotes.ts";
 
-// One live demo PER option: each renders the shared Preview (gated to on-screen so
-// the page stays smooth) plus that option's single control, all writing one shared
-// options object. RecommendedLooks leads as one-shot starting points; MoreSection
-// documents the settings without a static demo; CopyConfig emits the build as code.
-// Lazy-loaded by Docs (pulls @highlighters/react + @lisse) to stay out of the home
-// bundle.
+// One live demo PER visual option: each renders the shared Preview (gated to on-screen so
+// the page stays smooth) plus that option's single control, all writing one shared options
+// object. RecommendedLooks leads as one-shot starting points; MoreSection lists the rest of
+// the API and links to the full reference. Lazy-loaded by Docs (pulls @highlighters/react +
+// @lisse) to stay out of the home bundle.
 export function DocsPlayground() {
   // Assign a quote to each paper (button) demo, in page order, once per load — so quotes
   // never repeat and the same author stays ≥3 apart, reshuffling on every reload.
@@ -35,9 +33,6 @@ export function DocsPlayground() {
         ))}
         <Stagger index={2 + OPTION_DEMOS.length}>
           <MoreSection />
-        </Stagger>
-        <Stagger index={3 + OPTION_DEMOS.length}>
-          <CopyConfig />
         </Stagger>
       </div>
     </PlaygroundOptionsProvider>

@@ -1,6 +1,6 @@
 /**
  * The fully-resolved baseline configuration that sits at the bottom of the merge
- * chain (A7: defaults → preset → quality → colorant → user).
+ * chain (A7: defaults → preset → user).
  *
  * Every documented default lives here as a concrete value with no optionals, so
  * `resolveOptions()` can layer partial overrides on top of a guaranteed-complete
@@ -83,9 +83,6 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     // Empty resolves to a brightened form of the ink color at render time.
     color: "",
   }),
-  // Balanced midpoint of the dye↔pigment axis.
-  colorant: 0.5,
-  quality: "standard",
   snap: "line",
   fadeOnClear: true,
   renderer: "auto",

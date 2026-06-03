@@ -63,8 +63,6 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
     edge: { waviness: 1, frequency: 30, roughness: 0.3, cap: "round", radius: 3 },
     paper: { absorbency: 0.3 },
     glow: { enabled: false, intensity: 0, spread: 0, color: "#ffffff" },
-    colorant: 0.5,
-    quality: "standard",
     snap: "line",
     fadeOnClear: true,
     renderer: "auto",
