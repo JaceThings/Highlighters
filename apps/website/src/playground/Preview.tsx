@@ -83,7 +83,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
       <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
         <p
           className="m-0 text-wrap-pretty"
-          style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line" }}
+          style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line", hyphens: "none", WebkitHyphens: "none" }}
         >
           {"“"}
           {pieces.flatMap((p, idx) => (idx === 0 ? [p] : [" ", p]))}
@@ -176,7 +176,7 @@ export function SnapPreview({ quote }: { quote: Quote }) {
         <p
           ref={pRef}
           className="m-0 text-wrap-pretty"
-          style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line" }}
+          style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line", hyphens: "none", WebkitHyphens: "none" }}
         >
           {full}
         </p>
