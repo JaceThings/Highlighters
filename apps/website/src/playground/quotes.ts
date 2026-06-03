@@ -29,30 +29,11 @@ export const QUOTES: Quote[] = [
   { text: 'What would happen if a nuke just hit? Would you say "bye" to your family? Would you post about it?', author: "Michael Keenan" },
 ];
 
-function shuffle<T>(arr: readonly T[]): T[] {
+export function shuffle<T>(arr: readonly T[]): T[] {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-// `count` distinct quotes where no author repeats within three consecutive,
-// relaxing that rule only if cornered.
-export function buildQuoteSequence(count: number): Quote[] {
-  const pool = shuffle(QUOTES);
-  const out: Quote[] = [];
-  const used = new Set<Quote>();
-  while (out.length < count) {
-    const a1 = out[out.length - 1]?.author;
-    const a2 = out[out.length - 2]?.author;
-    const pick =
-      pool.find((q) => !used.has(q) && q.author !== a1 && q.author !== a2) ??
-      pool.find((q) => !used.has(q));
-    if (!pick) break;
-    out.push(pick);
-    used.add(pick);
-  }
-  return out;
 }

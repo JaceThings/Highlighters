@@ -9,6 +9,7 @@ import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
 import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
 import { Preview, SnapPreview } from "../Preview.tsx";
+import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
 
@@ -218,7 +219,7 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
             demo.kind === "pills" && demo.path === "snap" ? (
               <SnapPreview quote={quote} />
             ) : (
-              <Preview quote={quote} />
+              <Preview quote={quote} strategy={strategyFor(demo.title)} />
             )
           ) : (
             <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
