@@ -2,18 +2,52 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_OPTIONS } from "@highlighters/core";
+import { DEFAULT_OPTIONS, resolveSwatch } from "@highlighters/core";
 import type {
   BlendMode,
   HighlightOptions,
+  MarkType,
   ShapeType,
+  TipType,
 } from "@highlighters/core";
+import {
+  DEFAULT_INK,
+  DEFAULT_MARK_TYPE,
+  DEFAULT_OPACITY,
+  useSelectionStyle,
+  type PenTip,
+} from "../selection-style.tsx";
 import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
 import { useSpringNumber } from "../hooks/useSpringNumber.ts";
+
+// The docs playground shares colour / opacity / markType / tip with the dock's live marker via
+// one SelectionStyle. The dock thinks in 3 pens (slant/round/flat = 2 nib types + a bullet);
+// the playground in tip.type (chisel/bullet/fine). slant & flat are both chisel; "fine" has no
+// pen, so the dock keeps its pen when the playground picks fine.
+function penToTipType(pen: PenTip): TipType {
+  return pen === "round" ? "bullet" : "chisel";
+}
+function tipTypeToPen(type: TipType): PenTip | null {
+  if (type === "bullet") return "round";
+  if (type === "chisel") return "slant";
+  return null; // "fine"
+}
+function colorToHex(color: PlaygroundOptions["color"]): string {
+  if (typeof color === "string") return color;
+  if (color && typeof color === "object" && "swatch" in color) {
+    try {
+      return resolveSwatch(color);
+    } catch {
+      return DEFAULT_INK;
+    }
+  }
+  return DEFAULT_INK;
+}
 
 /**
  * The playground's live options: the core {@link HighlightOptions} plus a `stack`
@@ -212,37 +246,75 @@ function useAnimatedOptions(
 }
 
 export function PlaygroundOptionsProvider({ children }: { children: ReactNode }) {
+  // Colour / opacity / markType / tip are shared with the dock through SelectionStyle; the rest
+  // (ink, edge, angle, stack, ...) is playground-only.
+  const sel = useSelectionStyle();
   const [options, setOptions] = useState<PlaygroundOptions>(buildInitialOptions);
   const [fromDrag, setFromDrag] = useState(false);
 
-  const set = useCallback((path: OptionPath, value: unknown, drag = false) => {
-    setFromDrag(drag);
-    setOptions((prev) => setAtPath(prev, path, value));
-  }, []);
+  // Dock pen -> playground tip.type. The guard (write only on a real change) keeps the
+  // playground->pen write below from echoing back into a loop.
+  useEffect(() => {
+    const type = penToTipType(sel.style.pen);
+    setOptions((prev) => (prev.tip?.type === type ? prev : setAtPath(prev, "tip.type", type)));
+  }, [sel.style.pen]);
+
+  const set = useCallback(
+    (path: OptionPath, value: unknown, drag = false) => {
+      setFromDrag(drag);
+      // Shared fields write to SelectionStyle (which the dock + live marker also read/write).
+      if (path === "color") return sel.setColor(colorToHex(value as PlaygroundOptions["color"]));
+      if (path === "opacity") return sel.setOpacity(value as number);
+      if (path === "markType") return sel.setMarkType(value as MarkType);
+      if (path === "tip.type") {
+        const pen = tipTypeToPen(value as TipType);
+        if (pen) sel.setPen(pen);
+        setOptions((prev) => setAtPath(prev, "tip.type", value));
+        return;
+      }
+      setOptions((prev) => setAtPath(prev, path, value));
+    },
+    [sel],
+  );
 
   const merge = useCallback((patch: Partial<PlaygroundOptions>) => {
     setFromDrag(false);
     setOptions((prev) => mergeOptionsShallow(prev, patch));
   }, []);
 
-  const setShape = useCallback((shape: ShapeType) => {
-    setFromDrag(false);
-    // Write both synonyms so a stale one can't override the other in the library's last-wins merge.
-    setOptions((prev) => ({ ...prev, shape, markType: shape }));
-  }, []);
+  const setShape = useCallback(
+    (shape: ShapeType) => sel.setMarkType(shape as MarkType),
+    [sel],
+  );
 
   const reset = useCallback(() => {
     setFromDrag(false);
     setOptions(buildInitialOptions());
-  }, []);
+    sel.setColor(DEFAULT_INK);
+    sel.setPen("slant");
+    sel.setMarkType(DEFAULT_MARK_TYPE);
+    sel.setOpacity(DEFAULT_OPACITY);
+  }, [sel]);
 
-  const previewOptions = useAnimatedOptions(options, fromDrag);
+  // Overlay the shared fields onto the local options; tip.type already tracks the pen above.
+  const merged = useMemo<PlaygroundOptions>(
+    () => ({
+      ...options,
+      color: sel.style.color,
+      opacity: sel.style.opacity,
+      markType: sel.style.markType,
+      shape: sel.style.markType,
+    }),
+    [options, sel.style.color, sel.style.opacity, sel.style.markType],
+  );
+
+  const previewOptions = useAnimatedOptions(merged, fromDrag);
 
   // previewOptions is deliberately NOT in this value - it rides the separate
   // PlaygroundPreviewContext so sections don't re-render every spring frame.
   const value = useMemo<PlaygroundOptionsContextValue>(
-    () => ({ options, set, merge, setShape, reset }),
-    [options, set, merge, setShape, reset],
+    () => ({ options: merged, set, merge, setShape, reset }),
+    [merged, set, merge, setShape, reset],
   );
 
   return (

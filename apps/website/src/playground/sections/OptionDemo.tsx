@@ -118,8 +118,9 @@ function colorToHex(color: ColorValue | PaletteSwatch | undefined): string {
 function SwatchPicker() {
   const { options, set } = usePlaygroundOptions();
   const color = options.color;
+  // The shared colour is a hex, so match swatches by resolved hex (a swatch picked here and
+  // a hex picked in the dock both light the matching ring).
   const activeHex = useMemo(() => colorToHex(color), [color]).toLowerCase();
-  const isRef = !!color && typeof color === "object" && "swatch" in color;
 
   return (
     <div
@@ -128,7 +129,7 @@ function SwatchPicker() {
       className="flex w-full flex-wrap content-center items-center justify-center gap-3 px-4 py-5"
     >
       {SWATCH_CHIPS.map(({ ref, key, hex }) => {
-          const selected = isRef && hex.toLowerCase() === activeHex;
+          const selected = hex.toLowerCase() === activeHex;
           return (
             <button
               key={key}
