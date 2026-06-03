@@ -74,12 +74,15 @@ function CustomDisc({
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
+        // Rasterise the stacked circles as one layer so the press-scale doesn't shimmer their
+        // edges against each other (the preset discs dodge this with their simpler structure).
+        style={{ willChange: "transform", backfaceVisibility: "hidden" }}
       >
         {/* Rainbow ring + white gap, revealed as the centre scales down — the same select
             reveal (and timing) as the preset discs. The centre carries the wheel art until a
             custom colour is active, then the picked colour. */}
         <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
-        <span className="absolute rounded-full bg-white" style={{ inset: 3.57 }} />
+        <span className="absolute rounded-full bg-white" style={{ inset: "3.57px" }} />
         <span
           className="absolute inset-0 rounded-full"
           style={{
