@@ -214,6 +214,11 @@ function dryoutTransfer(dryout: number): string {
  * @returns A `data:image/svg+xml;base64,…` URL (the bare URL, no CSS `url(...)`
  *   wrapper — callers compose that), suitable for `mask-image`.
  */
+// Memoised: a mark's update() rebuilds this every call, but the tile is identical unless one of
+// its inputs changes — and most option drags (opacity, angle, …) never touch them. Caching the
+// base64 encode turns repeated updates into a map lookup.
+const tileCache = new Map<string, string>();
+
 export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
   const resolved: Required<NoiseTileOptions> = {
     width: opts.width ?? DEFAULT_TILE_WIDTH,
@@ -223,8 +228,13 @@ export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
     feathering: opts.feathering,
     dryout: opts.dryout ?? 0,
   };
-  const svg = buildNoiseTileSvg(resolved);
-  return `data:image/svg+xml;base64,${toBase64Ascii(svg)}`;
+  const key = `${resolved.width}x${resolved.height}|${resolved.seed}|${resolved.streakiness}|${resolved.feathering}|${resolved.dryout}`;
+  const hit = tileCache.get(key);
+  if (hit !== undefined) return hit;
+  const url = `data:image/svg+xml;base64,${toBase64Ascii(buildNoiseTileSvg(resolved))}`;
+  if (tileCache.size > 512) tileCache.clear();
+  tileCache.set(key, url);
+  return url;
 }
 
 /**
