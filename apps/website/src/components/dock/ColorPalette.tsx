@@ -75,25 +75,21 @@ function CustomDisc({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
       >
-        {active ? (
-          <>
-            <span className="absolute inset-0 rounded-full" style={{ background: RAINBOW_RING }} />
-            <span className="absolute rounded-full bg-white" style={{ inset: 3.57 }} />
-            <span
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: color,
-                transform: "scale(0.62)",
-                transition: "transform 220ms cubic-bezier(0.2, 0, 0, 1)",
-              }}
-            />
-          </>
-        ) : (
-          <span
-            className="absolute inset-0 rounded-full"
-            style={{ background: `url("${colorPickerUrl}") center / cover no-repeat` }}
-          />
-        )}
+        {/* Rainbow ring + white gap, revealed as the centre scales down — the same select
+            reveal (and timing) as the preset discs. The centre carries the wheel art until a
+            custom colour is active, then the picked colour. */}
+        <span className="absolute inset-0 rounded-full" style={{ background: RAINBOW_RING }} />
+        <span className="absolute rounded-full bg-white" style={{ inset: 3.57 }} />
+        <span
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: active ? color : `url("${colorPickerUrl}") center / cover no-repeat`,
+            transform: active ? "scale(0.703)" : "scale(1)",
+            transition: active
+              ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
+              : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
+          }}
+        />
       </span>
     </button>
   );
