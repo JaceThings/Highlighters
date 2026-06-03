@@ -9,7 +9,6 @@ const POPOVER_SHADOW: ShadowConfig = {
   offsetX: 0, offsetY: 6, blur: 14, spread: -6, color: "#73574A", opacity: 0.15,
 };
 
-// Six hue stops give a smooth wheel across the track.
 const HUE_GRADIENT =
   "linear-gradient(to right, hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%), hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%))";
 

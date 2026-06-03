@@ -16,7 +16,7 @@ const RECIPES: ReadonlyArray<{
   {
     name: "classic-yellow",
     label: "Classic yellow",
-    blurb: "The archetypal saturated yellow marker - juicy, a touch of pooling.",
+    blurb: "The archetypal saturated yellow marker, juicy with a touch of pooling.",
   },
   {
     name: "mild",
@@ -41,7 +41,7 @@ const RECIPES: ReadonlyArray<{
   {
     name: "minimal",
     label: "Minimal",
-    blurb: "A restrained underline - thin, flat, straight, no animation.",
+    blurb: "A restrained underline, thin, flat, straight, no animation.",
   },
 ];
 
@@ -106,7 +106,7 @@ export function RecommendedLooks() {
   return (
     <Section
       title="Recommended looks"
-      description="Starting points, not a menu - apply one and then make it your own. Each copies a coherent set of ink, edge, and color values into the controls below, where everything stays editable."
+      description="Starting points, not a menu. Apply one and then make it your own. Each copies a coherent set of ink, edge, and color values into the controls below, where everything stays editable."
     >
       <div className="grid w-full grid-cols-2 gap-3 max-[480px]:grid-cols-1">
         {RECIPES.map((recipe, i) => (
