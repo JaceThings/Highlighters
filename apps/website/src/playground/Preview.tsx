@@ -105,11 +105,12 @@ export function Preview({ replayNonce = 0, quote }: PreviewProps) {
   // Paper-card variant: a real quote with attribution, a middle phrase live-highlighted (with
   // an inner word doubled so the stack toggle still reads). Fills the sheet above the legend.
   if (quote) {
+    // Highlight the middle ~64% of the quote; `m` is the inner-overlap word for the stack toggle.
     const words = quote.text.split(" ");
     const n = words.length;
-    const a = Math.min(n - 1, Math.floor(n * 0.18)); // highlight ~the middle 64% of words
+    const a = Math.min(n - 1, Math.floor(n * 0.18));
     const b = Math.max(a + 1, Math.ceil(n * 0.82));
-    const m = Math.min(b - 1, Math.floor((a + b) / 2)); // inner word, doubled for stack
+    const m = Math.min(b - 1, Math.floor((a + b) / 2));
     const lead = (s: string) => (s ? s + " " : "");
     const trail = (s: string) => (s ? " " + s : "");
     return (

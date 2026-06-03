@@ -43,8 +43,14 @@ function lerpPressure(c: PressurePoint[], t: number): number {
   return c[c.length - 1].pressure;
 }
 
-// Evenly sample n points along a path's length (uses a throwaway off-screen SVG).
+// Evenly sample n points along a path's length (uses a throwaway off-screen SVG). Cached at
+// module level so the DOM measurement runs once per unique path string — keeping the caller's
+// render-time useMemo free of repeat side effects and skipping re-measurement on remount.
+const pathCache = new Map<string, [number, number][]>();
 function samplePath(d: string, n: number): [number, number][] {
+  const key = `${d}:${n}`;
+  const hit = pathCache.get(key);
+  if (hit) return hit;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.style.cssText = "position:absolute;visibility:hidden;width:0;height:0";
   const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -58,6 +64,7 @@ function samplePath(d: string, n: number): [number, number][] {
       const pt = p.getPointAtLength((i / (n - 1)) * len);
       pts.push([pt.x, pt.y]);
     }
+    pathCache.set(key, pts);
     return pts;
   } finally {
     document.body.removeChild(svg);
