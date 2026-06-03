@@ -40,8 +40,9 @@ import type { Quote } from "./quotes.ts";
  * become exactly what the core renderer consumes (`stack` → blend mode).
  */
 
-// Match the Lisse "Figure Content" frame height across every section.
-const CANVAS_HEIGHT = 255;
+// Match the Lisse "Figure Content" frame height across every section. Exported so the
+// figure-card demos can reserve the same height before the Preview mounts.
+export const CANVAS_HEIGHT = 255;
 
 interface PreviewProps {
   /** Bump to replay the draw-on animation: changing it remounts every

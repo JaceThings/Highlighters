@@ -3,7 +3,7 @@ import { Stagger } from "../components/Stagger.tsx";
 import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { RecommendedLooks } from "./RecommendedLooks.tsx";
 import { CopyConfig } from "./CopyConfig.tsx";
-import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
+import { OptionDemo, OPTION_DEMOS, isPaperDemo } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
 import { buildQuoteSequence } from "./quotes.ts";
 
@@ -17,10 +17,9 @@ export function DocsPlayground() {
   // Assign a quote to each paper (button) demo, in page order, once per load — so quotes
   // never repeat and the same author stays ≥3 apart, reshuffling on every reload.
   const quotes = useMemo(() => {
-    const isPaper = (kind: string) => kind === "pills" || kind === "toggle";
-    const seq = buildQuoteSequence(OPTION_DEMOS.filter((d) => isPaper(d.kind)).length);
+    const seq = buildQuoteSequence(OPTION_DEMOS.filter(isPaperDemo).length);
     let q = 0;
-    return OPTION_DEMOS.map((d) => (isPaper(d.kind) ? seq[q++] : undefined));
+    return OPTION_DEMOS.map((d) => (isPaperDemo(d) ? seq[q++] : undefined));
   }, []);
 
   return (

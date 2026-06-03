@@ -3,18 +3,15 @@ import { PALETTES, resolveSwatch } from "@highlighters/core";
 import type { ColorValue, PaletteSwatch, ShapeType } from "@highlighters/core";
 import { SmoothCorners } from "@lisse/react";
 import { FigureCard } from "../../components/playground/FigureCard.tsx";
-import { RadioPillGroup } from "../../components/playground/RadioPillGroup.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
 import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
 import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
-import { Preview } from "../Preview.tsx";
+import { Preview, CANVAS_HEIGHT } from "../Preview.tsx";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
-
-const CANVAS_HEIGHT = 255;
 
 // ~35 Previews is too heavy to mount on first paint, so each defers until its
 // section nears the viewport — then stays mounted. The latch is ONE-WAY: a painted
@@ -94,14 +91,15 @@ type Demo =
   | (Base & { kind: "color" });
 
 // --- the controls --------------------------------------------------------------
-function Control({ demo }: { demo: Demo }) {
-  const { options, set, setShape } = usePlaygroundOptions();
+// Continuous / colour demos only — the discrete (button) ones render as a ScribbleLegend on
+// the paper card (see LegendControl), never here.
+function Control({ demo }: { demo: Exclude<Demo, { kind: "pills" | "toggle" }> }) {
+  const { options, set } = usePlaygroundOptions();
 
   const onNum = useCallback(
     (path: string) => (v: number, fromDrag?: boolean) => set(path, v, fromDrag),
     [set],
   );
-  const onStr = useCallback((path: string) => (v: string) => set(path, v), [set]);
 
   if (demo.kind === "slider") {
     return (
@@ -130,35 +128,6 @@ function Control({ demo }: { demo: Demo }) {
           step={0.01}
           format={fmt2}
           onChange={(v, fromDrag) => set("colorant", v, fromDrag)}
-        />
-      </div>
-    );
-  }
-
-  if (demo.kind === "toggle") {
-    const on = getBool(options, demo.path, demo.def);
-    return (
-      <div className={`w-full ${ROW_DIVIDER}`}>
-        <RadioPillGroup
-          ariaLabel={demo.aria}
-          options={TOGGLE_OPTS}
-          value={on ? "on" : "off"}
-          onChange={(v) => set(demo.path, v === "on")}
-        />
-      </div>
-    );
-  }
-
-  if (demo.kind === "pills") {
-    const value = getStr(options, demo.path, demo.def);
-    return (
-      <div className={`w-full ${ROW_DIVIDER}`}>
-        <RadioPillGroup
-          ariaLabel={demo.aria}
-          options={demo.opts}
-          value={value}
-          onChange={demo.shape ? (v) => setShape(v as ShapeType) : onStr(demo.path)}
-          pillBasis="max-[560px]:basis-[calc(50%-6px)]"
         />
       </div>
     );
@@ -245,6 +214,12 @@ function SwatchPicker() {
   );
 }
 
+// Which demos render on the paper card (live quote + scribble legend) vs the white figure
+// card. A type guard so both this file and DocsPlayground agree, and `demo` narrows.
+export function isPaperDemo(demo: Demo): demo is Extract<Demo, { kind: "pills" | "toggle" }> {
+  return demo.kind === "pills" || demo.kind === "toggle";
+}
+
 // The discrete (button) controls render as a scribble-underline legend on the paper card.
 function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle" }> }) {
   const { options, set, setShape } = usePlaygroundOptions();
@@ -274,7 +249,7 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   const { ref, seen } = useSeen();
   // Button demos get the paper card (live-highlighted quote on top, scribble-underline legend
   // below); sliders/colour keep the white figure card.
-  if (demo.kind === "pills" || demo.kind === "toggle") {
+  if (isPaperDemo(demo)) {
     return (
       <div ref={ref}>
         <Section title={demo.title} description={demo.desc}>
