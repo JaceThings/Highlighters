@@ -40,7 +40,6 @@ export function Squiggles() {
             </div>
             <span style={{ fontSize: 12, color: BROWN, opacity: 0.5, fontVariantNumeric: "tabular-nums" }}>
               {i + 1}
-              {sq.mirror ? " · mirror" : ""}
             </span>
           </div>
         ))}

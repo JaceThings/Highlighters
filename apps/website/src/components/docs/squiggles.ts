@@ -2,7 +2,7 @@
 // Preview them at /squiggles.
 
 export type PressurePoint = { t: number; pressure: number };
-export type Squiggle = { d: string; pressure: PressurePoint[]; mirror?: boolean };
+export type Squiggle = { d: string; pressure: PressurePoint[] };
 
 export const SQUIGGLES: Squiggle[] = [
   { d: "M1.307 4.570 C77.229 -3.321 99.344 4.069 134.885 3.771 C134.885 3.771 134.885 3.771 134.885 3.771 C131.464 4.231 14.981 7.983 20.151 8.799 C28.020 10.041 47.533 9.717 142.330 9.053", pressure: [{"t":0,"pressure":0.2506024419488385},{"t":0.341,"pressure":0.7665584993362426},{"t":0.693,"pressure":0.6287993241138756},{"t":1,"pressure":0.21810556906741113}] }, // 1

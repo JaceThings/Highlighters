@@ -57,10 +57,8 @@ export function DocsTest() {
           </p>
         </div>
 
-        {/* Legend. The fold/crease that divides it from the quote is baked into the paper
-            SVG. Each label is a real button; picking one fades out the old marker squiggle
-            and quickly scribbles a fresh one beneath the selection (a fast left→right clip
-            wipe of the exact Figma squiggle). */}
+        {/* Legend. The fold/crease is baked into the paper SVG. Each label is a button;
+            selecting one fades the old underline out and draws a fresh random squiggle. */}
         <div role="tablist" aria-label="Mark type" className="flex items-center gap-5 px-5 py-5">
           {MARK_TYPES.map((type) => {
             const isActive = type === active;
@@ -94,10 +92,9 @@ export function DocsTest() {
                       <motion.div
                         key={type}
                         className="absolute inset-0"
-                        initial={{ opacity: 1 }}
-                        animate={{ opacity: 1 }}
+                        initial={false}
                         exit={{ opacity: 0 }}
-                        transition={{ opacity: { duration: 0.12, ease: "easeOut" } }}
+                        transition={{ duration: 0.12, ease: "easeOut" }}
                       >
                         <MarkUnderline squiggle={SQUIGGLES[squiggle]} color={BROWN} />
                       </motion.div>

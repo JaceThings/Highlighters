@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import getStroke from "perfect-freehand";
-import { type Squiggle, type PressurePoint, SQUIGGLES } from "./squiggles.ts";
+import type { Squiggle, PressurePoint } from "./squiggles.ts";
 
 // A hand-drawn marker underline, drawn the way the site's dividers are: take a squiggle's
 // centreline, sample it into points, and run it through Perfect Freehand each frame so the
@@ -12,8 +12,6 @@ const SIZE = 3.4; // fatter ink
 const THINNING = 0.65;
 const SMOOTHING = 0.5;
 const STREAMLINE = 0.4;
-const TAPER_MIN = 1;
-const TAPER_ZONE = 0.03;
 const N = 64;
 const DRAW_MS = 240; // quick scribble
 const SPREAD_MS = 80;
@@ -80,12 +78,12 @@ function toPath(pts: number[][]): string {
 }
 
 export function MarkUnderline({
-  squiggle = SQUIGGLES[3],
+  squiggle,
   color = "#73574a",
   opacity = 0.8,
   animate = true,
 }: {
-  squiggle?: Squiggle;
+  squiggle: Squiggle;
   color?: string;
   opacity?: number;
   /** Draw it on along the path; false renders the finished stroke instantly. */
@@ -95,15 +93,6 @@ export function MarkUnderline({
 
   const { samples, staticD, viewBox } = useMemo(() => {
     const raw = samplePath(squiggle.d, N);
-    if (squiggle.mirror) {
-      let minX = Infinity;
-      let maxX = -Infinity;
-      for (const [x] of raw) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-      }
-      for (const p of raw) p[0] = minX + maxX - p[0];
-    }
     const samples = raw.map((p, i) => [p[0], p[1], lerpPressure(squiggle.pressure, i / (N - 1))] as [number, number, number]);
     const outline = getStroke(samples, strokeOpts(true));
     let minX = Infinity;
@@ -144,9 +133,7 @@ export function MarkUnderline({
         const t = i / (N - 1);
         const age = e - t * DRAW_MS;
         const spread = 1 - Math.pow(1 - Math.min(1, age / SPREAD_MS), SPREAD_POW);
-        const tip = Math.min(1, (head - t) / TAPER_ZONE);
-        const pressure = samples[i][2] * spread * (TAPER_MIN + (1 - TAPER_MIN) * tip * tip);
-        live.push([samples[i][0], samples[i][1], pressure]);
+        live.push([samples[i][0], samples[i][1], samples[i][2] * spread]);
       }
       el.setAttribute("d", live.length < 2 ? "" : toPath(getStroke(live, strokeOpts(head >= 1))));
       if (e < DRAW_MS + SPREAD_MS) raf = requestAnimationFrame(tick);
