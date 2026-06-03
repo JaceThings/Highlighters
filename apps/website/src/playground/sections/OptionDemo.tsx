@@ -261,5 +261,4 @@ export const OPTION_DEMOS: Demo[] = [
   { kind: "slider", title: "edge.radius", label: "Radius", path: "edge.radius", def: 4, min: 0, max: 12, step: 1, unit: "px", desc: "Corner radius, clamped against short marks." },
   { kind: "slider", title: "paper.absorbency", label: "Absorbency", path: "paper.absorbency", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "How thirsty the paper is. Higher wicks more ink, growing the feather and softening edges." },
   { kind: "pills", title: "snap", aria: "Snap", path: "snap", def: "word", opts: [{ value: "none", label: "None" }, { value: "word", label: "Word" }, { value: "line", label: "Line" }, { value: "glyph", label: "Glyph" }], desc: "Clamps each end to a text boundary before overshoot is applied, so a mark never starts or stops mid-whitespace." },
-  { kind: "pills", title: "animation.trigger", aria: "Trigger", path: "animation.trigger", def: "immediate", opts: [{ value: "immediate", label: "Immediate" }, { value: "in-view", label: "In view" }], desc: "When the entrance begins - on mount, or when the mark scrolls into view (an IntersectionObserver)." },
 ];

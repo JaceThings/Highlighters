@@ -97,7 +97,6 @@ export const SECTION_QUOTES: Record<string, number[]> = {
   "edge.radius": [20, 19, 3, 17],
   "paper.absorbency": [22, 7, 16, 13],
   snap: [6, 5, 15, 18],
-  "animation.trigger": [25, 24, 6, 1],
 };
 
 /**
