@@ -19,6 +19,7 @@
     "@tanstack/react-router": "^1.170.10",
     "agentation": "^3.0.2",
     "framer-motion": "^12.38.0",
+    "perfect-freehand": "^1.2.3",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tailwindcss": "^4.3.0"

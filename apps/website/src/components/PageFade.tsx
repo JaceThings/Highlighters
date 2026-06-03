@@ -3,6 +3,7 @@ import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useRef, type ComponentType } from "react";
 import { Home } from "../pages/Home.tsx";
 import { Docs } from "../pages/Docs.tsx";
+import { DocsTest } from "../pages/DocsTest.tsx";
 
 // Cross-fades the page text on navigation; the shell (RuledPaper + Dock) stays
 // mounted outside the fade so the dock's shadow never flickers.
@@ -13,6 +14,7 @@ import { Docs } from "../pages/Docs.tsx";
 const PAGES: Record<string, ComponentType> = {
   "/": Home,
   "/docs": Docs,
+  "/docs-test": DocsTest,
 };
 
 // Sequential fade (mode="wait"): out, a brief empty hold (the enter `delay`), then in.
