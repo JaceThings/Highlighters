@@ -10,7 +10,6 @@
 
 export { resolveOptions, mergeOptions } from "./config/merge.js";
 export { DEFAULT_OPTIONS } from "./config/defaults.js";
-export { PRESETS, getPreset } from "./config/presets.js";
 export { PALETTES, getPalette, resolveSwatch, defaultSwatch } from "./config/palettes.js";
 
 export { buildMarkGeometry } from "./geometry/mark-space.js";
@@ -39,7 +38,6 @@ export type {
   PaletteName,
   PaletteSwatch,
   Palette,
-  PresetName,
   TipOptions,
   InkOptions,
   EdgeOptions,

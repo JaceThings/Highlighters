@@ -1,9 +1,8 @@
 /**
  * The fully-resolved baseline that sits at the bottom of the merge chain
- * (defaults → preset → user). Every default is a concrete value with no optionals,
- * so `resolveOptions()` can layer partial overrides on a guaranteed-complete
- * object. Deep-frozen so it can be shared as the merge floor without any consumer
- * mutating it.
+ * (defaults → user). Every default is a concrete value with no optionals, so
+ * `resolveOptions()` can layer partial overrides on a guaranteed-complete object.
+ * Deep-frozen so it can be shared as the merge floor without any consumer mutating it.
  */
 
 import type { ResolvedOptions } from "../types.js";
@@ -11,9 +10,9 @@ import { defaultSwatch } from "./palettes.js";
 
 export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   markType: "highlight",
-  color: defaultSwatch("fluorescent"),
+  color: defaultSwatch("mild"),
   gradient: null,
-  opacity: 0.85,
+  opacity: 0.55,
   blendMode: "multiply",
   tip: Object.freeze({
     type: "chisel",
@@ -25,12 +24,12 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     angleJitter: 0,
   }),
   ink: Object.freeze({
-    flow: 0.5,
+    flow: 0.45,
     viscosity: 0.5,
-    feathering: 0.3,
-    streakiness: 0.35,
-    dryout: 0.15,
-    startEndBuildup: 0.25,
+    feathering: 0.2,
+    streakiness: 0.25,
+    dryout: 0.1,
+    startEndBuildup: 0.1,
     flowFade: 0.5,
   }),
   // Speed-aware deposit is Beta and off by default; thresholds are px/ms.
@@ -48,11 +47,11 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     poolBoost: 1,
   }),
   edge: Object.freeze({
-    waviness: 1.5,
+    waviness: 1,
     frequency: 22, // px segmentLength of the wave grid
-    roughness: 0.3,
+    roughness: 0.2,
     cap: "round",
-    radius: 4,
+    radius: 5,
   }),
   paper: Object.freeze({
     absorbency: 0.3,
@@ -64,7 +63,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     // Empty resolves to a brightened form of the ink color at render time.
     color: "",
   }),
-  snap: "line",
+  snap: "word",
   fadeOnClear: true,
   renderer: "auto",
   animation: Object.freeze({

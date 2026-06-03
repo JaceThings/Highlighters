@@ -6,12 +6,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { DEFAULT_OPTIONS, resolveOptions } from "@highlighters/core";
+import { DEFAULT_OPTIONS } from "@highlighters/core";
 import type {
   BlendMode,
   HighlightOptions,
-  PresetName,
-  ResolvedOptions,
   ShapeType,
 } from "@highlighters/core";
 import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
@@ -44,10 +42,8 @@ export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
 }
 
 /**
- * The DEFAULT build the playground opens on. The state is a hand-built config,
- * not a named look: there is deliberately NO `preset` field, every knob is
- * concrete (no `undefined`), and presets are only ever COPIED in via
- * {@link applyRecipe}. `shape`/`markType` are written in lockstep - the library
+ * The DEFAULT build the playground opens on. A hand-built config where every knob is
+ * concrete (no `undefined`). `shape`/`markType` are written in lockstep - the library
  * reads them as last-wins synonyms.
  */
 function buildInitialOptions(): PlaygroundOptions {
@@ -95,12 +91,6 @@ export interface PlaygroundOptionsContextValue {
 
   /** Merge a partial patch over the current state (one shallow level per group). */
   merge: (patch: Partial<PlaygroundOptions>) => void;
-
-  /**
-   * COPY a named preset's resolved values into the live build. One-shot, not a
-   * mode: no `preset` field is stored, and every control stays freely editable.
-   */
-  applyRecipe: (name: PresetName) => void;
 
   /** Set the mark kind (`shape`/`markType` synonym). */
   setShape: (shape: ShapeType) => void;
@@ -171,34 +161,6 @@ function setAtPath(
 }
 
 /**
- * Flatten a resolved preset into a patch the controls can read. Resolved
- * `blendMode` is lifted back into `stack` (`multiply` ⇒ stacked); overshoot
- * resets to baseline since presets don't carry it.
- */
-function resolvedToPatch(r: ResolvedOptions): PlaygroundOptions {
-  return {
-    shape: r.markType,
-    markType: r.markType,
-    // A resolved color is a CSS string; ColorSection shows it as custom (no swatch ring).
-    color: r.color,
-    opacity: r.opacity,
-    stack: r.blendMode === "multiply",
-    snap: r.snap,
-    renderer: r.renderer,
-    tip: {
-      ...r.tip,
-      overshoot: TIP_OVERSHOOT_DEFAULT,
-      overshootJitter: TIP_OVERSHOOT_JITTER_DEFAULT,
-    },
-    ink: { ...r.ink },
-    edge: { ...r.edge },
-    paper: { ...r.paper },
-    glow: { ...r.glow },
-    animation: { ...r.animation },
-  };
-}
-
-/**
  * Spring the numeric leaves toward their committed targets so the Preview eases
  * into a new look on tap/keyboard/preset changes. `fromDrag` bypasses the spring:
  * pointer input is already smooth and a trailing spring would lag it. Non-numeric
@@ -263,12 +225,6 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
     setOptions((prev) => mergeOptionsShallow(prev, patch));
   }, []);
 
-  const applyRecipe = useCallback((name: PresetName) => {
-    setFromDrag(false);
-    const patch = resolvedToPatch(resolveOptions({ preset: name }));
-    setOptions((prev) => mergeOptionsShallow(prev, patch));
-  }, []);
-
   const setShape = useCallback((shape: ShapeType) => {
     setFromDrag(false);
     // Write both synonyms so a stale one can't override the other in the library's last-wins merge.
@@ -285,8 +241,8 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
   // previewOptions is deliberately NOT in this value - it rides the separate
   // PlaygroundPreviewContext so sections don't re-render every spring frame.
   const value = useMemo<PlaygroundOptionsContextValue>(
-    () => ({ options, set, merge, applyRecipe, setShape, reset }),
-    [options, set, merge, applyRecipe, setShape, reset],
+    () => ({ options, set, merge, setShape, reset }),
+    [options, set, merge, setShape, reset],
   );
 
   return (

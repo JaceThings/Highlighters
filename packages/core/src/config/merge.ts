@@ -1,7 +1,7 @@
 /**
  * Option merging and resolution. {@link mergeOptions} deep-merges two partials;
  * {@link resolveOptions} funnels to a fully-resolved {@link ResolvedOptions} via
- * the precedence defaults → preset → user. No DOM access (SSR-safe).
+ * the precedence defaults → user. No DOM access (SSR-safe).
  */
 
 import type {
@@ -21,7 +21,6 @@ import type {
 import { clamp } from "../internal/math.js";
 import { DEFAULT_OPTIONS } from "./defaults.js";
 import { defaultSwatch, resolveSwatch } from "./palettes.js";
-import { getPreset } from "./presets.js";
 
 /**
  * A finite number, else `fallback`. `??` only catches `undefined`, so a `NaN` or
@@ -108,15 +107,14 @@ function resolveColor(
 
 /**
  * Resolve a (possibly partial) {@link HighlightOptions} into a fully-defaulted
- * {@link ResolvedOptions}, with precedence DEFAULT_OPTIONS → preset (default
- * `"mild"`) → explicit `input`. Pure - no DOM access.
+ * {@link ResolvedOptions}, with precedence DEFAULT_OPTIONS → explicit `input`.
+ * Pure - no DOM access.
  */
 export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   const d = DEFAULT_OPTIONS;
 
-  const preset = getPreset(input.preset ?? "mild");
-  const layered: HighlightOptions = preset;
-  const merged = mergeOptions(layered, input);
+  // Normalise the shape/markType synonym; nothing else layers under the input.
+  const merged = mergeOptions({}, input);
 
   const tip: ResolvedTip = {
     type: merged.tip?.type ?? d.tip.type,
@@ -170,9 +168,8 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     absorbency: finiteOr(merged.paper?.absorbency, d.paper.absorbency),
   };
 
-  // A user `palette` with no `color` must draw that palette's default swatch, even
-  // when the active preset carries its own `color` object (which the spread would
-  // otherwise leave in place). Detect intent from the RAW input, not the merged value.
+  // A user `palette` with no `color` must draw that palette's default swatch. Detect
+  // that intent from the RAW input, not the merged value.
   const color =
     input.color === undefined && input.palette !== undefined
       ? defaultSwatch(input.palette)

@@ -138,19 +138,6 @@ export interface Palette {
 }
 
 /**
- * High-level named presets, each a partial configuration expressible as a single
- * string option. The default preset is `mild`.
- */
-export type PresetName =
-  | "classic-yellow"
-  | "mild"
-  | "wet"
-  | "dry"
-  | "premium"
-  | "minimal";
-
-
-/**
  * Nib geometry. `angle` drives the chisel slant (the lean baked into each band's
  * clip-path). `width`/`thickness` are part of the option surface but reserved -
  * the default renderer derives the lean from `angle` and band width, not these.
@@ -306,14 +293,9 @@ export interface AnimationOptions {
 
 /**
  * The full user-facing options object. Every field is optional; values resolve to
- * {@link ResolvedOptions} via the deep-merge order defaults → preset → user. Two
- * altitudes of access over one schema: a string {@link preset} and individual
- * namespaced parameters.
+ * {@link ResolvedOptions} via the deep-merge order defaults → user.
  */
 export interface HighlightOptions {
-  /** A named preset applied as a base layer before other options. Default `mild`. */
-  preset?: PresetName;
-
   /** Mark kind. Default `highlight`. */
   shape?: ShapeType;
   /** Mark kind. Synonym of {@link shape}; whichever is provided last wins. */
