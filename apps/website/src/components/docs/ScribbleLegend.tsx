@@ -5,7 +5,7 @@ import { SQUIGGLES, nextSquiggle } from "./squiggles.ts";
 
 // A row of selectable labels where the active one is underlined by a hand-drawn marker
 // scribble (a fresh random one per selection). Re-selecting the active label is a no-op.
-
+// Keyboard: a Tab-focused option previews its underline at half opacity; Enter draws it solid.
 const INK = "#73574a";
 const UNDERLINE_W = 65.542;
 const UNDERLINE_H = 9;
@@ -22,16 +22,22 @@ export function ScribbleLegend({
   ariaLabel: string;
 }) {
   const [squiggle, setSquiggle] = useState(nextSquiggle);
+  const [focused, setFocused] = useState<string | null>(null);
+
   const select = (next: string) => {
     if (next === value) return;
     onChange(next);
     setSquiggle(nextSquiggle());
   };
 
+  // Extra bottom padding lifts the underline clear of the paper's bottom edge; the preview
+  // area (flex-1) absorbs it, so the card height stays on the grid.
   return (
-    <div role="tablist" aria-label={ariaLabel} className="flex items-center gap-3 px-4 py-5">
+    <div role="tablist" aria-label={ariaLabel} className="flex items-center gap-3 px-4 pt-5 pb-9">
       {options.map((opt) => {
         const isActive = opt.value === value;
+        // A focused but not-yet-selected option shows a faded underline preview.
+        const isPreview = focused === opt.value && !isActive;
         return (
           <button
             key={opt.value}
@@ -39,6 +45,14 @@ export function ScribbleLegend({
             role="tab"
             aria-selected={isActive}
             onClick={() => select(opt.value)}
+            onFocus={() => setFocused(opt.value)}
+            onBlur={() => setFocused((f) => (f === opt.value ? null : f))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                select(opt.value);
+              }
+            }}
             className={`flex flex-1 flex-col items-center justify-center gap-[6px] border-0 bg-transparent p-0 pt-[3px] outline-none ${isActive ? "cursor-default" : "cursor-pointer"}`}
           >
             <span
@@ -48,7 +62,7 @@ export function ScribbleLegend({
                 color: INK,
                 letterSpacing: "-0.25px",
                 whiteSpace: "nowrap",
-                opacity: isActive ? 1 : 0.6,
+                opacity: isActive ? 1 : isPreview ? 0.85 : 0.6,
                 transition: "opacity 150ms ease",
               }}
             >
@@ -56,15 +70,21 @@ export function ScribbleLegend({
             </span>
             <div className="relative" style={{ height: UNDERLINE_H, width: UNDERLINE_W }}>
               <AnimatePresence>
-                {isActive && (
+                {(isActive || isPreview) && (
                   <motion.div
                     key={opt.value}
                     className="absolute inset-0"
-                    initial={false}
+                    initial={isActive ? false : { opacity: 0 }}
+                    animate={{ opacity: isActive ? 1 : 0.5 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.12, ease: "easeOut" }}
                   >
-                    <MarkUnderline squiggle={SQUIGGLES[squiggle]} color={INK} />
+                    <MarkUnderline
+                      squiggle={SQUIGGLES[squiggle]}
+                      color={INK}
+                      opacity={1}
+                      animate={isActive}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
