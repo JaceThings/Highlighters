@@ -4,12 +4,11 @@ import { useRef, type ComponentType } from "react";
 import { Home } from "../pages/Home.tsx";
 import { Docs } from "../pages/Docs.tsx";
 
-// Cross-fades the page text on navigation; the shell (RuledPaper + Dock) stays
-// mounted outside the fade so the dock's shadow never flickers.
+// Cross-fades the page text on navigation; the shell stays mounted outside the fade.
 //
-// Pages come from a map, not <Outlet/>: the exiting copy must keep showing the OLD
-// page, but <Outlet/> snaps to the new route mid-fade in this router version.
-// Unmapped routes fall back to a plain Outlet.
+// Pages come from a map, not <Outlet/>: the exiting copy must keep showing the OLD page,
+// but <Outlet/> snaps to the new route mid-fade in this router version. Unmapped routes
+// fall back to a plain Outlet.
 const PAGES: Record<string, ComponentType> = {
   "/": Home,
   "/docs": Docs,

@@ -1,31 +1,14 @@
 /**
- * High-level named presets (R19). Each is a *partial* {@link HighlightOptions}
- * expressible as a single string token (`preset: "wet"`), layered over
- * `DEFAULT_OPTIONS` and beneath the explicit user options.
+ * High-level named presets. Each is a partial {@link HighlightOptions} expressible
+ * as a single string token (`preset: "wet"`), layered over `DEFAULT_OPTIONS` and
+ * beneath explicit user options. Pure data.
  *
- * Pure data, no DOM. `getPreset()` hands back a shallow clone so callers can
- * never mutate the shared constants.
+ * `mild` is the default look. `premium` uses a negative `startEndBuildup` to engage
+ * the anti-pool guardrail (lightens the ends).
  */
 
 import type { HighlightOptions, PresetName } from "../types.js";
 
-/**
- * The shipped presets.
- *
- * - `classic-yellow` — the archetypal saturated yellow highlighter: opaque-ish
- *   fluorescent dye, juicy flow, a touch of pooling, lively edges.
- * - `mild` — the **default look** (R19). Desaturated Mildliner pastels, low
- *   opacity, `multiply`, word/line snap, slightly soft edges. Maximizes
- *   readability — the look reviewers most consistently call "best".
- * - `wet` — a juicy, freshly-laid-down marker: high flow, heavy feather and
- *   pooling, soft wandering edges.
- * - `dry` — a near-empty marker: low flow, high viscosity, pronounced
- *   streakiness and skipping, crisp but ragged edges.
- * - `premium` — the engineered-against-pooling marker (Pilot Kire-Na): clean
- *   multiply, low variance, anti-pool guardrail via negative `startEndBuildup`.
- * - `minimal` — a restrained underline-style mark: thin, flat, straight-edged,
- *   no animation; for understated emphasis.
- */
 export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
   "classic-yellow": {
     color: { palette: "fluorescent", swatch: "yellow" },
@@ -96,8 +79,7 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     opacity: 0.7,
     blendMode: "multiply",
     snap: "word",
-    // Low-variance, engineered-against-pooling ink (the former "premium" quality
-    // bundle, baked in): suppressed streak/feather/dryout and an anti-pool guardrail.
+    // Low-variance, engineered-against-pooling: suppressed streak/feather/dryout.
     ink: {
       flow: 0.55,
       viscosity: 0.45,
@@ -130,10 +112,9 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
 };
 
 /**
- * Return a **shallow clone** of the named preset. Callers must not mutate the
- * shared constant, so each call yields a fresh top-level object (the namespaced
- * groups are shared by reference — the merge layer treats them as immutable
- * inputs and only ever reads from them).
+ * Return a shallow clone of the named preset. Namespaced groups are shared by
+ * reference — the merge layer treats them as immutable and only reads them.
+ * Throws on an unknown preset.
  */
 export function getPreset(name: PresetName): Partial<HighlightOptions> {
   const preset = PRESETS[name];

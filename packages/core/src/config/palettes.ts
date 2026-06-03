@@ -1,13 +1,7 @@
 /**
- * Curated, harmonized palette families (R15).
- *
- * Colors ship as named *families*, not loose swatches, because the Mildliner
- * lesson and the Japan Stationery Award criteria agree: harmonized, mood-grouped
- * color sets are what make multi-color highlighting legible. Each family below is
- * tuned so any pair of its swatches reads coherently when used together for
- * color-coding (consistent lightness/chroma within a family).
- *
- * Pure data — no DOM access, no side effects.
+ * Curated, harmonized palette families. Colors ship as named families, not loose
+ * swatches: each is tuned so any pair of its swatches reads coherently together
+ * for color-coding (consistent lightness/chroma within a family). Pure data.
  */
 
 import type {
@@ -17,17 +11,7 @@ import type {
   PaletteSwatch,
 } from "../types.js";
 
-/**
- * The five curated families. Each `swatches` map is *ordered*; that order is the
- * color-coding cycle a consumer gets when iterating a family.
- *
- * - `fluorescent` — saturated neon dye look; yellow first (least text-obscuring).
- * - `mild` — desaturated, grayed pastels (the Zebra Mildliner model); the
- *   default look. Low chroma so the page stays calm and text stays legible.
- * - `vintage` — warm, slightly dusty retro tones.
- * - `neutral` — low-saturation paper/earth tones for understated marking.
- * - `calm` — cool, soft, low-energy hues.
- */
+/** Each `swatches` map is ordered; that order is the color-coding cycle. */
 export const PALETTES: Record<PaletteName, Palette> = {
   fluorescent: {
     name: "fluorescent",
@@ -86,10 +70,7 @@ export const PALETTES: Record<PaletteName, Palette> = {
   },
 };
 
-/**
- * The canonical default swatch name for each family. The choice favors the
- * least-text-obscuring hue per family (yellow where present), per R15.
- */
+/** Canonical default swatch per family — the least-text-obscuring hue (yellow where present). */
 const DEFAULT_SWATCH_NAMES: Record<PaletteName, string> = {
   fluorescent: "yellow",
   mild: "yellow",
@@ -98,10 +79,7 @@ const DEFAULT_SWATCH_NAMES: Record<PaletteName, string> = {
   calm: "sky",
 };
 
-/**
- * Return a palette family by name. Throws on an unknown family so a typo surfaces
- * immediately rather than silently falling back.
- */
+/** Return a palette family by name. Throws on an unknown family. */
 export function getPalette(name: PaletteName): Palette {
   const palette = PALETTES[name];
   if (!palette) {
@@ -111,8 +89,8 @@ export function getPalette(name: PaletteName): Palette {
 }
 
 /**
- * Resolve a `{ palette, swatch }` reference to a concrete {@link ColorValue}.
- * Throws on an unknown swatch within the (valid) family.
+ * Resolve a `{ palette, swatch }` reference to a {@link ColorValue}. Throws on an
+ * unknown swatch within the (valid) family.
  */
 export function resolveSwatch(ref: PaletteSwatch): ColorValue {
   const palette = getPalette(ref.palette);
@@ -125,10 +103,7 @@ export function resolveSwatch(ref: PaletteSwatch): ColorValue {
   return color;
 }
 
-/**
- * The canonical default color for a family — `fluorescent` resolves to yellow,
- * the canonical least-text-obscuring hue.
- */
+/** The canonical default color for a family (e.g. `fluorescent` → yellow). */
 export function defaultSwatch(name: PaletteName): ColorValue {
   return resolveSwatch({ palette: name, swatch: DEFAULT_SWATCH_NAMES[name] });
 }

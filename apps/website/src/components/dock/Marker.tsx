@@ -7,14 +7,10 @@ import type { PenTip } from "../../selection-style.tsx";
 // Render the SVG wider so the body (26.1475 of the 43-unit viewBox) lands at 27px.
 const SVG_W = (27 * 43) / 26.1475; // ~44.4px
 
-// The button clips the pen to the tray floor; the rise (selected) and hover pop
-// live in CSS on .dock-pen-art.
 const FRAME_H = DOCK_H;
 const REST_TOP = FRAME_H - 95.45; // resting offset above the tray floor
 const GAP = 71 - SVG_W; // pen centres sit 71px apart
 
-// Opacity readout on the barrel (Figma "Marker Value") — centred just below the ink
-// band, at viewBox y87.
 const NUM_CENTER_Y = 87 * (SVG_W / 43);
 const NUM_STYLE: CSSProperties = {
   transform: "translateY(-50%)",
@@ -27,9 +23,8 @@ const NUM_STYLE: CSSProperties = {
   transition: "opacity 160ms ease",
 };
 
-// Per-pen opacity readout on the barrel, fading in/out across the 99↔100 boundary —
-// without ever rendering "100": at full opacity it keeps showing the last sub-100
-// value and just fades that away.
+// Fades out across the 99↔100 boundary without ever rendering "100": at full opacity
+// it keeps the last sub-100 value and just fades it away.
 function OpacityReadout({ pct }: { pct: number }) {
   const visible = pct < 100;
   const lastVisible = useRef(visible ? pct : 99);
@@ -53,14 +48,13 @@ interface PenDef {
   label: string;
 }
 
-// Left → right: slant (default), round, flat.
 const PENS: PenDef[] = [
   { id: "slant", label: "Chisel marker" },
   { id: "round", label: "Bullet marker" },
   { id: "flat", label: "Flat marker" },
 ];
 
-// The Pen takes an oklch() string — its tip shading reads OKLCH lightness.
+// Pen wants an oklch() string — its tip shading reads OKLCH lightness.
 const toPen = (hex: string) => oklchToCss(hexToOklch(hex));
 
 export function MarkerRow({
@@ -83,7 +77,7 @@ export function MarkerRow({
   const [fadeOut, setFadeOut] = useState<{ color: string; key: number } | null>(null);
   const prevColor = useRef(color);
   const keyRef = useRef(0);
-  // Pre-paint, so the dissolving overlay is in place before the new base paints.
+  // useLayoutEffect so the dissolving overlay is painted before the new base.
   useLayoutEffect(() => {
     if (prevColor.current === color) return;
     const previous = prevColor.current;
@@ -117,8 +111,8 @@ export function MarkerRow({
           >
             <Pen tip={p.id} color={toPen(color)} width={SVG_W} className="dock-pen-art" style={place} />
             {fadeOut && (
-              // Previous ink dissolving out. colorOnly skips the barrel shadow (no
-              // doubling); keyed so rapid swaps restart the fade.
+              // colorOnly skips the barrel shadow (no doubling); keyed so rapid swaps
+              // restart the fade.
               <Pen
                 key={fadeOut.key}
                 tip={p.id}
@@ -129,8 +123,8 @@ export function MarkerRow({
                 style={{ ...place, animation: `dock-ink-out ${INK_FADE_MS}ms ease forwards` }}
               />
             )}
-            {/* Opacity readout. The outer layer rides the pen transform
-                (.dock-pen-art); OpacityReadout centres + fades the digits. */}
+            {/* Outer layer rides the pen transform (.dock-pen-art) so the digits
+                track the pen's rise/pop. */}
             <span
               aria-hidden
               className="dock-pen-art pointer-events-none absolute"

@@ -1,18 +1,14 @@
 /**
- * Reflow and dynamic-DOM observation (A9, R8, R22, R33).
+ * Reflow and dynamic-DOM observation.
  *
  * `createReflowObserver` funnels every event that can move a mark — element/
- * container resize, window resize, and web-font load — into a single
- * `requestAnimationFrame`-batched callback, so reflow updates coalesce to one
- * read-then-write pass per frame and never animate.
+ * container resize, window resize, web-font load — into a single rAF-batched
+ * callback, so reflow updates coalesce to one read-then-write pass per frame.
+ * `createMutationWatcher` is the scoped, debounced `MutationObserver` for page/
+ * declarative modes.
  *
- * `createMutationWatcher` is the scoped, debounced `MutationObserver` used by
- * page/declarative modes (R8) to pick up added/removed nodes without a
- * full-page rescan.
- *
- * Both return a `Disconnect` that tears down *everything* they wired and leaves
- * no active timers, rAF loops, or listeners behind — idle cost is zero (R33),
- * and teardown is leak-free and idempotent (R8/R33/V4).
+ * Both return a `Disconnect` that tears down everything they wired, leaving no
+ * active timers, rAF loops, or listeners — teardown is leak-free and idempotent.
  */
 
 import type {
@@ -22,13 +18,11 @@ import type {
 } from "../types.js";
 import { hasWindow } from "../internal/dom.js";
 
-/** Debounce window (ms) for the mutation watcher — coalesces bursts of mutations. */
 const MUTATION_DEBOUNCE_MS = 50;
 
 /**
- * Walk up from `el` to the nearest ancestor whose `position` is not `static`
- * (the element overlays are positioned against). Returns `null` if none is found
- * before the document root, or outside a DOM.
+ * Nearest ancestor whose `position` is not `static` (what overlays are positioned
+ * against). Returns `null` if none before the document root, or outside a DOM.
  */
 function nearestPositionedContainer(el: Element): Element | null {
   if (!hasWindow() || typeof getComputedStyle === "undefined") return null;
@@ -48,17 +42,10 @@ function nearestPositionedContainer(el: Element): Element | null {
 
 /**
  * Wire reflow observation for `targets` and funnel everything into a single
- * rAF-batched `callback` (R22).
- *
- * Observes each target and its nearest positioned container with a
- * `ResizeObserver`, listens for `window` resize, and resolves
- * `document.fonts.ready` (late web-font load, R22). Every source schedules at
- * most one pending `requestAnimationFrame`; the callback runs once per frame
- * regardless of how many sources fired.
- *
- * Returns a `Disconnect` that disconnects the observer, removes the resize
- * listener, and cancels any pending rAF — zero idle cost afterward (R33). Safe
- * and inert outside a DOM, and idempotent.
+ * rAF-batched `callback`: each target and its nearest positioned container via
+ * `ResizeObserver`, `window` resize, and late web-font load (`document.fonts.ready`).
+ * The callback runs once per frame regardless of how many sources fired. Returns a
+ * leak-free `Disconnect`; inert outside a DOM and idempotent.
  */
 export function createReflowObserver(
   targets: Element[],
@@ -77,9 +64,8 @@ export function createReflowObserver(
     });
   };
 
-  // ResizeObserver on each target plus its nearest positioned container, so a
-  // container resize (which moves overlays without resizing the target) is
-  // also caught. De-duplicate to avoid observing the same node twice.
+  // Also observe each target's positioned container: a container resize moves
+  // overlays without resizing the target. De-dupe to avoid double-observing.
   let resizeObserver: ResizeObserver | undefined;
   if (typeof ResizeObserver !== "undefined") {
     resizeObserver = new ResizeObserver(schedule);
@@ -99,7 +85,7 @@ export function createReflowObserver(
 
   window.addEventListener("resize", schedule);
 
-  // Late web-font load shifts text metrics; reflow once fonts are ready (R22).
+  // Late web-font load shifts text metrics; reflow once fonts are ready.
   const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
   if (fonts && typeof fonts.ready?.then === "function") {
     fonts.ready.then(() => {
@@ -120,14 +106,10 @@ export function createReflowObserver(
 }
 
 /**
- * Create a scoped, debounced `MutationObserver` on `root` (R8). Child-list and
- * subtree mutations are buffered and flushed once the DOM has been quiet for
- * {@link MUTATION_DEBOUNCE_MS}, so a burst of inserted/removed nodes triggers a
- * single `callback` with the accumulated records rather than one per mutation.
- *
- * Returns a `Disconnect` that disconnects the observer and cancels any pending
- * debounced flush — fully leak-free (R8/V4). Inert outside a DOM, and
- * idempotent.
+ * Scoped, debounced `MutationObserver` on `root`. Child-list/subtree mutations are
+ * buffered and flushed once the DOM has been quiet for {@link MUTATION_DEBOUNCE_MS},
+ * so a burst triggers a single `callback` with the accumulated records. Returns a
+ * leak-free `Disconnect`; inert outside a DOM and idempotent.
  */
 export function createMutationWatcher(
   root: Element | Document,

@@ -7,9 +7,8 @@ import { Section } from "../components/playground/Section.tsx";
 import { playClick } from "../lib/sounds.ts";
 import { usePlaygroundOptions } from "./options-context.tsx";
 
-// The six shipped presets (R19), in the order the library documents them, each
-// with a one-line description framing it as a STARTING POINT — not a mode you
-// switch into. Clicking copies the recipe's concrete values into the build.
+// The shipped presets, in the order the library documents them. Clicking copies
+// the recipe's concrete values into the build.
 const RECIPES: ReadonlyArray<{
   name: PresetName;
   label: string;
@@ -47,9 +46,7 @@ const RECIPES: ReadonlyArray<{
   },
 ];
 
-// A tiny static highlight chip per recipe for flavor. Resolve the preset to its
-// concrete color + opacity and paint a small rounded band so each card carries a
-// glance of its look without being a live, selectable mark.
+// A static color chip per recipe, resolved from the preset's color + opacity.
 function RecipeSwatch({ name }: { name: PresetName }) {
   const r = resolveOptions({ preset: name });
   return (

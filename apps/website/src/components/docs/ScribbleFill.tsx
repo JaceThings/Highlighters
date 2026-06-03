@@ -2,13 +2,9 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { useMotionValueEvent, type MotionValue } from "framer-motion";
 import { makeZigzag, pointsUpTo, smoothStrokePath } from "./scribble-render.ts";
 
-// The slider "fill", drawn as the Figma's hand-scribbled sawtooth instead of a solid bar. The
-// scribble is a dense, tall, hand-jittered zigzag rendered as a SMOOTH stroke — a Catmull-Rom
-// spline through the teeth (passes through every tip, so it keeps full amplitude). It's genuinely
-// drawn: the path is rebuilt over the points UP TO the slider fraction, so it lays on as the
-// value rises and retracts as it falls, with a round nib at the leading end. Each slider passes
-// its own random seed, so every one is a uniquely hand-drawn line. The faint track background
-// gets a wavy hand-drawn edge from a small feTurbulence displacement.
+// The slider "fill" as a hand-scribbled sawtooth instead of a solid bar. The path is rebuilt
+// over the points UP TO the slider fraction, so it lays on as the value rises and retracts as
+// it falls. Each slider passes its own seed, so every one is a uniquely hand-drawn line.
 
 const useIso = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 

@@ -1,42 +1,30 @@
 /**
  * Tier B renderer — a CSS `linear-gradient` band (blueprint R26 / A3).
  *
- * The lightweight tier: one absolutely-positioned per-line **wrapper** `<div>`
- * placed at the line box, holding a band `<div>` at `inset: 0` painted with the
- * absolute-px end-pool gradient ({@link PoolGradient}) and composited with
- * `mix-blend-mode: multiply` (the true ink optic, R14). Edges are straight — no
- * wave geometry, no turbulence texture — but colour, opacity, blend, and band
- * position are shared with Tier A, so degrading to this tier changes fidelity, not
- * identity (R28). `box-decoration-break: clone` is set so that a future inline
- * rendering of the band keeps its decoration per fragment; the per-line `<div>`
- * model already gives correct multiline coverage.
+ * The lightweight tier: a per-line WRAPPER `<div>` holding a band `<div>` at
+ * `inset: 0` painted with the absolute-px end-pool gradient and composited with
+ * `mix-blend-mode: multiply` (R14). Edges are straight — no wave, no texture — but
+ * colour, opacity, blend, and band position are shared with Tier A, so degrading
+ * here changes fidelity, not identity (R28). The wrapper carries only the box
+ * position (no clip) so the draw-on wipes it open with `clip-path: inset(...)`,
+ * structurally identical to Tier A.
  *
- * The wrapper carries only the box position (no clip), so the shared draw-on
- * animation wipes it open with `clip-path: inset(...)` — revealing the fixed band
- * left-to-right with no scaling, identical in structure to Tier A.
- *
- * Nodes are pooled by stable line identity (the per-line seed) so a reflow that
- * changes the line set keeps surviving lines' nodes (A14 §6 / R22d). `unmount()`
- * removes the overlay container and every node, leaving the DOM pristine (R9).
+ * Nodes are pooled by stable line identity (A14 §6 / R22d); `unmount()` leaves the
+ * DOM pristine (R9).
  */
 
 import type { Renderer, RenderContext, MarkGeometry, PoolGradient } from "../types.js";
 import { NodePool, applyBoxPosition } from "./renderer.js";
 
 /**
- * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` string in
- * absolute-px stop positions with the documented `min`/`max` clamps (A14 §3), so
- * a short mark cannot over-pool.
+ * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` with absolute-px
+ * stop positions and `min`/`max` clamps (A14 §3) so a short mark can't over-pool.
  *
- * Each stop's alpha is folded into its colour with `color-mix(... transparent)`
- * (matching Tier C), normalized to the brightest stop — so the gradient carries
- * the RELATIVE pooling + dry-out variation while the band's layer opacity supplies
- * the base. The darkest point therefore matches a flat band, and the pooled/dried
- * regions read lighter (without this the per-stop alpha never rendered and the
- * band was flat).
- *
- * @param pool - The absolute-px end-pool gradient from the mark geometry.
- * @returns A CSS `linear-gradient(...)` value.
+ * Each stop's alpha is folded into its colour via `color-mix(... transparent)`,
+ * normalized to the brightest stop, so the gradient carries the RELATIVE pooling +
+ * dry-out while the band's layer opacity supplies the base. The darkest point thus
+ * matches a flat band; pooled/dried regions read lighter. (Without normalization
+ * the per-stop alpha never rendered and the band was flat.)
  */
 export function poolGradientToCss(pool: PoolGradient): string {
   const stops = pool.stops;
@@ -44,18 +32,16 @@ export function poolGradientToCss(pool: PoolGradient): string {
   for (const s of stops) maxAlpha = Math.max(maxAlpha, s.opacity ?? 1);
 
   // Relative per-stop alpha (1 at the brightest stop) folded into the colour, so
-  // the layer opacity stays the absolute base. 100% = colour as-is, lower = drier.
+  // the layer opacity stays the absolute base.
   const fill = (i: number): string => {
     const stop = stops[i] ?? stops[0];
     const rel = maxAlpha > 0 ? (stop?.opacity ?? 1) / maxAlpha : 1;
     return `color-mix(in srgb, ${stop?.color ?? "transparent"} ${Math.round(rel * 100)}%, transparent)`;
   };
 
-  // Absolute-px insets with min()/max() clamps keep the cap-pool width constant:
-  //   2px, min(10px, 40%), max(100% - 10px, 60%), 100% - 2px.
   // Live-speed path: N core stops at pre-computed px positions between the two
-  // px-pool ends — the same color-mix normalization, generalized over the array.
-  // No nested calc/min/max (positions are already px), so it parses everywhere.
+  // px-pool ends, the same color-mix normalization generalized over the array. No
+  // nested calc/min/max (positions are already px), so it parses everywhere.
   const positions = pool.coreStopsPositionsPx;
   if (positions) {
     const parts: string[] = [
@@ -69,7 +55,8 @@ export function poolGradientToCss(pool: PoolGradient): string {
     return parts.join(", ");
   }
 
-  // Legacy 4-stop gradient — absolute-px insets with min()/max() clamps.
+  // Legacy 4-stop gradient — absolute-px insets with min()/max() clamps keep the
+  // cap-pool width constant.
   const startCore = `min(${pool.startCorePx}px, ${pool.startCorePct}%)`;
   const endCore = `max(calc(100% - ${pool.endCorePx}px), ${pool.endCorePct}%)`;
 
@@ -87,22 +74,16 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/**
- * Create a Tier B renderer.
- *
- * @returns A {@link Renderer} whose `tier` is `"css"`.
- */
+/** Create a Tier B renderer (`tier: "css"`). */
 export function createCssRenderer(): Renderer {
   // Per line: a positioned WRAPPER (the draw-on wipe surface) holding a band node.
   const wrapperPool = new NodePool<HTMLElement>();
   const bandPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
 
-  /** Style one line band from its geometry and the resolved options. */
   function styleBand(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
     const { options } = context;
     const s = el.style;
-    // The band fills its wrapper (which is positioned at the line box).
     s.position = "absolute";
     s.left = "0";
     s.top = "0";
@@ -111,10 +92,8 @@ export function createCssRenderer(): Renderer {
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
     // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
-    // — so a uniformly-fast swipe dims here rather than being normalized back to full.
+    // so a uniformly-fast swipe dims here rather than being normalized back to full.
     s.opacity = String(options.opacity * (line.pool.layerScale ?? 1));
-    // The pool gradient already carries the end-pooling; box-decoration-break is
-    // set for parity with an inline rendering of the same band.
     s.backgroundImage = poolGradientToCss(line.pool);
     s.backgroundRepeat = "no-repeat";
     (s as CSSStyleDeclaration & { boxDecorationBreak?: string }).boxDecorationBreak = "clone";

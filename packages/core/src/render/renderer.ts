@@ -1,29 +1,18 @@
 /**
- * Renderer contract re-exports plus the overlay-host helpers every renderer tier
- * shares.
+ * Renderer contract re-exports plus the overlay-host helpers every tier shares.
  *
- * A {@link Renderer} owns the DOM and paint for a single mark: it mounts overlay
- * nodes for the per-line geometry, applies updates without re-seeding stable
- * geometry, and tears everything down on `unmount`. The two helpers here give the
- * DOM-touching tiers (A and B) a single, idempotent way to create and dispose the
- * positioned overlay container that holds their nodes.
- *
- * The container is, by construction (blueprint A4 / R30):
- *
- *  - **absolutely positioned** and removed from layout flow, so a mark can never
- *    cause cumulative layout shift (R36);
- *  - **`aria-hidden="true"`** and **`pointer-events: none`**, so the decorative
- *    overlay is invisible to assistive tech and never intercepts input (R30);
- *  - **`isolation: isolate`**, so `mix-blend-mode: multiply` composites against the
+ * The overlay container, by construction (blueprint A4 / R30):
+ *  - absolutely positioned, out of layout flow, so a mark can't cause layout shift (R36);
+ *  - `aria-hidden` + `pointer-events: none`, so it's invisible to AT and never
+ *    intercepts input (R30);
+ *  - `isolation: isolate`, so `mix-blend-mode: multiply` composites against the
  *    intended backdrop rather than leaking into ancestor stacking contexts (A4);
- *  - **`mix-blend-mode: multiply`** by default, the true subtractive-ink optic
- *    (R14) — individual nodes may override it.
+ *  - `mix-blend-mode: multiply` by default, the subtractive-ink optic (R14) —
+ *    individual nodes may override it.
  *
- * Nodes within a container are pooled by **stable identity** (the per-line seed),
- * not by array index, so when the set of visible lines changes the surviving lines
- * keep their exact node and never flicker or re-seed (A14 §6 / R22d). The pool map
- * lives on the renderer, but {@link teardownContainer} guarantees that removing a
- * container leaves the DOM byte-for-byte as it was before the mark existed (R9).
+ * Nodes are pooled by stable identity (the per-line seed), not array index, so a
+ * surviving line keeps its exact node and never flickers when the line set changes
+ * (A14 §6 / R22d). {@link teardownContainer} leaves the DOM byte-for-byte as it was (R9).
  */
 
 import type { Box } from "../types.js";
@@ -36,14 +25,11 @@ const OVERLAY_FLAG = "data-highlighters-overlay";
 /**
  * Per-element cache of the last inline value written for each style property.
  *
- * The renderer re-runs on every reflow (resize/font-load), and `update()` re-styles
- * each surviving node. Blindly re-assigning a `mask-image: url(data:…)` or a
- * `filter: url(#…)` — even to the *same* value — can force the engine to re-decode
- * the mask SVG or re-rasterize the filter, which flickers an in-flight draw-on. A
- * `WeakMap` keyed by element (so detached nodes are GC'd with their cache) lets the
- * style helpers skip writes that wouldn't change anything, making a no-op reflow
- * truly free and visually inert. Keyed by the *applied string*, not the computed
- * value, so CSSOM quote/format normalization can't cause a false miss.
+ * Re-assigning a `mask-image: url(data:…)` or `filter: url(#…)` — even to the SAME
+ * value — can force the engine to re-decode the mask or re-rasterize the filter,
+ * flickering an in-flight draw-on. This lets the style helpers skip no-op writes so
+ * a no-op reflow is free and visually inert. Keyed by the APPLIED string, not the
+ * computed value, so CSSOM quote/format normalization can't cause a false miss.
  */
 const appliedStyles = new WeakMap<HTMLElement, Record<string, string>>();
 
@@ -60,15 +46,9 @@ function applyOnce(el: HTMLElement, key: string, value: string, apply: () => voi
 }
 
 /**
- * Set a style property that needs both its standard camelCase form and the
- * `-webkit-` prefixed form, matching the cast-and-assign idiom the DOM-touching
- * tiers use for `clip-path` and `mask-*`. Both writes happen so engines that
- * only understand the prefixed property still pick up the value. Idempotent:
- * re-setting the same value is a no-op (avoids mask re-decode flicker on reflow).
- *
- * @param el - The element whose inline style to set.
- * @param prop - The standard camelCase style property to set.
- * @param value - The value to assign to both the standard and prefixed forms.
+ * Set a style property in both its camelCase form and the `-webkit-` prefixed form
+ * (for `clip-path` and `mask-*`), so engines that only understand the prefixed
+ * property still pick up the value. Idempotent (avoids mask re-decode on reflow).
  */
 export function setVendorPrefixed(
   el: HTMLElement,
@@ -84,14 +64,9 @@ export function setVendorPrefixed(
 }
 
 /**
- * Set a plain (non-prefixed) inline style property idempotently — re-setting the
- * same value is a no-op. Use for the repaint-prone properties (`filter`,
- * `background-image`) so a reflow that doesn't change them never re-rasterizes a
- * mark mid-draw.
- *
- * @param el - The element whose inline style to set.
- * @param prop - The camelCase style property to set.
- * @param value - The value to assign.
+ * Set a plain inline style property idempotently. Use for the repaint-prone
+ * properties (`filter`, `background-image`) so a no-op reflow never re-rasterizes
+ * a mark mid-draw.
  */
 export function setStyleOnce(el: HTMLElement, prop: string, value: string): void {
   applyOnce(el, prop, value, () => {
@@ -99,14 +74,7 @@ export function setStyleOnce(el: HTMLElement, prop: string, value: string): void
   });
 }
 
-/**
- * Position an element as an absolutely-placed box, in px, from a {@link Box}.
- * Logic-free: sets `position: absolute` plus `left`/`top`/`width`/`height`,
- * matching the per-line band placement the tiers share.
- *
- * @param el - The element to position.
- * @param box - The absolute-px rectangle to place it at.
- */
+/** Place an element as an absolutely-positioned px box from a {@link Box}. */
 export function applyBoxPosition(el: HTMLElement, box: Box): void {
   const s = el.style;
   s.position = "absolute";
@@ -118,17 +86,11 @@ export function applyBoxPosition(el: HTMLElement, box: Box): void {
 
 /**
  * Create (or return the existing) absolutely-positioned, isolated, `aria-hidden`,
- * non-interactive overlay host appended to `host`.
+ * non-interactive overlay host appended to `host`. Idempotent per host, so repeated
+ * mounts on one target never leak nodes. The host is promoted to `position:
+ * relative` only when static, anchoring the overlay without layout shift (R36).
  *
- * Idempotent per host: a second call returns the same container rather than
- * stacking a fresh one, so repeated mounts on one target never leak nodes. The
- * host is given `position: relative` only when it is currently statically
- * positioned, so the absolutely-positioned overlay anchors to it without changing
- * the host's own box (R36 — no layout shift).
- *
- * @param host - The element the overlay attaches to (the mark's positioned
- *   container). MUST be attached to a document for the overlay to paint.
- * @returns The overlay container element, ready for renderer nodes.
+ * @param host - MUST be attached to a document for the overlay to paint.
  */
 export function createOverlayContainer(host: HTMLElement): HTMLElement {
   const existing = host.querySelector<HTMLElement>(`:scope > [${OVERLAY_FLAG}]`);
@@ -146,17 +108,15 @@ export function createOverlayContainer(host: HTMLElement): HTMLElement {
   s.width = "100%";
   s.height = "100%";
   s.pointerEvents = "none";
-  // Isolate so multiply composites against this overlay's own backdrop (A4),
-  // not against whatever ancestor stacking context happens to exist.
+  // Isolate so multiply composites against this overlay's own backdrop (A4), not
+  // whatever ancestor stacking context happens to exist.
   s.isolation = "isolate";
   s.mixBlendMode = "multiply";
-  // Belt-and-braces: the overlay must never participate in layout or intercept
-  // selection, find-in-page, or clicks on the real text beneath it.
   s.overflow = "visible";
   s.userSelect = "none";
 
-  // Anchor the absolute overlay to `host` without disturbing its layout: only
-  // promote a statically-positioned host to `relative`.
+  // Promote only a statically-positioned host to `relative`, anchoring the overlay
+  // without disturbing the host's layout.
   const view = doc.defaultView;
   if (view) {
     const position = view.getComputedStyle(host).position;
@@ -168,12 +128,8 @@ export function createOverlayContainer(host: HTMLElement): HTMLElement {
 }
 
 /**
- * Remove an overlay container and every child node it holds, leaving the DOM
- * pristine (R9). Safe to call more than once and safe to call on a container that
- * was never attached.
- *
- * @param container - A container previously returned by
- *   {@link createOverlayContainer}.
+ * Remove an overlay container and every child it holds, leaving the DOM pristine
+ * (R9). Safe to call more than once or on a never-attached container.
  */
 export function teardownContainer(container: HTMLElement): void {
   // Drop children explicitly so any references the renderer's pool still holds
@@ -183,44 +139,32 @@ export function teardownContainer(container: HTMLElement): void {
 }
 
 /**
- * A node pool keyed by stable line identity (the per-line seed), shared by the
- * DOM-touching tiers. Keying by identity rather than array index is what lets a
- * surviving line keep its exact node across a reflow that changes the line set,
- * so it never flickers or re-seeds (A14 §6 / R22d).
- *
- * @typeParam T - The pooled node type (e.g. `HTMLDivElement`, `SVGGElement`).
+ * A node pool keyed by stable line identity (the per-line seed). Keying by identity
+ * rather than array index lets a surviving line keep its exact node across a reflow
+ * that changes the line set, so it never flickers or re-seeds (A14 §6 / R22d).
  */
 export class NodePool<T extends Node> {
   private readonly nodes = new Map<number, T>();
 
-  /** The number of live nodes currently pooled. */
   get size(): number {
     return this.nodes.size;
   }
 
-  /** Return the node for `key`, or `undefined` if none is pooled yet. */
   get(key: number): T | undefined {
     return this.nodes.get(key);
   }
 
-  /** Store `node` under `key`, replacing any previous node for that key. */
   set(key: number, node: T): void {
     this.nodes.set(key, node);
   }
 
-  /** Whether a node is pooled for `key`. */
   has(key: number): boolean {
     return this.nodes.has(key);
   }
 
   /**
-   * Remove every pooled node whose key is **not** in `keep`, calling `dispose`
-   * on each removed node so the caller can detach it from the DOM. This is the
-   * reconciliation step after a reflow: lines that vanished are released, lines
-   * that survived keep their identity (R22d).
-   *
-   * @param keep - The set of keys that should remain pooled.
-   * @param dispose - Invoked with each evicted node (detach it here).
+   * Reconciliation after reflow: remove every pooled node whose key is not in
+   * `keep`, calling `dispose` to detach it. Survivors keep their identity (R22d).
    */
   retain(keep: Set<number>, dispose: (node: T) => void): void {
     for (const [key, node] of this.nodes) {
@@ -231,12 +175,7 @@ export class NodePool<T extends Node> {
     }
   }
 
-  /**
-   * Remove and dispose **every** pooled node. Used on unmount so the renderer
-   * leaves no residue (R9).
-   *
-   * @param dispose - Invoked with each node before it is dropped.
-   */
+  /** Remove and dispose every pooled node — on unmount, so no residue is left (R9). */
   clear(dispose: (node: T) => void): void {
     for (const node of this.nodes.values()) dispose(node);
     this.nodes.clear();

@@ -3,18 +3,16 @@ import getStroke from "perfect-freehand";
 import type { Squiggle, PressurePoint } from "./squiggles.ts";
 import { outlineViewBox, samplePath, toPath } from "./freehand.ts";
 
-// A hand-drawn marker underline, drawn the way the site's dividers are: take a squiggle's
-// centreline, sample it into points, and run it through Perfect Freehand each frame so the
-// stroke is laid down *along the path* (the ink spreading to full width just behind the
-// nib). Pass any of the SQUIGGLES (see squiggles.ts) — they're real divider strokes, so the
-// underline can look freshly hand-drawn each time.
+// A hand-drawn marker underline: sample a squiggle's centreline into points and run it
+// through Perfect Freehand each frame so the stroke is laid down *along the path*, ink
+// spreading to full width just behind the nib.
 
-const SIZE = 3.4; // fatter ink
+const SIZE = 3.4;
 const THINNING = 0.65;
 const SMOOTHING = 0.5;
 const STREAMLINE = 0.4;
 const N = 64;
-const DRAW_MS = 240; // quick scribble
+const DRAW_MS = 240;
 const SPREAD_MS = 80;
 const SPREAD_POW = 2.5;
 

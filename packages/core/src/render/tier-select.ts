@@ -1,17 +1,14 @@
 /**
  * Capability detection and renderer-tier selection (blueprint R27 / A3).
  *
- * Three tiers sit behind one API and degrade is **fidelity-only** — selecting a
- * lower tier never moves or recolours a mark, it only simplifies the edge
- * organicness and texture (A3 / R28). This module answers two questions:
+ * Three tiers sit behind one API and degrade is fidelity-only — a lower tier never
+ * moves or recolours a mark, only simplifies edge organicness and texture (A3 / R28).
  *
- *  - {@link detectEnvironment} — what does the current runtime support, and what
- *    accessibility/data preferences are set? Guarded for SSR: it touches no DOM at
- *    import and returns conservative defaults when called outside a browser.
- *  - {@link selectTier} — given a request, the environment, and the live mark
- *    count, which concrete tier do we draw with? A pinned (`!== "auto"`) request
- *    is honoured if supported (and otherwise steps down to the nearest supported
- *    tier), while `"auto"` applies the documented degrade precedence.
+ *  - {@link detectEnvironment} — runtime support + accessibility/data preferences.
+ *    SSR-guarded: touches no DOM at import, returns conservative defaults off-browser.
+ *  - {@link selectTier} — given a request, the environment, and the live mark count,
+ *    pick a concrete tier. A pinned request is honoured if supported (else steps
+ *    down to the nearest supported); `"auto"` applies the degrade precedence.
  */
 
 import type {
@@ -22,20 +19,15 @@ import type {
 import { hasMediaQueries } from "../internal/dom.js";
 
 /**
- * Default mark count above which Tier A auto-degrades to Tier B under `auto`
- * (R27 §2 / R31). Calibrated against the performance budget — past this many
- * simultaneous SVG-filter marks, the lighter CSS band protects the frame rate.
+ * Mark count above which Tier A auto-degrades to Tier B under `auto` (R27 §2 / R31):
+ * past this many simultaneous SVG-filter marks, the CSS band protects the frame rate.
  */
 export const DEFAULT_DEGRADE_THRESHOLD = 50;
 
 /** Tier order from highest fidelity to the universal floor. */
 const TIER_ORDER: readonly RendererTier[] = ["svg", "css", "highlight-api"];
 
-/**
- * Conservative environment used at import time and outside a browser (R34): no
- * advanced features, no motion/data preferences, fine pointer, default
- * threshold. Importing the library must never assume a DOM exists.
- */
+/** Conservative environment for import time and off-browser (R34): nothing assumed. */
 const SSR_ENVIRONMENT: RenderEnvironment = {
   supportsSvgFilters: false,
   supportsCssBlend: false,
@@ -68,10 +60,9 @@ function mediaMatches(query: string): boolean {
 }
 
 /**
- * Tier A needs `clip-path` (for the chisel/bullet/fine geometry), `mask-image`
- * (for the offset-sampled noise tile), and SVG filter primitives. happy-dom and
- * older engines report these inconsistently, so we test the CSS props directly
- * and treat `SVGFETurbulenceElement` presence as the filter-support signal.
+ * Tier A needs `clip-path`, `mask-image`, and SVG filter primitives. Some engines
+ * report these inconsistently, so test the CSS props directly and treat
+ * `SVGFETurbulenceElement` presence as the filter-support signal.
  */
 function detectSvgFilters(): boolean {
   const clip =
@@ -104,14 +95,8 @@ function detectHighlightApi(): boolean {
 }
 
 /**
- * Feature-detect the renderer tiers and read the user's motion/data/pointer
- * preferences into a {@link RenderEnvironment}.
- *
- * SSR-safe: returns {@link SSR_ENVIRONMENT} without touching the DOM when no
- * browser environment is present (R34). Pure with respect to the DOM — it only
- * reads, never writes.
- *
- * @returns A capability + preference snapshot for {@link selectTier}.
+ * Feature-detect the tiers and read motion/data/pointer preferences into a
+ * {@link RenderEnvironment}. SSR-safe (R34); DOM-pure (reads, never writes).
  */
 export function detectEnvironment(): RenderEnvironment {
   if (!hasMediaQueries()) return SSR_ENVIRONMENT;
@@ -141,10 +126,9 @@ function tierSupported(tier: RendererTier, env: RenderEnvironment): boolean {
 }
 
 /**
- * Walk down the tier order from `start` and return the first supported tier.
- * Falls back to `css` (the universal floor) if nothing below reports support, so
- * the selector always yields a concrete tier rather than throwing (C1: below the
- * floor the renderer itself fails safe by drawing nothing).
+ * First supported tier at or below `start`, else any supported tier, else `css`
+ * (the floor) — so the selector always yields a concrete tier (C1: below the floor
+ * the renderer itself fails safe by drawing nothing).
  */
 function firstSupportedFrom(
   start: RendererTier,
@@ -155,7 +139,7 @@ function firstSupportedFrom(
     const tier = TIER_ORDER[i]!;
     if (tierSupported(tier, env)) return tier;
   }
-  // Wrap to find any supported tier above `start`, else default to the floor.
+  // Wrap to find any supported tier above `start`.
   for (const tier of TIER_ORDER) {
     if (tierSupported(tier, env)) return tier;
   }
@@ -165,26 +149,18 @@ function firstSupportedFrom(
 /**
  * Select the concrete renderer tier to draw a mark with.
  *
- * - **Pinned** (`requested !== "auto"`): honour the request when supported (no
- *   auto-degrade, R27), otherwise step down to the nearest supported tier so a
- *   pin on an unsupported feature still renders rather than failing.
- * - **`"auto"`**: apply the degrade precedence —
- *     1. `prefers-reduced-motion` / `prefers-reduced-data` force a step down from
- *        the realistic SVG tier to the lightweight CSS band;
- *     2. a live `markCount` above `env.degradeThreshold` steps Tier A down to
- *        Tier B for the performance budget (R31);
- *     3. a tier whose APIs are unavailable falls through to the next supported
- *        tier.
- *   Tier B (`css`) is the floor of auto-degrade; Tier C is only chosen when it is
- *   the highest supported tier or explicitly pinned.
+ * - Pinned (`!== "auto"`): honour the request when supported (no auto-degrade,
+ *   R27), else step down to the nearest supported tier so a pin still renders.
+ * - `"auto"`: apply the degrade precedence —
+ *     1. reduced-motion / reduced-data step SVG down to the CSS band;
+ *     2. `markCount` above the threshold steps Tier A down to Tier B (R31);
+ *     3. an unsupported tier falls through to the next supported.
+ *   Tier B is the floor of auto-degrade; Tier C is chosen only when highest
+ *   supported or explicitly pinned.
  *
- * Pure given its inputs (no DOM access) — all capability reads happen in
- * {@link detectEnvironment}.
+ * Pure given its inputs — all capability reads happen in {@link detectEnvironment}.
  *
- * @param requested - The consumer's tier preference / pin.
- * @param env - The detected capability + preference snapshot.
  * @param markCount - Number of simultaneously visible marks (for the threshold).
- * @returns The concrete tier to render with.
  */
 export function selectTier(
   requested: RendererTierPreference,
@@ -197,7 +173,7 @@ export function selectTier(
       : firstSupportedFrom(requested, env);
   }
 
-  // Auto: start from the highest supported tier, then apply degrade rules.
+  // Start from the highest supported tier, then apply degrade rules.
   let tier = firstSupportedFrom("svg", env);
 
   if (tier === "svg") {

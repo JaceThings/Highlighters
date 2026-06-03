@@ -13,24 +13,19 @@ export type PenTip = "slant" | "round" | "flat";
 
 // The live, user-chosen selection style the dock controls.
 export interface SelectionStyle {
-  /** Ink colour (hex), straight from the palette swatch. */
   color: string;
-  /** The selected pen / nib. */
   pen: PenTip;
-  /** The active pen's ink opacity (0–1) — i.e. `opacityByPen[pen]`. */
+  /** The active pen's opacity (`opacityByPen[pen]`). */
   opacity: number;
-  /** Per-pen ink opacity: each marker keeps its own, set from the popover slider. */
+  /** Per-pen ink opacity: each marker keeps its own. */
   opacityByPen: Record<PenTip, number>;
-  /** Mark kind — highlight band, under/overline, or strike-through. */
   markType: MarkType;
 }
 
 // Matches the dock's default swatch, so dock and paint agree from frame one.
 export const DEFAULT_INK = "#6f584c";
-// Mirror BASE_SELECTION_OPTIONS in SelectionMarker.
-export const DEFAULT_OPACITY = 0.58;
+export const DEFAULT_OPACITY = 0.58; // keep in sync with BASE_SELECTION_OPTIONS
 export const DEFAULT_MARK_TYPE: MarkType = "highlight";
-// Every marker starts at the same opacity but keeps its own from then on.
 const DEFAULT_OPACITY_BY_PEN: Record<PenTip, number> = {
   slant: DEFAULT_OPACITY,
   round: DEFAULT_OPACITY,
@@ -49,8 +44,7 @@ const SelectionStyleContext = createContext<SelectionStyleContextValue | null>(
   null,
 );
 
-/** Holds the dock's selection style so it drives the live SelectionMarker. Wraps
- *  the app shell in RootLayout, above both the dock and the marker. */
+/** Holds the dock's selection style so it drives the live SelectionMarker. */
 export function SelectionStyleProvider({ children }: { children: ReactNode }) {
   const [color, setColor] = useState(DEFAULT_INK);
   const [pen, setPen] = useState<PenTip>("slant");
@@ -109,10 +103,9 @@ export function penToTip(pen: PenTip): Pick<HighlightOptions, "tip"> {
   }
 }
 
-// The colour/nib-independent house style — translucent multiply, pigment axis, wavy
-// edge, light streak/pool texture. Shared by the live SelectionMarker and the
-// popover's mark-type previews so the previews paint exactly what gets used. The
-// dock layers colour, tip, opacity, and markType on top.
+// The colour/nib-independent house style. Shared by the live SelectionMarker and
+// the popover previews so previews paint exactly what gets used; the dock layers
+// colour, tip, opacity, and markType on top.
 export const BASE_SELECTION_OPTIONS: HighlightOptions = {
   markType: "highlight",
   opacity: DEFAULT_OPACITY,

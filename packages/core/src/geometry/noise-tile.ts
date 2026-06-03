@@ -5,58 +5,40 @@ import { hashU32 } from "./rng.js";
 /**
  * The fixed-pixel noise tile that gives the mark its organic, hand-inked grain.
  *
- * This is the literal answer to "SVGs that don't stretch" (anchored-grid doc §1):
- * the grain is two `feTurbulence` layers baked **once** into a constant-pixel,
- * seamlessly-stitched tile and then *repeated* — never scaled. Per-line variety
+ * The grain is two `feTurbulence` layers baked once into a constant-pixel,
+ * seamlessly-stitched tile and then repeated — never scaled. Per-line variety
  * comes from offsetting the sample window (see `mark-space.ts`'s `maskOffset`),
- * so grain density is invariant to mark width/height (blueprint R22c / A14 §1).
- *
- * The two layers are:
- *
- *  - **Striations** — `baseFrequency "0.04 0.34"`: a long horizontal stride with
- *    a moderate vertical change produces chunky horizontal pen-stroke lanes
- *    parallel to the swipe direction (the primary realism tell, R17). The lower
- *    vertical frequency makes each lane tall enough to read as a band rather
- *    than hair-thin noise.
- *  - **Pressure patches** — `baseFrequency "0.012"`: large soft blobs of
- *    coverage variation, as if the nib pressed harder in places.
- *
- * Both use `stitchTiles="stitch"` so the tile wraps with no visible seam, and the
- * whole thing is emitted as a `data:` URL of pure string-built SVG — there is no
- * DOM access, so it is safe from the SSR `/path` entry.
+ * so grain density is invariant to mark width/height. The layers are striations
+ * (chunky horizontal pen-stroke lanes parallel to the swipe) and pressure patches
+ * (large soft coverage blobs). Both use `stitchTiles="stitch"` so the tile wraps
+ * seamlessly, and the whole thing is a `data:` URL of pure string-built SVG —
+ * no DOM access, safe from the SSR `/path` entry.
  */
 
-/** Default tile dimensions: a cached 256×64 raster. */
 const DEFAULT_TILE_WIDTH = 256;
 const DEFAULT_TILE_HEIGHT = 64;
 
 /**
- * Striation layer base frequency: low x (long horizontal stride) + moderate y
- * yields chunky horizontal lanes parallel to the stroke. The deliberately low
- * vertical frequency makes each lane tall enough to read as a band rather than
- * fine, hair-thin noise.
+ * Striation base frequency: low x (long horizontal stride) + moderate y yields
+ * chunky horizontal lanes. The low vertical frequency makes each lane tall enough
+ * to read as a band rather than hair-thin noise.
  */
 const STRIATION_FREQUENCY = "0.04 0.34";
-/** Pressure-patch layer base frequency: large soft coverage blobs. */
 const PATCH_FREQUENCY = "0.012";
 
 /**
- * Mask-alpha floors and slopes. These are the *base* (zero-knob) values; the
- * builder lowers the floor and widens the slope as `streakiness` / `dryout` rise
- * so the texture goes from a near-flat wash to obviously streaky, broken-up ink.
- * At the zero-knob baseline the combined alpha stays high enough that the rounded
- * marker-tip caps don't sit on a low-alpha hole.
+ * Base (zero-knob) mask-alpha floors and slopes; the builder lowers the floor and
+ * widens the slope as `streakiness`/`dryout` rise. At the baseline the combined
+ * alpha stays high enough that the rounded tip caps don't sit on a low-alpha hole.
  */
 const STRIATION_ALPHA_MIN = 0.82;
 const STRIATION_ALPHA_SLOPE = 0.16;
 const PATCH_ALPHA_MIN = 0.86;
 const PATCH_ALPHA_SLOPE = 0.14;
 
-/** Octave counts per layer. */
 const STRIATION_OCTAVES = 1;
 const PATCH_OCTAVES = 2;
 
-/** Options describing a noise tile. */
 export interface NoiseTileOptions {
   /** Fixed tile width in px (default {@link DEFAULT_TILE_WIDTH}). */
   width?: number;
@@ -65,41 +47,34 @@ export interface NoiseTileOptions {
   /** Master seed; mixed into both layers' `feTurbulence` seeds deterministically. */
   seed: number;
   /**
-   * Striation density driving the horizontal `feTurbulence` layer. Normalized
-   * `0`–`1`; raises the streak layer's alpha *contrast* (the lengthwise
-   * lighter/darker lanes, R17) — at `1` the lanes are obviously streaky, at `0`
-   * the layer is a near-flat wash. Clamped internally.
+   * Striation density, `0`–`1`. Raises the streak layer's alpha contrast (the
+   * lengthwise lighter/darker lanes) — `1` is obviously streaky, `0` a near-flat
+   * wash. Clamped internally.
    */
   streakiness: number;
   /**
-   * Pressure-patch density driving the second `feTurbulence` layer. Normalized
-   * `0`–`1`; raises the soft pressure-blob contribution (capillary feathering,
-   * R17). Clamped internally.
+   * Pressure-patch density, `0`–`1`. Raises the soft pressure-blob contribution
+   * (capillary feathering). Clamped internally.
    */
   feathering: number;
   /**
-   * Probabilistic alpha gaps (skipping). Normalized `0`–`1`; raises the patch
-   * layer's contrast and lowers its floor, then a discrete alpha threshold cuts
-   * the low-coverage regions to transparent — so higher `dryout` punches more
-   * visible transparent holes/skips through the ink. Clamped internally.
-   * Optional; defaults to `0` (no skipping). */
+   * Probabilistic alpha gaps (skipping), `0`–`1`. Raises the patch layer's
+   * contrast and lowers its floor, then a discrete alpha threshold cuts
+   * low-coverage regions to transparent — higher `dryout` punches more holes.
+   * Clamped internally. Defaults to `0` (no skipping).
+   */
   dryout?: number;
 }
 
-/**
- * Round to 3 decimals so the emitted SVG string is stable (two equal inputs →
- * byte-identical output).
- */
+/** Round to 3 decimals so the emitted SVG string is byte-stable. */
 function fmt(value: number): string {
   return String(Math.round(value * 1000) / 1000);
 }
 
 /**
- * A standard base64 alphabet encoder over a UTF-16 string of single-byte chars.
- *
- * The SVG payload is pure ASCII, so each `charCodeAt` is one byte; this avoids
- * depending on `btoa` (a DOM/browser global absent in some SSR runtimes) while
- * producing the identical, deterministic encoding everywhere.
+ * Base64 encoder over a string of single-byte chars. The SVG payload is pure
+ * ASCII, so each `charCodeAt` is one byte; this avoids `btoa` (a DOM global absent
+ * in some SSR runtimes) while encoding identically everywhere.
  */
 const B64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -121,19 +96,10 @@ function toBase64Ascii(input: string): string {
 }
 
 /**
- * Build the SVG source string for the dual-`feTurbulence` tile.
- *
- * - **streakiness** widens the striation layer's alpha slope *and* drops its
- *   floor, so the lengthwise lanes go from a flat wash (knob `0`) to strong,
- *   obviously streaky light/dark lanes (knob `1`).
- * - **feathering** widens the soft pressure-patch layer's slope (blotchier).
- * - **dryout** steepens the patch layer and lowers its floor, then a discrete
- *   `feComponentTransfer` alpha threshold cuts the lowest-coverage regions to
- *   fully transparent — punching visible skip-holes through the ink.
- *
- * Both `feColorMatrix` rows map turbulence luminance into the mask's alpha
- * channel; `feComposite` with arithmetic `k1=1` multiplies the two layers so the
- * darkest patch and darkest streak reinforce.
+ * Build the SVG source for the dual-`feTurbulence` tile. The two `feColorMatrix`
+ * rows map turbulence luminance into the mask's alpha channel; `feComposite` with
+ * arithmetic `k1=1` multiplies the two layers so the darkest patch and darkest
+ * streak reinforce.
  */
 function buildNoiseTileSvg(opts: Required<NoiseTileOptions>): string {
   const { width, height, seed } = opts;
@@ -141,30 +107,22 @@ function buildNoiseTileSvg(opts: Required<NoiseTileOptions>): string {
   const feathering = clamp(opts.feathering, 0, 1);
   const dryout = clamp(opts.dryout, 0, 1);
 
-  // Decorrelate the two layers' seeds from one master seed. The integer hash
-  // avalanches the bits so adjacent master seeds don't yield adjacent layer
-  // seeds, and `% 256` keeps them in feTurbulence's documented seed range.
+  // Decorrelate the two layers' seeds. The integer hash avalanches the bits so
+  // adjacent master seeds don't yield adjacent layer seeds, and `% 256` keeps them
+  // in feTurbulence's documented seed range.
   const striationSeed = hashU32(seed * 2 + 3) % 256;
   const patchSeed = hashU32(seed * 2 + 7) % 256;
 
-  // Streakiness drives strong contrast: a steeply widening slope (6× span) and a
-  // floor that falls well away as the knob climbs, so at mid-to-high values the
-  // lengthwise lanes clearly alternate light/dark along the stroke. At knob 0 the
-  // slope is narrow and the floor stays high, keeping a near-flat smooth wash.
-  // The floor bottoms out at ~0.22 at streakiness 1 (0.82 - 0.6), so the dark
-  // lanes go deep without ever punching a transparent hole under the tip caps.
+  // The floor bottoms out at ~0.22 at streakiness 1, so the dark lanes go deep
+  // without ever punching a transparent hole under the tip caps.
   const striationSlope = STRIATION_ALPHA_SLOPE * (0.5 + 6 * streakiness);
   const striationMin = STRIATION_ALPHA_MIN - 0.6 * streakiness;
 
-  // Dryout steepens the patch layer and lowers its floor so more area falls
-  // below the cut threshold; feathering blots it. Floor floors out near 0.2 at
-  // full dryout so the gaps are deep, not merely dim.
+  // Dryout steepens the patch layer and lowers its floor so more area falls below
+  // the cut threshold; feathering blots it.
   const patchSlope = PATCH_ALPHA_SLOPE * (0.5 + feathering) + 0.6 * dryout;
   const patchMin = PATCH_ALPHA_MIN - 0.62 * dryout;
 
-  // Discrete alpha threshold: at dryout 0 it passes everything through (single
-  // 1-entry table = identity); as dryout rises the first table entries become 0,
-  // hard-cutting the low-coverage regions to transparent skip-holes.
   const dryoutCut = dryoutTransfer(dryout);
 
   return (
@@ -187,14 +145,10 @@ function buildNoiseTileSvg(opts: Required<NoiseTileOptions>): string {
 }
 
 /**
- * Build the `tableValues` for the dryout alpha threshold (`feFuncA` discrete).
- *
- * At `dryout = 0` the table is `"1"` — a single entry, the identity pass-through
- * (no skipping). As dryout rises, leading entries flip to `0`, so any sampled
- * alpha below the cut maps to fully transparent — a hard skip-hole — while the
- * upper band stays opaque. The cut fraction scales with dryout (up to ~45% of the
- * range at the maximum), giving an obviously more broken-up stroke as the knob
- * climbs.
+ * Build the `tableValues` for the dryout alpha threshold (`feFuncA` discrete). At
+ * `dryout = 0` the table is `"1"` (identity, no skipping). As dryout rises, leading
+ * entries flip to `0`, so any sampled alpha below the cut maps to fully transparent.
+ * The cut fraction scales with dryout up to ~45% of the range.
  */
 function dryoutTransfer(dryout: number): string {
   if (dryout <= 0) return "1";
@@ -206,17 +160,12 @@ function dryoutTransfer(dryout: number): string {
 }
 
 /**
- * Build a `data:` URL for the dual-`feTurbulence` noise tile (A14 §1).
- *
- * Deterministic from `seed` (and the two density knobs); never percentage-sized.
- * Pure string-building — no DOM, no `btoa`, safe from the SSR `/path` entry.
- *
- * @returns A `data:image/svg+xml;base64,…` URL (the bare URL, no CSS `url(...)`
- *   wrapper — callers compose that), suitable for `mask-image`.
+ * Build a `data:image/svg+xml;base64,…` URL for the noise tile (bare URL, no CSS
+ * `url(...)` wrapper). Deterministic from `seed` and the density knobs; pure
+ * string-building, safe from the SSR `/path` entry.
  */
-// Memoised: a mark's update() rebuilds this every call, but the tile is identical unless one of
-// its inputs changes — and most option drags (opacity, angle, …) never touch them. Caching the
-// base64 encode turns repeated updates into a map lookup.
+// Memoised: a mark's update() rebuilds this every call, but the tile is identical
+// unless an input changes — and most option drags never touch them.
 const tileCache = new Map<string, string>();
 
 export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
@@ -239,8 +188,8 @@ export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
 
 /**
  * Wrap {@link buildNoiseTileDataUrl} plus the fixed dimensions into a
- * {@link NoiseTile}. Pure; the dimensions are what the renderer applies as the
- * fixed px `mask-size` (repeated, never scaled).
+ * {@link NoiseTile}. The dimensions are the fixed px `mask-size` the renderer
+ * applies (repeated, never scaled).
  */
 export function buildNoiseTile(opts: NoiseTileOptions): NoiseTile {
   const width = opts.width ?? DEFAULT_TILE_WIDTH;

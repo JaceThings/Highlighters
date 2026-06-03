@@ -1,15 +1,12 @@
 /**
- * Text-query targeting (R6c): find every occurrence of a string or `RegExp`
- * under a root and return a `Range` per match — including matches that span
- * inline element boundaries (e.g. `foo<em>bar</em>baz`).
+ * Text-query targeting: find every occurrence of a string or `RegExp` under a root
+ * and return a `Range` per match — including matches that span inline element
+ * boundaries (e.g. `foo<em>bar</em>baz`).
  *
- * The walk concatenates the root's text nodes into one logical string while
- * remembering, for every character offset, which `Text` node and in-node offset
- * it came from. Matches are found in the flat string, then each match's
- * `[start, end)` character span is mapped back onto the original nodes to build
- * a DOM `Range`. Because the flat string ignores element structure, a match that
- * crosses an inline boundary produces a single `Range` whose start and end live
- * in different text nodes.
+ * The walk concatenates the root's text nodes into one flat string while recording,
+ * per character offset, the source `Text` node and in-node offset. Matches found in
+ * the flat string are mapped back onto the original nodes; a match crossing an inline
+ * boundary yields one `Range` whose start and end live in different text nodes.
  */
 
 import {
@@ -27,18 +24,15 @@ interface CharSlot {
 }
 
 /**
- * Build a flat string of all text under `root`, plus a parallel index that maps
- * every character position to its source `Text` node and in-node offset. Whole
- * text nodes are appended verbatim, so adjacent nodes concatenate seamlessly and
- * a match can straddle the seam between them.
+ * Flat string of all text under `root`, plus a parallel index mapping every
+ * character position to its source `Text` node and in-node offset.
  */
 function collectText(root: Node): { text: string; slots: CharSlot[] } {
   const slots: CharSlot[] = [];
   let text = "";
 
-  // Skip text inside non-rendered subtrees (<script>/<style>/<head>/…) so a query
-  // never matches CSS/JS source or metadata, and a match can't straddle from it
-  // into adjacent visible text.
+  // Skip non-rendered subtrees (<script>/<style>/<head>/…) so a query never
+  // matches CSS/JS source and a match can't straddle into adjacent visible text.
   const walker = document.createTreeWalker(root, SHOW_TEXT, {
     acceptNode: (n) => (isInNonRenderedSubtree(n) ? FILTER_REJECT : FILTER_ACCEPT),
   });
@@ -56,10 +50,8 @@ function collectText(root: Node): { text: string; slots: CharSlot[] } {
 }
 
 /**
- * Create a `Range` covering the half-open character span `[start, end)` of the
- * flat text, using the slot index to resolve start/end into concrete nodes.
- * `end` maps to the *end* of the slot at `end - 1` so the range is inclusive of
- * the final matched character.
+ * Range covering the half-open span `[start, end)` of the flat text. `end` maps to
+ * the end of the slot at `end - 1` so the range includes the final matched char.
  */
 function rangeForSpan(slots: CharSlot[], start: number, end: number): Range {
   const range = document.createRange();
@@ -71,18 +63,14 @@ function rangeForSpan(slots: CharSlot[], start: number, end: number): Range {
 }
 
 /**
- * Find every match of `query` within `root` and return one `Range` per match.
+ * Find every match of `query` within `root`, one `Range` per match.
  *
- * - A `string` query is matched literally and case-sensitively; every
- *   non-overlapping occurrence yields a range.
- * - A `RegExp` query is matched with its own flags honored. A non-global pattern
- *   is treated as global for the scan (so every occurrence is found) without
- *   mutating the caller's `RegExp`; case sensitivity follows the pattern's `i`
- *   flag. Zero-width matches are skipped (they produce no paintable range and
- *   would otherwise loop forever).
+ * - `string`: matched literally and case-sensitively; every non-overlapping
+ *   occurrence yields a range.
+ * - `RegExp`: scanned globally without mutating the caller's pattern; case
+ *   sensitivity follows the `i` flag. Zero-width matches are skipped.
  *
- * Returns `[]` when there is no DOM, when `root` has no text, or when nothing
- * matches. Never throws.
+ * Returns `[]` with no DOM, no text, or no match. Never throws.
  */
 export function findTextRanges(
   root: Element | Document,
@@ -108,11 +96,9 @@ export function findTextRanges(
     return ranges;
   }
 
-  // RegExp: always scan globally, but leave the caller's pattern untouched. The
-  // sticky `y` flag is stripped first: with `y` set, `exec` only matches at
-  // `lastIndex` (anchored), so adding `g` does not override it and the scan would
-  // stop at the first gap, silently under-matching. Stripping `y` restores
-  // "every occurrence" while keeping case sensitivity (`i`) and the rest.
+  // Scan globally on a copy. Strip the sticky `y` flag first: with `y`, `exec`
+  // only matches at `lastIndex` (anchored), so adding `g` can't override it and
+  // the scan would stop at the first gap, silently under-matching.
   const base = query.flags.replace("y", "");
   const flags = base.includes("g") ? base : base + "g";
   const re = new RegExp(query.source, flags);
@@ -120,8 +106,7 @@ export function findTextRanges(
   while ((match = re.exec(text)) !== null) {
     const matched = match[0];
     if (matched.length === 0) {
-      // Zero-width match: nothing to paint; nudge lastIndex to avoid an
-      // infinite loop on a pattern like /(?:)/g.
+      // Zero-width match: nudge lastIndex to avoid an infinite loop on /(?:)/g.
       re.lastIndex += 1;
       continue;
     }

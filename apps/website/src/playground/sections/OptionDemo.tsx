@@ -12,9 +12,8 @@ import { Preview, SnapPreview } from "../Preview.tsx";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
 
-// ~35 Previews is too heavy to mount on first paint, so each defers until its
-// section nears the viewport — then stays mounted. The latch is ONE-WAY: a painted
-// preview is never unmounted, so its marks persist and update in place.
+// Defer each Preview until its section nears the viewport. One-way latch: once
+// painted it never unmounts, so its marks persist and update in place.
 function useSeen(rootMargin = "350px") {
   const ref = useRef<HTMLDivElement | null>(null);
   const [seen, setSeen] = useState(false);
@@ -41,7 +40,6 @@ function useSeen(rootMargin = "350px") {
   return { ref, seen };
 }
 
-// --- option-value readers (1–2 level paths, off the committed options) ---------
 function readPath(o: PlaygroundOptions, path: string): unknown {
   const s = path.split(".");
   const top = (o as Record<string, unknown>)[s[0]];
@@ -74,7 +72,6 @@ const TOGGLE_OPTS = [
   { value: "off", label: "Off" },
 ] as const;
 
-// --- demo descriptors ----------------------------------------------------------
 interface Base {
   title: string;
   desc: string;
@@ -85,9 +82,6 @@ type Demo =
   | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
   | (Base & { kind: "color" });
 
-// --- the controls --------------------------------------------------------------
-// The colour swatch row, sitting in the lower strip of the paper card (opacity is its own
-// slider demo now).
 const SWATCH_REFS: ReadonlyArray<PaletteSwatch> = [
   { palette: "fluorescent", swatch: "yellow" },
   { palette: "fluorescent", swatch: "green" },
@@ -163,7 +157,7 @@ function SwatchPicker() {
   );
 }
 
-// The discrete (button) controls render as a scribble-underline legend on the paper card.
+// Discrete (button) controls render as a scribble-underline legend.
 function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle" }> }) {
   const { options, set, setShape } = usePlaygroundOptions();
   if (demo.kind === "toggle") {
@@ -188,12 +182,10 @@ function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle
   );
 }
 
-// A slider on the paper card whose fill is a hand-drawn scribble (a fresh random variation per
-// slider), drawn/undrawn by Perfect Freehand as the value moves. Sits in the lower strip of a
-// PaperCard, on the fold, mirroring the button legend.
+// A slider whose fill is a hand-drawn scribble, drawn/undrawn as the value moves.
 function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" }> }) {
   const { options, set } = usePlaygroundOptions();
-  // A fresh random seed per slider → each scribble is uniquely hand-drawn.
+  // Fresh seed per slider so each scribble is uniquely hand-drawn.
   const [seed] = useState(() => Math.floor(Math.random() * 1e9));
   const onNum = useCallback(
     (v: number, fromDrag?: boolean) => set(demo.path, v, fromDrag),
@@ -217,9 +209,7 @@ function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" 
 
 export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   const { ref, seen } = useSeen();
-  // Every option is a paper card: a live-highlighted quote on top, a hand-drawn control in the
-  // lower strip — a scribble-underline legend (buttons), a scribble-fill slider, or the swatch
-  // row (colour). The `snap` demo swaps in a Range-based preview so the boundary clamp shows.
+  // The `snap` demo swaps in a Range-based preview so the boundary clamp shows.
   return (
     <div ref={ref}>
       <Section title={demo.title} description={demo.desc}>

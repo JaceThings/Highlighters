@@ -1,8 +1,6 @@
 import colorPickerUrl from "./color-picker.svg";
 
-// The ink well: two rows of three swatches, controlled by `value`. The last is a
-// "custom" swatch painting the colour-wheel SVG. `ring` is the selected outline
-// (solid — box-shadow can't take a gradient).
+// `ring` is the selected outline — solid, since box-shadow can't take a gradient.
 interface Swatch {
   id: string;
   label: string;
@@ -45,12 +43,10 @@ export function ColorPalette({
             aria-pressed={isSelected}
             onClick={() => onChange(s.color)}
             data-focus-ring
-            // Never scale the button itself — that moves its hit area out from under
-            // the pointer and the click misfires. The press-scale is on the visual
-            // layer below.
+            // Never scale the button itself — it shifts the hit area out from under
+            // the pointer and the click misfires. Press-scale lives on the visual layer.
             className="group relative size-[43px] shrink-0 rounded-full"
           >
-            {/* Visual layer (white gap + ink ring); scales on press for the dip. */}
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"

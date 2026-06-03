@@ -9,7 +9,6 @@ import { Home } from "./pages/Home.tsx";
 import { Docs } from "./pages/Docs.tsx";
 import { Squiggles } from "./pages/Squiggles.tsx";
 
-// Code-based routing: the root route renders RootLayout, whose <Outlet/> hosts the page.
 const rootRoute = createRootRoute({
   component: RootLayout,
 });
@@ -26,7 +25,6 @@ const docsRoute = createRoute({
   component: Docs,
 });
 
-// Scratch route: preview the full marker-squiggle library.
 const squigglesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/squiggles",

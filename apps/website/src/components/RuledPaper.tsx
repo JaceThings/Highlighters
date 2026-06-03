@@ -1,5 +1,4 @@
-// Ruled-paper background: a 1px warm line at the bottom of each 1.5rem band, via one
-// repeating-linear-gradient. Rem-based so it tracks the reader's text size.
+// Ruled-paper background: a 1px line per 1.5rem band. Rem-based so it tracks text size.
 const LINE = "rgba(var(--primary-rgb), 0.06)";
 
 export function RuledPaper() {

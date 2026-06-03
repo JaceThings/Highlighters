@@ -18,57 +18,23 @@ import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
 import { useSpringNumber } from "../hooks/useSpringNumber.ts";
 
 /**
- * THE STACK CONFIG SURFACE (phase-1 addition).
- *
- * The core's tip group now natively carries the two end knobs `tip.overshoot` /
- * `tip.overshootJitter` (how far each mark runs past the text edges, and how much
- * that randomly varies per end), so they flow straight through to the renderer.
- * The only field the playground adds on top of the core's user-facing
- * {@link HighlightOptions} is `stack`: do overlapping marks darken like real
- * translucent ink, or merge into one cohesive flat colour?
- *
- * {@link toCoreOptions} is the single funnel that lowers that superset into
- * exactly what the core pipeline consumes — `stack` is expressed through the ink
- * compositing model (`stack: true` ⇒ `multiply`, the subtractive optic where
- * overlaps darken; `stack: false` ⇒ `normal`, where overlapping same-colour
- * marks merge into one cohesive colour with no darkening). The blend-mode is
- * therefore no longer a user-facing knob — `stack` owns it.
- */
-
-/**
- * The playground's live options: the full core {@link HighlightOptions} plus the
- * phase-1 `stack` boolean. This is the shape the control sections read and write;
- * it is lowered to core options by {@link toCoreOptions} before it ever reaches
- * the renderer.
+ * The playground's live options: the core {@link HighlightOptions} plus a `stack`
+ * boolean the control sections read/write. Lowered to core options by
+ * {@link toCoreOptions} before reaching the renderer; `stack` owns the blend mode,
+ * so it's no longer a user-facing knob.
  */
 export interface PlaygroundOptions extends HighlightOptions {
-  /**
-   * Do overlapping marks stack (darken, like real translucent ink) or lie flat
-   * (merge into one cohesive colour with no darkening where they cross)?
-   * Default `true`.
-   */
+  /** Overlaps darken (multiply, translucent ink) vs. merge flat (normal). Default `true`. */
   stack?: boolean;
 }
 
-/**
- * The core defaults for the phase-1 knobs, sourced so every control opens on the
- * canonical baseline rather than a hard-coded literal. `stack` defaults true (the
- * subtractive-ink default mirrors {@link DEFAULT_OPTIONS}'s `multiply`); the
- * overshoot baseline is a hair of overrun with a touch of per-end variance.
- */
 export const STACK_DEFAULT = DEFAULT_OPTIONS.blendMode === "multiply";
 export const TIP_OVERSHOOT_DEFAULT = 2;
 export const TIP_OVERSHOOT_JITTER_DEFAULT = 1;
 
 /**
- * Lower the playground's superset to exactly what `@highlighters/core` consumes:
- * translate `stack` into the ink compositing model and drop the playground-only
- * `stack` field. The `tip` group (overshoot knobs included) is a native core
- * group, so it flows straight through.
- *
- * `stack: true` ⇒ `multiply` (overlaps darken — real translucent ink).
- * `stack: false` ⇒ `normal` (same-colour overlaps merge into one cohesive
- * colour, no darkening).
+ * Lower the playground superset to core options: `stack: true` ⇒ `multiply`
+ * (overlaps darken), `stack: false` ⇒ `normal` (overlaps merge flat).
  */
 export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
   const { stack, ...rest } = opts;
@@ -78,36 +44,19 @@ export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
 }
 
 /**
- * The single source of truth for the live playground. Every Section reads and
- * writes this context; the {@link Preview} consumes the value and feeds it
- * straight into `@highlighters` so the sample text re-highlights in real time.
- *
- * MENTAL MODEL: the playground is BUILD-YOUR-OWN. The state is one explicit
- * {@link HighlightOptions} object the user is *building* with the individual
- * control sections — there is no notion of a "currently selected preset". The
- * shipped presets are exposed (in RecommendedLooks) only as one-shot starting
- * points you can COPY into this state via {@link applyRecipe}; after applying,
- * every control is freely editable and nothing stays "locked" to a recipe.
- */
-
-/**
- * The explicit DEFAULT highlighter the playground opens on — a sensible
- * classic-yellow-ish build the user can immediately tweak. Every control reads
- * a concrete starting value from this object (no `undefined` knobs), and there
- * is deliberately NO `preset` field: the state is a hand-built config, not a
- * named look. `shape` + `markType` are written in lockstep (the library reads
- * them as last-wins synonyms; setShape keeps both aligned).
+ * The DEFAULT build the playground opens on. The state is a hand-built config,
+ * not a named look: there is deliberately NO `preset` field, every knob is
+ * concrete (no `undefined`), and presets are only ever COPIED in via
+ * {@link applyRecipe}. `shape`/`markType` are written in lockstep — the library
+ * reads them as last-wins synonyms.
  */
 function buildInitialOptions(): PlaygroundOptions {
   return {
     shape: "highlight",
     markType: "highlight",
-    // Classic yellow, picked as a concrete swatch so the ColorSection swatch
-    // picker shows it selected from the start.
+    // Concrete swatch (not a string) so the ColorSection picker shows it selected.
     color: { palette: "fluorescent", swatch: "yellow" },
     opacity: 0.5,
-    // Stack on by default — overlapping marks darken like real translucent ink.
-    // `toCoreOptions` lowers this to the `multiply` compositing model.
     stack: STACK_DEFAULT,
     snap: "word",
     tip: {
@@ -135,71 +84,37 @@ function buildInitialOptions(): PlaygroundOptions {
   };
 }
 
-/**
- * A dotted path into {@link HighlightOptions}, one or two levels deep. Top-level
- * keys (`"opacity"`, `"markType"`, …) and one nested group level
- * (`"ink.flow"`, `"edge.waviness"`, `"animation.duration"`, …) are supported —
- * which is every knob the playground exposes. Kept as a `string` for ergonomics;
- * `set()` validates the depth at runtime.
- */
+/** A dotted path into the options, one or two levels deep (e.g. `"opacity"`, `"ink.flow"`). */
 export type OptionPath = string;
 
 export interface PlaygroundOptionsContextValue {
-  /**
-   * The live options object (the playground superset). Lower it with
-   * {@link toCoreOptions} before passing to `highlight()` / `<Highlight>`.
-   */
+  /** The live options. Lower with {@link toCoreOptions} before passing to the renderer. */
   options: PlaygroundOptions;
 
-  /**
-   * Replace the value at a dotted `path`. Supports one level of nesting:
-   *
-   * ```ts
-   * set("opacity", 0.6);          // top-level scalar
-   * set("markType", "underline"); // top-level union
-   * set("ink.flow", 0.9);         // nested group field
-   * set("edge.cap", "round");     // nested group field
-   * ```
-   *
-   * Nested writes are immutable: the parent group is shallow-cloned so React
-   * sees a new `options` reference and the Preview re-renders.
-   */
+  /** Replace the value at a one- or two-segment dotted `path`. */
   set: (path: OptionPath, value: unknown, fromDrag?: boolean) => void;
 
-  /**
-   * Merge a partial {@link PlaygroundOptions} over the current state (one shallow
-   * level deep per group). A low-level escape hatch; most code uses `set`.
-   */
+  /** Merge a partial patch over the current state (one shallow level per group). */
   merge: (patch: Partial<PlaygroundOptions>) => void;
 
   /**
-   * COPY a named preset's concrete values into the live build (R19 presets).
-   *
-   * This is a one-shot apply, *not* a mode: the preset is fully resolved (via
-   * `resolveOptions`, so even the values it doesn't mention become concrete) and
-   * flattened into a {@link HighlightOptions} patch, then merged so EVERY
-   * individual control jumps to reflect it. No `preset` field is stored and
-   * nothing stays "selected" — after applying, the user freely tweaks any knob.
+   * COPY a named preset's resolved values into the live build. One-shot, not a
+   * mode: no `preset` field is stored, and every control stays freely editable.
    */
   applyRecipe: (name: PresetName) => void;
 
-  /** Convenience setter for the mark kind (`shape`/`markType` synonym). */
+  /** Set the mark kind (`shape`/`markType` synonym). */
   setShape: (shape: ShapeType) => void;
 
-  /** Reset everything back to the initial DEFAULT build. */
   reset: () => void;
 }
 
 const PlaygroundOptionsContext =
   createContext<PlaygroundOptionsContextValue | null>(null);
 
-// `previewOptions` changes on EVERY spring frame (~20 frames per committed
-// change). It lives in its OWN context so that only <Preview> — its sole
-// consumer — re-renders per frame. The ~11 control sections read the main
-// context above, whose value identity now changes only on a committed
-// option/setter change (not per frame), so their chrome no longer re-renders
-// during the preview tween. The split is invisible: Preview still receives
-// every frame, and Slider/pill visuals animate via their own motion values.
+// `previewOptions` changes every spring frame, so it lives in its OWN context:
+// only <Preview> re-renders per frame, while the control sections read the main
+// context (which changes only on a committed change, not per frame).
 const PlaygroundPreviewContext = createContext<PlaygroundOptions | null>(null);
 
 /** Shallow-merge `patch` onto `base`, deep-merging one level for object groups. */
@@ -219,7 +134,6 @@ function mergeOptionsShallow(
       typeof existing === "object" &&
       !Array.isArray(existing)
     ) {
-      // Merge one level (e.g. ink, edge, animation groups).
       (next as Record<string, unknown>)[key] = {
         ...(existing as object),
         ...(value as object),
@@ -258,24 +172,15 @@ function setAtPath(
 }
 
 /**
- * Flatten a fully-resolved {@link ResolvedOptions} into a {@link PlaygroundOptions}
- * patch the playground controls can read. Every knob the playground exposes is
- * carried across as a concrete value, so applying a recipe makes every control
- * jump to the recipe's look. `shape` is written alongside `markType` so the
- * ShapeSection pill (which reads either) reflects it.
- *
- * The recipe's resolved `blendMode` is lifted back into the playground's `stack`
- * boolean (`multiply` ⇒ stacked, anything else ⇒ flat) so the Stack control —
- * which replaced the raw blend-mode picker — reflects the recipe. The tip
- * overshoot knobs reset to the canonical baseline since presets don't carry them.
+ * Flatten a resolved preset into a patch the controls can read. Resolved
+ * `blendMode` is lifted back into `stack` (`multiply` ⇒ stacked); overshoot
+ * resets to baseline since presets don't carry it.
  */
 function resolvedToPatch(r: ResolvedOptions): PlaygroundOptions {
   return {
     shape: r.markType,
     markType: r.markType,
-    // `color` resolves to a concrete CSS string here. The ColorSection treats a
-    // string as a custom color (no swatch ring), which is correct — a recipe is
-    // a built look, not a swatch selection.
+    // A resolved color is a CSS string; ColorSection shows it as custom (no swatch ring).
     color: r.color,
     opacity: r.opacity,
     stack: r.blendMode === "multiply",
@@ -295,13 +200,10 @@ function resolvedToPatch(r: ResolvedOptions): PlaygroundOptions {
 }
 
 /**
- * Spring the numeric, visually-animatable leaves of the live options toward
- * their committed targets, so the Preview EASES into a new look on tap /
- * keyboard / preset changes instead of snapping (matching the playground's
- * overall motion). A continuous drag passes `fromDrag`, which bypasses the
- * spring — the pointer input is already smooth and a trailing spring would lag
- * it. Non-numeric fields (tip type, colour, stack, caps, …) pass straight
- * through and change instantly.
+ * Spring the numeric leaves toward their committed targets so the Preview eases
+ * into a new look on tap/keyboard/preset changes. `fromDrag` bypasses the spring:
+ * pointer input is already smooth and a trailing spring would lag it. Non-numeric
+ * fields pass straight through.
  */
 function useAnimatedOptions(
   o: PlaygroundOptions,
@@ -366,17 +268,13 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
 
   const applyRecipe = useCallback((name: PresetName) => {
     setFromDrag(false);
-    // Resolve the preset to concrete values, then copy them over the live
-    // build so every control reflects the recipe. We do NOT keep a `preset`
-    // field — this is a one-shot copy, never a sticky mode.
     const patch = resolvedToPatch(resolveOptions({ preset: name }));
     setOptions((prev) => mergeOptionsShallow(prev, patch));
   }, []);
 
   const setShape = useCallback((shape: ShapeType) => {
     setFromDrag(false);
-    // Write both synonyms so neither a stale `shape` nor `markType` lingers and
-    // overrides the other in the library's last-wins merge.
+    // Write both synonyms so a stale one can't override the other in the library's last-wins merge.
     setOptions((prev) => ({ ...prev, shape, markType: shape }));
   }, []);
 
@@ -387,9 +285,8 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
 
   const previewOptions = useAnimatedOptions(options, fromDrag);
 
-  // NB: previewOptions is deliberately NOT in this value (nor its deps) — it
-  // rides the separate PlaygroundPreviewContext below so the sections don't
-  // re-render every spring frame.
+  // previewOptions is deliberately NOT in this value — it rides the separate
+  // PlaygroundPreviewContext so sections don't re-render every spring frame.
   const value = useMemo<PlaygroundOptionsContextValue>(
     () => ({ options, set, merge, applyRecipe, setShape, reset }),
     [options, set, merge, applyRecipe, setShape, reset],
@@ -404,10 +301,6 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
   );
 }
 
-/**
- * Read the live playground options + setters. Must be called under a
- * {@link PlaygroundOptionsProvider}.
- */
 export function usePlaygroundOptions(): PlaygroundOptionsContextValue {
   const ctx = useContext(PlaygroundOptionsContext);
   if (!ctx) {
@@ -419,10 +312,8 @@ export function usePlaygroundOptions(): PlaygroundOptionsContextValue {
 }
 
 /**
- * Read the spring-animated options the {@link Preview} renders (eased toward the
- * committed `options`). Kept in a SEPARATE context from {@link usePlaygroundOptions}
- * so consuming this per-frame value doesn't re-render the control sections.
- * Must be called under a {@link PlaygroundOptionsProvider}.
+ * The spring-animated options the {@link Preview} renders. Kept in a separate
+ * context so consuming this per-frame value doesn't re-render the control sections.
  */
 export function usePreviewOptions(): PlaygroundOptions {
   const ctx = useContext(PlaygroundPreviewContext);

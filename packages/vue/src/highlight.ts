@@ -11,11 +11,8 @@ import { useHighlight } from "./use-highlight.js";
 import type { HighlightOptions } from "@highlighters/core";
 
 /**
- * Render-function component that highlights its slot content with a realistic
- * highlighter mark. A thin wrapper over {@link useHighlight} (blueprint A1): the
- * mark is created on mount, kept in sync with the `options` prop, and removed on
- * unmount, all delegated to the core pipeline. The text stays intact and
- * selectable (R29).
+ * Component that highlights its slot content with a realistic mark. Text stays
+ * intact and selectable — the mark is a decorative overlay.
  *
  * @example
  * ```vue
@@ -26,8 +23,7 @@ import type { HighlightOptions } from "@highlighters/core";
  */
 export const Highlight = defineComponent({
   name: "Highlight",
-  // Consumer attrs (class, style, listeners, data-*, …) land on the rendered
-  // element via the explicit `attrs` spread below.
+  // Consumer attrs land on the rendered element via the explicit `attrs` spread below.
   inheritAttrs: false,
   props: {
     as: {

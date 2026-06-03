@@ -7,12 +7,11 @@ export const READOUT_TRANSITION = { duration: 300 };
 
 export const CLICK_THRESHOLD = 3;
 
-// Snap-between-steps ease (circOut) — a magnetic snap to the next integer, with the
-// tick landing inside the deceleration so buffer latency hides under motion.
+// Magnetic circOut snap to the next integer; the tick lands inside the deceleration so
+// buffer latency hides under motion.
 export const STEP_SNAP_DURATION = 0.08;
 export const STEP_SNAP_EASE: [number, number, number, number] = [0.0, 0.55, 0.45, 1.0];
 
-// Shared readout formatters: two-decimal for 0–1 knobs, whole-pixel for px.
 export const fmt2 = (v: number) => v.toFixed(2);
 export const fmtPx = (v: number) => `${v.toFixed(0)}px`;
 

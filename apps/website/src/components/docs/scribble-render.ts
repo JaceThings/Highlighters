@@ -1,5 +1,4 @@
-// Scribble geometry + rendering for the slider fill: build a hand-jittered zigzag and stroke it
-// as a smooth Catmull-Rom spline.
+// Scribble geometry for the slider fill: a hand-jittered zigzag, stroked as a smooth spline.
 
 export interface ZigzagParams {
   width: number; // authoring viewBox width (the slider stretches this to the track)
@@ -22,7 +21,6 @@ function rng(seed: number): () => number {
   };
 }
 
-/** Build a zigzag's vertices, centred vertically in the box. */
 export function makeZigzag(p: ZigzagParams): [number, number][] {
   const r = rng(p.seed);
   const jit = (amp: number) => (r() * 2 - 1) * amp;
@@ -40,7 +38,7 @@ export function makeZigzag(p: ZigzagParams): [number, number][] {
   return pts;
 }
 
-/** A subset of points up to fraction `f` (0..1), interpolating the leading point for smoothness. */
+/** Points up to fraction `f` (0..1), interpolating the leading point so the head moves smoothly. */
 export function pointsUpTo(pts: [number, number][], f: number): [number, number][] {
   const frac = Math.max(0, Math.min(1, f));
   const exact = frac * (pts.length - 1);
@@ -55,12 +53,9 @@ export function pointsUpTo(pts: [number, number][], f: number): [number, number]
   return sub;
 }
 
-/**
- * SVG path `d` for a SMOOTH stroke render (caller strokes it, no fill). A Catmull-Rom spline
- * converted to cubic Béziers — the curve passes THROUGH every tooth tip (so it keeps full
- * amplitude and hugs the container, unlike midpoint corner-cutting which halves the height),
- * with smooth horizontal tangents at the peaks (rounded tips, no overshoot).
- */
+// SVG `d` for a smooth stroke (caller strokes it, no fill). A Catmull-Rom spline as cubic
+// Béziers — passes THROUGH every tooth tip so it keeps full amplitude, unlike midpoint
+// corner-cutting which would halve the height.
 export function smoothStrokePath(pts: [number, number][]): string {
   const n = pts.length;
   if (n < 2) return "";
