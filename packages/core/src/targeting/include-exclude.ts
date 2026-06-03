@@ -1,11 +1,9 @@
 /**
- * Whole-page-then-negate targeting (R6d) and the exclusion-precedence primitive
- * (R7). Everything textual under a root is collected into `Range`s, except text
- * inside an excluded subtree — and exclusion always wins over inclusion, because
- * it is resolved *structurally* at collection time (A2): a text node is dropped
- * the moment any ancestor matches an exclude selector (or carries
- * `data-highlight-exclude`), regardless of which include selector its other
- * ancestors match.
+ * Whole-page targeting with include/exclude selectors. Exclusion always wins over
+ * inclusion because it is resolved structurally at collection time: a text node is
+ * dropped the moment any ancestor matches an exclude selector (or carries
+ * `data-highlight-exclude`), regardless of which include selector other ancestors
+ * match.
  */
 
 import type { PageTarget } from "../types.js";
@@ -17,27 +15,21 @@ import {
   SHOW_TEXT,
 } from "../internal/dom.js";
 
-/** Declarative opt-out attribute: any element carrying it (or under one) is excluded. */
 const EXCLUDE_ATTR = "data-highlight-exclude";
 
-/** Resolve the `Element` a node lives in: the node itself, or its parent element. */
 function elementOf(node: Node): Element | null {
   return node.nodeType === 1 ? (node as Element) : node.parentElement;
 }
 
 /**
- * True if `node` is inside any subtree matching an exclude selector, or inside a
- * subtree marked with `data-highlight-exclude`. This is the precedence primitive
- * (R7): an excluded subtree nested inside an included ancestor is still excluded.
- *
- * Uses `Element.closest()` so the check is ancestor-aware — matching the *node's
- * own* element or any ancestor up to the document root.
+ * True if `node` is inside any subtree matching an exclude selector or marked with
+ * `data-highlight-exclude`. Uses `Element.closest()` so an excluded subtree nested
+ * inside an included ancestor is still excluded.
  */
 export function isExcluded(node: Node, excludeSelectors: string[]): boolean {
   const el = elementOf(node);
   if (!el) return false;
 
-  // Declarative attribute exclusion (R6e): cheapest check first.
   if (el.closest(`[${EXCLUDE_ATTR}]`)) return true;
 
   for (const selector of excludeSelectors) {
@@ -51,10 +43,7 @@ export function isExcluded(node: Node, excludeSelectors: string[]): boolean {
   return false;
 }
 
-/**
- * True if `node` falls under at least one include selector. With no include
- * selectors the whole root is in scope, so this returns `true` for every node.
- */
+/** With no include selectors the whole root is in scope (returns `true` for every node). */
 function isIncluded(node: Node, includeSelectors: string[]): boolean {
   if (includeSelectors.length === 0) return true;
   const el = elementOf(node);
@@ -73,14 +62,8 @@ function isIncluded(node: Node, includeSelectors: string[]): boolean {
 /**
  * Collect every textual `Range` under `target.root` (default `document.body`),
  * honoring optional `include` selectors and dropping anything inside an excluded
- * subtree. Exclusion takes precedence over inclusion at every level (R7): the
- * `TreeWalker` rejects an excluded element's *entire subtree* up front, so no
- * descendant text — however deeply included — can leak through.
- *
- * Each accepted text node becomes one `Range` over its non-whitespace span
- * (leading/trailing whitespace trimmed so a band never overshoots into the gaps
- * between inline elements). Returns `[]` outside a DOM or when nothing matches;
- * never throws.
+ * subtree. Each accepted text node becomes one `Range` over its non-whitespace
+ * span. Returns `[]` outside a DOM or when nothing matches; never throws.
  */
 export function collectPageRanges(target: PageTarget): Range[] {
   if (!hasDomWithRange()) return [];
@@ -97,7 +80,6 @@ export function collectPageRanges(target: PageTarget): Range[] {
       if (text.data.trim().length === 0) return FILTER_REJECT;
       // Never paint text that doesn't render (<script>/<style>/<head>/…).
       if (isInNonRenderedSubtree(text)) return FILTER_REJECT;
-      // Structural exclusion precedence (R7): drop the whole excluded subtree.
       if (isExcluded(text, exclude)) return FILTER_REJECT;
       if (!isIncluded(text, include)) return FILTER_REJECT;
       return FILTER_ACCEPT;
@@ -108,8 +90,7 @@ export function collectPageRanges(target: PageTarget): Range[] {
   let node = walker.nextNode() as Text | null;
   while (node) {
     const data = node.data;
-    // Trim the range to the first/last non-whitespace character so the mark
-    // hugs the visible glyphs rather than the surrounding whitespace.
+    // Trim to the first/last non-whitespace char so the mark hugs visible glyphs.
     const start = data.length - data.replace(/^\s+/, "").length;
     const end = data.replace(/\s+$/, "").length;
     if (end > start) {

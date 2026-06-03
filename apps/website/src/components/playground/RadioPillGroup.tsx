@@ -17,14 +17,12 @@ interface RadioPillGroupProps<T extends string> {
   pillBasis?: string;
 }
 
-// Hit-area extender: `p-1.5 -m-1.5` adds 6px each side without changing
-// layout, so the visible pill stays the same size while the pointer target
-// reaches ~40×40.
+// `p-1.5 -m-1.5` adds 6px each side without changing layout, so the visible pill keeps
+// its size while the pointer target reaches ~40×40.
 const PILL_HITAREA = "cursor-pointer p-1.5 -m-1.5 select-none";
 
-// Pill bg crossfade uses the same Apple-ease curve + 350ms duration as
-// the preview state-change tween, so a preset click reads as one
-// coordinated beat across the readout, preview, and pill highlight.
+// Same ease + 350ms as the preview state-change tween, so a preset click reads as one
+// coordinated beat across readout, preview, and pill highlight.
 const PILL_VISUAL =
   "flex flex-1 items-center justify-center px-2.5 py-1.5 text-[14px] leading-[1.2] font-medium tracking-[-0.25px] text-text-input transition-[background-color] duration-[350ms] [transition-timing-function:cubic-bezier(0.32,0.72,0,1)]";
 

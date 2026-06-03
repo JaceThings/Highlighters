@@ -1,8 +1,8 @@
 import { useId, type CSSProperties } from "react";
 import { lightenOklch, oklchToCss, parseOklch } from "./oklch.ts";
 
-// The three nib shapes, each in its own 0–15 space. TX centres the nib on the
-// barrel; the per-tip `ty` drops its base onto the funnel top.
+// The three nib shapes, each in its own 0–15 space. TX centres the nib on the barrel;
+// per-tip `ty` drops its base onto the funnel top.
 const TX = 13.943;
 const TIPS = {
   slant: {
@@ -27,7 +27,7 @@ interface PenProps {
   tip: "slant" | "flat" | "round";
   /** Animated ink colour, passed as an oklch() string. */
   color: string;
-  /** Rendered width in px; height follows the 43x170 aspect. */
+  /** Rendered width in px; height follows the 43×170 aspect. */
   width: number;
   className?: string;
   style?: CSSProperties;
@@ -39,9 +39,8 @@ interface PenProps {
 export function Pen({ tip, color, width, className, style, colorOnly }: PenProps) {
   // Namespace the gradient/filter ids so multiple <Pen>s don't collide on shared defs.
   const id = useId();
-  // Parse the ink back out of its oklch() string to derive the tip shading.
   const ink = parseOklch(color);
-  // Lighter tip-gradient top, also the rim colour so the rim blends into the nib.
+  // Lighter tip-gradient top, reused as the rim colour so the rim blends into the nib.
   const tipTop = oklchToCss(lightenOklch(ink, 0.06));
   // Specular highlight opacity, scaled off lightness so light inks brighten.
   const whiteAlpha = Math.max(0.07, Math.min(0.5, 0.07 + 0.7 * Math.max(0, ink.L - 0.5)));
@@ -56,8 +55,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
       className={className}
       style={{ width, height: "auto", ...style }}
     >
-      {/* Grey barrel + funnel + shadow. Skipped in colorOnly so the fade overlay
-          carries only ink. */}
+      {/* Skipped in colorOnly so the fade overlay carries only ink, no barrel/shadow. */}
       {!colorOnly && (
         <g filter={`url(#${id}-filter0)`}>
           <g clipPath={`url(#${id}-clip0)`}>
@@ -80,7 +78,6 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
         style={{ mixBlendMode: "color-dodge" }}
       />
       <g filter={`url(#${id}-filter1)`}>
-        {/* Nib, ink-matched vertical gradient (lighter at the tip). */}
         <g transform={`translate(${TX} ${TIPS[tip].ty})`}>
           <path d={TIPS[tip].d} fill={`url(#${id}-tipgrad)`} />
         </g>

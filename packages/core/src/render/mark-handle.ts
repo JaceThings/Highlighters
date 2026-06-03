@@ -1,19 +1,14 @@
 /**
  * The mark handle (blueprint R9 / V4) — the object every targeting call returns.
  *
- * A handle owns a single mounted mark: its renderer, its overlay container, its
- * reflow observer, and any extra cleanup (animation timers, mutation watchers,
- * selection listeners). It exposes `show`/`hide`/`isShowing` for visibility,
- * `update(opts)` to re-resolve options through the merge chain and re-render
- * without re-seeding stable geometry (R22d), and `remove()` to tear everything
- * down — renderer unmount, container teardown, and every observer/cleanup
- * disconnect — leaving the DOM byte-for-byte as it was before the mark (R9 / V4).
+ * A handle owns a single mounted mark: its renderer, overlay container, reflow
+ * observer, and any extra cleanup. `update(opts)` re-resolves options through the
+ * merge chain and re-renders without re-seeding stable geometry (R22d); `remove()`
+ * tears everything down, leaving the DOM byte-for-byte as before (R9 / V4).
  *
- * The handle is deliberately renderer-agnostic and geometry-agnostic: it is given
- * the resolved options, the ranges, the renderer, the container, the reflow
- * disconnect, and a `rebuild` callback that recomputes per-line geometry from the
- * current layout. `update`/reflow both flow through `rebuild`, so there is one and
- * only one place that turns ranges + options into a {@link RenderContext}.
+ * Renderer- and geometry-agnostic: given a `rebuild` callback that recomputes
+ * per-line geometry from the current layout, `update`/reflow both flow through it,
+ * so one and only one place turns ranges + options into a {@link RenderContext}.
  */
 
 import type {
@@ -28,55 +23,34 @@ import type {
 import { mergeOptions, resolveOptions } from "../config/merge.js";
 import { teardownContainer } from "./renderer.js";
 
-/**
- * Everything {@link createMarkHandle} needs to manage one mounted mark.
- */
 export interface MarkHandleInit {
   /** The originating ranges (needed for re-render and Tier C painting). */
   ranges: Range[];
-  /** Fully-resolved options for the current state of the mark. */
   options: ResolvedOptions;
-  /** The renderer that owns this mark's paint. */
   renderer: Renderer;
-  /** The positioned overlay host the renderer mounted into. */
   container: HTMLElement;
-  /** The reflow observer's disconnect (rebuilds geometry on resize/font-load). */
   reflow: Disconnect;
   /** Extra teardown to run on `remove()` (animation, mutation watcher, …). */
   cleanup?: Disconnect[];
-  /**
-   * Replay the draw-on entrance — called on an explicit `show()` so a re-shown
-   * mark re-animates rather than just reappearing (the {@link MarkHandle} `show`
-   * contract / R24). Omitted (or a no-op) when there is no entrance to replay.
-   */
+  /** Replay the draw-on entrance on an explicit `show()` (R24). No-op if none. */
   replay?: () => void;
   /**
-   * The original user-facing options that produced {@link options}. `update()`
-   * accumulates further overrides on top of this so the merge chain stays
-   * correct across successive updates (A7). Defaults to `{}`.
+   * The user-facing options that produced {@link options}. `update()` accumulates
+   * overrides on top so the merge chain stays correct across updates (A7).
    */
   userOptions?: HighlightOptions;
   /**
-   * Recompute the {@link RenderContext} for the current layout and options. The
-   * handle calls this on every `update`/reflow so geometry is always derived from
-   * a fresh read phase, and the renderer's `update` preserves stable regions
-   * (R22d). Implemented by `highlight()` where the targeting pipeline lives.
+   * Recompute the {@link RenderContext} for the current layout and options, from a
+   * fresh read phase. Implemented by `highlight()` where the pipeline lives.
    */
   rebuild: (options: ResolvedOptions) => RenderContext;
 }
 
-/**
- * Build a {@link MarkHandle} over a mounted renderer.
- *
- * @param init - The renderer, container, ranges, options, reflow disconnect,
- *   optional cleanups, and the geometry `rebuild` callback.
- * @returns A handle exposing `show`/`hide`/`update`/`remove`/`isShowing`/`tier`.
- */
+/** Build a {@link MarkHandle} over a mounted renderer. */
 export function createMarkHandle(init: MarkHandleInit): MarkHandle {
   const { renderer, container, reflow, rebuild, replay } = init;
   const cleanups = init.cleanup ? [...init.cleanup] : [];
-  // The full user-facing option state, accumulated across `update()` calls so the
-  // merge chain stays correct: seeded from the options that produced this mark.
+  // Accumulated across `update()` calls so the merge chain stays correct.
   let userOptions: HighlightOptions = init.userOptions ? { ...init.userOptions } : {};
   let resolved = init.options;
   let showing = true;
@@ -98,16 +72,16 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
       if (removed) return;
       showing = true;
       container.style.visibility = "";
-      // An explicit re-show replays the draw-on entrance (R24); the initial mount
-      // animates via applyDrawOn directly, so this only fires on a later show().
+      // An explicit re-show replays the entrance (R24); the initial mount animates
+      // via applyDrawOn directly, so this only fires on a later show().
       replay?.();
     },
 
     hide(): void {
       if (removed) return;
       showing = false;
-      // Hide without tearing down geometry or observers (R9): the nodes stay
-      // pooled so a later show() is instant and re-seeds nothing.
+      // Hide without tearing down geometry/observers (R9): nodes stay pooled so a
+      // later show() is instant and re-seeds nothing.
       container.style.visibility = "hidden";
     },
 
@@ -117,9 +91,8 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
 
     update(opts: Partial<HighlightOptions>): void {
       if (removed) return;
-      // Accumulate user overrides, then re-resolve through the full merge chain
-      // (defaults → preset → user) so altitudes compose correctly across
-      // successive updates (A7).
+      // Re-resolve through the full merge chain (defaults → preset → user) so
+      // altitudes compose correctly across successive updates (A7).
       userOptions = mergeOptions(userOptions, opts as HighlightOptions);
       resolved = resolveOptions(userOptions);
       rerender();
@@ -129,8 +102,8 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
       if (removed) return;
       removed = true;
       showing = false;
-      // Order matters: stop incoming work first (reflow + cleanups), then
-      // unmount the renderer, then strip the container — leaving zero residue.
+      // Order matters: stop incoming work first (reflow + cleanups), then unmount
+      // the renderer, then strip the container — leaving zero residue.
       reflow();
       for (const dispose of cleanups) {
         try {

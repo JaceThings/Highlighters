@@ -1,70 +1,55 @@
 import type { Box, EdgeCap, EdgeVertex, ResolvedTip } from "../types.js";
 
 /**
- * Build the `clip-path: path(...)` value for one band, in **absolute-px local
- * coordinates** (anchored-grid doc §4, blueprint R22c).
+ * Build the `clip-path: path(...)` value for one band, in absolute-px local
+ * coordinates.
  *
- * The shape is the chisel parallelogram: a top edge and a bottom edge threaded
- * through the supplied wave {@link EdgeVertex} arrays, joined by rounded corners
- * drawn as quadratic `Q` arcs, with the chisel slant applied as an absolute-px
- * x-shift derived from `tip.angle` (not a percentage), so the corner radius and
- * slant keep their true size at any width. The two other tip types are
- * variations on the same primitive:
+ * The shape is the chisel parallelogram: top and bottom edges threaded through
+ * the wave {@link EdgeVertex} arrays, joined by rounded `Q`-arc corners, with the
+ * chisel slant as an absolute-px x-shift derived from `tip.angle` (not a
+ * percentage) so radius and slant keep their true size at any width. The other
+ * tip types are variations on the same primitive: bullet has zero slant and a
+ * radius widened toward a uniform rounded cap; fine has zero slant and a small
+ * radius.
  *
- *  - **chisel** — full slant, full corner radius (the default marker shape).
- *  - **bullet** — zero slant, radius widened toward a fully rounded, uniform cap.
- *  - **fine**   — zero slant, small radius (a thin, crisp nib).
- *
- * Because every coordinate is a pure function of the box, the slant, the radius,
- * and the (grid-indexed) edge vertices, identical inputs yield a byte-identical
- * string, and growing the mark only appends `L` commands for the new vertices —
- * the path prefix for the covered region is unchanged (R22d). No DOM access.
+ * Every coordinate is a pure function of the box, slant, radius, and grid-indexed
+ * vertices, so identical inputs yield a byte-identical string and growing the mark
+ * only appends `L` commands — the covered-region prefix is unchanged (R22d).
  */
 
-/** Options for {@link buildClipPath}. */
 export interface ClipPathOptions {
   /** The band's local box. Only `width`/`height` are used (origin is `0,0`). */
   box: Box;
-  /** Resolved nib geometry; `type` and `angle` drive slant and radius shaping. */
   tip: ResolvedTip;
-  /** Top-edge wave vertices (ascending x), threaded left → right along the top. */
+  /** Top-edge wave vertices (ascending x), threaded left → right. */
   topEdge: EdgeVertex[];
-  /** Bottom-edge wave vertices (ascending x), threaded right → left along the bottom. */
+  /** Bottom-edge wave vertices (ascending x), threaded right → left. */
   bottomEdge: EdgeVertex[];
-  /** End-cap style for the leading/trailing edges. */
   cap: EdgeCap;
   /** Corner radius in absolute px (clamped against short marks). */
   radius: number;
   /**
-   * Advancing-front truncation width in local px (the draw-on). When given, the
-   * band is emitted only up to `front`, with the leading tip cap drawn AT the
-   * front instead of at `box.width`. As the front grows, the already-emitted
-   * prefix (left cap + threaded wave vertices ≤ front) is byte-identical — the
-   * mark gains nodes, it never stretches (the anchored-grid invariant, R22d).
-   * Defaults to `box.width` (the full mark).
+   * Advancing-front truncation width in local px (the draw-on). The band is
+   * emitted only up to `front`, with the leading cap drawn AT the front; the
+   * already-emitted prefix stays byte-identical as the front grows (R22d).
+   * Defaults to `box.width`.
    */
   front?: number;
 }
 
-/** Format an x/horizontal coordinate to 1 decimal. */
 function fx(value: number): string {
   return value.toFixed(1);
 }
 
-/** Format a y/vertical coordinate to 2 decimals. */
 function fy(value: number): string {
   return value.toFixed(2);
 }
 
 /**
  * The chisel slant in absolute px — how far the top edge leads (shifts right of)
- * the bottom edge. Grows linearly with `tip.angle` across the whole 0–90° range
- * (a taller band leans further in px), capped at half the band width so it can
- * never invert the parallelogram on a short mark. `bullet`/`fine` have no slant.
- *
- * Exported so the draw-on wipe can angle its reveal front to the same tip slant
- * (the marker's tip IS the boundary that lays the ink), and so the value is
- * computed in exactly one place.
+ * the bottom edge. Grows linearly with `tip.angle` over 0–90°, capped at half the
+ * width so it can never invert the parallelogram on a short mark. Exported so the
+ * draw-on wipe can angle its reveal front to the same slant, computed in one place.
  */
 export function chiselSlant(tip: ResolvedTip, width: number, height: number): number {
   if (tip.type !== "chisel") return 0;
@@ -73,14 +58,10 @@ export function chiselSlant(tip: ResolvedTip, width: number, height: number): nu
 }
 
 /**
- * Resolve the slant and corner radius for a given tip type and box.
- *
- * - The chisel slant is {@link chiselSlant} — the px the top edge leads the
- *   bottom. `bullet`/`fine` have no slant.
- * - The corner radius is the requested px, clamped so the four arcs always fit:
- *   never more than half the (slant-reduced) width or half the height. `bullet`
- *   pushes the radius toward that maximum (uniform rounded cap); `fine` keeps it
- *   small for a crisp thin nib; `flat`/`square` caps zero it out.
+ * Resolve the slant and corner radius for a given tip type and box. The radius is
+ * clamped so the four arcs always fit: never more than half the (slant-reduced)
+ * width or half the height. bullet maxes it out, fine keeps it small, flat/square
+ * caps zero it.
  */
 function resolveSlantAndRadius(
   tip: ResolvedTip,
@@ -91,7 +72,7 @@ function resolveSlantAndRadius(
 ): { slant: number; r: number } {
   const slant = chiselSlant(tip, width, height);
 
-  // The usable horizontal span for corner arcs is the top edge minus the slant.
+  // Usable horizontal span for corner arcs is the top edge minus the slant.
   const usableWidth = Math.max(0, width - slant);
   const maxByWidth = usableWidth / 2;
   const maxByHeight = height / 2;
@@ -99,13 +80,10 @@ function resolveSlantAndRadius(
 
   let r: number;
   if (cap === "flat" || cap === "square") {
-    // Square/flat ends: no rounding (the corners stay sharp).
     r = 0;
   } else if (tip.type === "bullet") {
-    // Uniform rounded cap: take the radius as large as the box allows.
     r = radiusCeil;
   } else if (tip.type === "fine") {
-    // Thin crisp nib: keep the rounding small.
     r = Math.min(radius, radiusCeil, height * 0.25);
   } else {
     r = Math.min(Math.max(0, radius), radiusCeil);
@@ -114,15 +92,12 @@ function resolveSlantAndRadius(
 }
 
 /**
- * The smallest visible front (in local px) for a tip — the touchdown width where
- * the leading cap's two corner arcs just meet over the slant (`slant + 2·radius`).
- * Below this the parallelogram would invert, so {@link buildClipPath} clamps any
- * smaller `front` up to it. The draw-on uses this as the START of its travel
- * (mapping progress `0→1` onto front `minVisibleFront → width`) so the band touches
- * down at its tip and immediately drags — instead of popping to this width and then
- * sitting frozen while progress catches up (the start-of-draw "pause").
- *
- * @returns The minimum drawable front in px for the resolved tip/cap/box.
+ * The smallest visible front (local px) for a tip — the touchdown width where the
+ * leading cap's two corner arcs just meet over the slant (`slant + 2·radius`).
+ * Below this the parallelogram inverts, so {@link buildClipPath} clamps smaller
+ * fronts up to it. The draw-on uses it as the START of its travel (progress `0→1`
+ * maps onto front `minVisibleFront → width`) so the band touches down at its tip
+ * and immediately drags rather than popping to this width and sitting frozen.
  */
 export function minVisibleFront(
   tip: ResolvedTip,
@@ -135,17 +110,15 @@ export function minVisibleFront(
   return slant + 2 * r;
 }
 
-/** A point on an edge curve. */
 interface Pt {
   x: number;
   y: number;
 }
 
 /**
- * Collect the wave vertices that fall within the corner-arc inset `(minX, maxX)`.
- * `topEdge` runs left → right; `bottomEdge` runs right → left, so it is consumed
- * in reverse. Vertices on or past the inset are skipped so a wave point can't kink
- * a corner arc.
+ * Collect the wave vertices strictly inside the corner-arc inset `(minX, maxX)` —
+ * vertices on or past the inset are skipped so a wave point can't kink a corner
+ * arc. `reverse` consumes the array right → left (the bottom edge).
  */
 function collectVertices(
   vertices: EdgeVertex[],
@@ -164,37 +137,31 @@ function collectVertices(
 }
 
 /**
- * Emit a SMOOTH edge from the current point `(sx, sy)` through the wave vertices
- * to `(ex, ey)`, as quadratic Béziers. Each vertex is used as a control point and
- * the curve passes through the midpoints between consecutive vertices — the
- * standard "smooth polyline" construction — so every wave corner is rounded
- * instead of a sharp `L` kink. With no vertices it is a straight `L` to the end.
+ * Emit a smooth edge from `(sx, sy)` through the wave vertices to `(ex, ey)` as
+ * quadratic Béziers: each vertex is a control point and the curve passes through
+ * the midpoints between consecutive vertices (the "smooth polyline" construction),
+ * so wave corners round instead of kinking. No vertices → a straight `L`.
  */
 function smoothEdge(sx: number, sy: number, verts: Pt[], ex: number, ey: number): string {
   if (verts.length === 0) return `L ${fx(ex)} ${fy(ey)} `;
   const pts: Pt[] = [{ x: sx, y: sy }, ...verts, { x: ex, y: ey }];
   let out = "";
-  // Each interior vertex is a control point; the curve passes through the
-  // midpoint to the next, rounding the corner at the vertex.
   for (let i = 1; i < pts.length - 2; i++) {
     const mx = (pts[i].x + pts[i + 1].x) / 2;
     const my = (pts[i].y + pts[i + 1].y) / 2;
     out += `Q ${fx(pts[i].x)} ${fy(pts[i].y)} ${fx(mx)} ${fy(my)} `;
   }
-  // Final segment: last vertex as control, ending exactly on the end anchor.
+  // Final segment ends exactly on the end anchor.
   const c = pts[pts.length - 2];
   out += `Q ${fx(c.x)} ${fy(c.y)} ${fx(ex)} ${fy(ey)} `;
   return out;
 }
 
 /**
- * Build the bare `path(...)` clip-path value (no `clip-path:` prefix).
- *
- * Walks the parallelogram clockwise from the top-left arc end: across the top
- * edge (threading top wave vertices), down the right cap with a rounded corner,
- * back across the bottom edge (threading bottom wave vertices in reverse), and
- * up the left cap, each corner an absolute-px quadratic `Q` arc. The chisel slant
- * shifts the top edge right relative to the bottom by `slant` px.
+ * Build the bare `path(...)` clip-path value (no `clip-path:` prefix). Walks the
+ * parallelogram clockwise from the top-left arc end: top edge, right cap, bottom
+ * edge (vertices reversed), left cap, each corner a `Q` arc. The chisel slant
+ * shifts the top edge right of the bottom by `slant` px.
  */
 export function buildClipPath(opts: ClipPathOptions): string {
   const { box, tip, topEdge, bottomEdge, cap, radius } = opts;
@@ -202,24 +169,20 @@ export function buildClipPath(opts: ClipPathOptions): string {
   const oh = box.height;
 
   // Resolve slant/radius from the FULL box, never the current front — the cap
-  // shape is PLANNED once and only TRANSLATED to the front as the band grows, so
-  // the leading cap is identical from the first frame to the last (no shape/lean
-  // snap at the end) and the whole future path is deterministic.
+  // shape is planned once and only translated to the front as the band grows, so
+  // the leading cap is identical from first frame to last (no shape/lean snap at
+  // the end) and the whole future path is deterministic.
   const { slant: sl, r: R } = resolveSlantAndRadius(tip, cap, ow, oh, radius);
 
-  // The advancing front (draw-on). `front <= 0` is the pre-ink state (empty). The
-  // smallest visible front is the touchdown where the two caps just meet
-  // (`sl + 2R`, always ≤ ow since R ≤ (ow - sl)/2); clamp into [minFront, ow] so
-  // the band starts at a tip-shaped touchdown and grows — never inverting.
+  // `front <= 0` is the pre-ink (empty) state. The smallest visible front is the
+  // touchdown where the two caps just meet (`sl + 2R`, always ≤ ow); clamp into
+  // [minFront, ow] so the band starts at a tip-shaped touchdown and never inverts.
   const reqFront = opts.front ?? ow;
   if (reqFront <= 0) return 'path("M 0 0 Z")';
   const minFront = sl + 2 * R;
   const F = Math.max(minFront, Math.min(reqFront, ow));
 
-  // Top edge runs from (sl + R, 0) to (F - R, 0); bottom edge runs from
-  // (F - sl - R, oh) back to (R, oh). The slant biases the top right of the
-  // bottom, so the leading edge leans like a held chisel. The LEFT cap is fixed;
-  // only the RIGHT (leading) cap rides the front `F` — at the planned slant/radius.
+  // Only the RIGHT (leading) cap rides the front `F`; the LEFT cap is fixed.
   const topStartX = sl + R;
   const topEndX = F - R;
   const bottomStartX = F - sl - R;
@@ -230,18 +193,12 @@ export function buildClipPath(opts: ClipPathOptions): string {
 
   return (
     `path("M ${fx(topStartX)} 0 ` +
-    // Top edge, left → right, threaded as a SMOOTH wave (rounded corners).
     smoothEdge(topStartX, 0, topVerts, topEndX, 0) +
-    // Top-right corner arc down to the leading cap (at the front F).
     `Q ${fx(F)} 0 ${fx(F)} ${fy(R)} ` +
-    // Leading cap down to the bottom-right corner (slant pulls the bottom left).
     `L ${fx(F - sl)} ${fy(oh - R)} ` +
     `Q ${fx(F - sl)} ${fy(oh)} ${fx(bottomStartX)} ${fy(oh)} ` +
-    // Bottom edge, right → left, threaded as a SMOOTH wave (rounded corners).
     smoothEdge(bottomStartX, oh, bottomVerts, bottomEndX, oh) +
-    // Bottom-left corner arc up to the left cap.
     `Q 0 ${fy(oh)} 0 ${fy(oh - R)} ` +
-    // Left cap up to the top-left corner (slant pushes the top right).
     `L ${fx(sl)} ${fy(R)} ` +
     `Q ${fx(sl)} 0 ${fx(topStartX)} 0 Z")`
   );

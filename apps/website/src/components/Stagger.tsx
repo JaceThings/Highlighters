@@ -9,11 +9,9 @@ import {
   type ReactNode,
 } from "react";
 
-// True once a Stagger's entrance has arrived. Default true so consumers outside a
-// Stagger render their gated content immediately.
+// Default true so consumers outside a Stagger render their gated content immediately.
 export const EntranceCompleteContext = createContext(true);
 
-/** Reads whether the nearest Stagger entrance has finished. */
 export function useEntranceComplete(): boolean {
   return useContext(EntranceCompleteContext);
 }
@@ -27,14 +25,13 @@ interface StaggerProps {
   onComplete?: () => void;
 }
 
-// Items rack from out-of-focus to crisp as they fade in — no Y translation.
 const ENTRANCE_BLUR_PX = 4;
 
 // Cascade timing anchor, captured once so later navigations skip the cascade.
 const APP_MOUNT_MS = performance.now();
 
-// Only skip after first paint — otherwise a slow bundle parse pushes `now` past the
-// targets and suppresses the cascade. Double-rAF = the frame after first paint.
+// Only skip after first paint — otherwise a slow bundle parse pushes `now` past the targets
+// and suppresses the cascade. Double-rAF = the frame after first paint.
 let hasFirstPainted = false;
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
@@ -64,8 +61,8 @@ export function useStaggerEntrance({
   index,
   ready = true,
 }: UseStaggerEntranceOptions): EntranceMotionProps {
-  // Lock readiness at mount so a late asset (false→true) still plays a fresh fade
-  // rather than tripping the slot-passed shortcut (which keeps remounts instant).
+  // Lock readiness at mount so a late asset (false→true) still plays a fresh fade rather
+  // than tripping the skip shortcut.
   const wasReadyAtMount = useRef(ready).current;
 
   const { skip, delay } = useMemo(() => {
@@ -92,11 +89,10 @@ export function useStaggerEntrance({
 
 export function Stagger({ index, children, onComplete }: StaggerProps) {
   const props = useStaggerEntrance({ index });
-  // A skipped entrance (initial === false) has no animation to complete, so seed
-  // `done` true; otherwise wait for framer-motion's onAnimationComplete.
+  // A skipped entrance (initial === false) has no animation to complete — seed `done` true.
   const skipped = props.initial === false;
   const [done, setDone] = useState(skipped);
-  // A skipped entrance never fires onAnimationComplete — report it once on mount.
+  // It also never fires onAnimationComplete, so report it once on mount.
   useEffect(() => {
     if (skipped) onComplete?.();
   }, [skipped, onComplete]);

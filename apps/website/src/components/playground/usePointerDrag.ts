@@ -10,12 +10,6 @@ import {
   prefersReducedMotion,
   snap,
 } from "./slider-utils.ts";
-import { cancelPendingTicks, playTick } from "../../lib/sounds.ts";
-
-interface RubberBandApi {
-  updateStretch: (clientX: number, rect: DOMRect) => void;
-  releaseStretch: () => void;
-}
 
 interface UsePointerDragOptions {
   trackRef: RefObject<HTMLDivElement | null>;
@@ -25,7 +19,6 @@ interface UsePointerDragOptions {
   step: number;
   onChange: (next: number, fromDrag?: boolean) => void;
   reported: MotionValue<number>;
-  rubberBand: RubberBandApi;
   /** Stops any in-flight prop-change tween before the pointer takes over.
    *  Owned by the parent so its prop-change effect stays the sole writer
    *  of that tween's ref. */
@@ -40,30 +33,37 @@ export function usePointerDrag({
   step,
   onChange,
   reported,
-  rubberBand,
   stopPropAnim,
 }: UsePointerDragOptions) {
   const pointerIdRef = useRef<number | null>(null);
   const draggingRef = useRef(false);
-  // Separate from the parent's prop-change tween ref so the prop-change
-  // effect's cleanup doesn't kill a tap-to-jump tween that was started
-  // inside `onPointerDown`. The cleanup fires when the parent's `value`
-  // updates in response to that same pointerdown — wiping the tween
-  // would freeze the fill at its pre-tap position.
+  // Separate from the parent's prop-change tween ref: that effect's cleanup fires when
+  // `value` updates from this same pointerdown, and wiping the tap-to-jump tween would
+  // freeze the fill at its pre-tap position.
   const pointerAnimRef = useRef<ReturnType<typeof animate> | null>(null);
-  // Snap-tween that eases the fill from its current visual position into
-  // the freshly-stepped integer. Held separately from the click-tween so a
+  // Eases the fill into the freshly-stepped integer. Separate from the click-tween so a
   // mid-drag crossing can replace just the snap without killing the rest.
   const stepAnimRef = useRef<ReturnType<typeof animate> | null>(null);
-  // Last integer the drag committed to. null between drags so the first
-  // crossing of a fresh drag doesn't tick against a stale baseline.
+  // Last integer the drag committed to. null between drags so a fresh drag's first crossing
+  // doesn't tick against a stale baseline.
   const lastDragSteppedRef = useRef<number | null>(null);
-  // Distinguishes a track tap from the start of a drag. A pointerdown
-  // begins as a click; the first pointermove past CLICK_THRESHOLD flips
-  // it to a drag and starts feeding `applyPointer`. Until then, the
-  // click-tween that started on pointerdown keeps playing.
+  // Tap vs drag: a pointerdown begins as a click; the first pointermove past CLICK_THRESHOLD
+  // flips it to a drag. Until then the click-tween from pointerdown keeps playing.
   const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const isClickRef = useRef(true);
+
+  // Committing a value rebuilds every quote overlay on the page; coalesce writes to one per
+  // frame so a fast drag can't thrash all of them.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const pendingRef = useRef<number | null>(null);
+  const rafRef = useRef(0);
+  const flushDrag = () => {
+    rafRef.current = 0;
+    const v = pendingRef.current;
+    pendingRef.current = null;
+    if (v !== null) onChangeRef.current(v, true);
+  };
 
   const range = max - min;
 
@@ -73,18 +73,14 @@ export function usePointerDrag({
     const rect = track.getBoundingClientRect();
     if (rect.width === 0) return;
 
-    rubberBand.updateStretch(cx, rect);
-
     const ratio = clamp((cx - rect.left) / rect.width, 0, 1);
     const raw = ratio * range + min;
     const stepped = clamp(snap(raw, step), min, max);
 
     if (stepped !== lastDragSteppedRef.current) {
-      // `prev` is non-null inside applyPointer: onPointerDown always seeds
-      // lastDragSteppedRef, and applyPointer only runs during a drag.
+      // Non-null: onPointerDown always seeds lastDragSteppedRef before any drag.
       const prev = lastDragSteppedRef.current!;
       const stepsCrossed = Math.round(Math.abs(stepped - prev) / step);
-      playTick();
       lastDragSteppedRef.current = stepped;
 
       if (stepAnimRef.current) stepAnimRef.current.stop();
@@ -101,7 +97,10 @@ export function usePointerDrag({
         });
       }
     }
-    if (stepped !== value) onChange(stepped, true);
+    if (stepped !== value) {
+      pendingRef.current = stepped;
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(flushDrag);
+    }
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -126,40 +125,20 @@ export function usePointerDrag({
     isClickRef.current = true;
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
 
-    // Tween toward the tapped position. If the user drags, the move handler
-    // cancels this tween and switches to direct pointer tracking; otherwise
-    // it plays out as a tap-to-jump. The same stepped value seeds
-    // lastDragSteppedRef so the first crossing past CLICK_THRESHOLD only
-    // ticks if it actually advances past the tap's position.
+    // Tween toward the tapped position. If the user drags, onPointerMove cancels this and
+    // switches to direct tracking; otherwise it plays out as a tap-to-jump. Seeding
+    // lastDragSteppedRef here means the first crossing only ticks if it advances past the tap.
     const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
     const raw = ratio * range + min;
     const targetValue = clamp(snap(raw, step), min, max);
     lastDragSteppedRef.current = targetValue;
-    // Step the fill started from, so the jump can tick each detent it
-    // crosses on the way to the tap. Closure-local, not a ref: it lives
-    // and dies with this one tween.
-    let lastTickStep = clamp(snap(reported.get(), step), min, max);
     if (prefersReducedMotion()) {
       reported.set(targetValue);
-      // No motion to ride, but a tap that changes the value still earns a
-      // single detent click — same feedback the drag path gives.
-      if (targetValue !== lastTickStep) playTick();
     } else {
       pointerAnimRef.current = animate(reported, targetValue, {
         type: "tween",
         duration: PROP_CHANGE_DURATION,
         ease: PROP_CHANGE_EASE,
-        // Tick once per integer the fill crosses, so a tap-to-jump sounds
-        // like the bar travelling through each detent rather than landing
-        // in silence. Large jumps collapse into a buzz under the audio
-        // layer's own rate cap, exactly as a fast drag does.
-        onUpdate: (latest) => {
-          const s = clamp(snap(latest, step), min, max);
-          if (s !== lastTickStep) {
-            lastTickStep = s;
-            playTick();
-          }
-        },
       });
     }
     if (targetValue !== value) onChange(targetValue, false);
@@ -172,8 +151,7 @@ export function usePointerDrag({
       const downPos = pointerDownPosRef.current;
       if (!downPos) return;
       if (Math.abs(e.clientX - downPos.x) < CLICK_THRESHOLD) return;
-      // Threshold crossed — promote to a drag. Kill the click-tween so
-      // `applyPointer` becomes the sole writer of `reported`.
+      // Promote to a drag — kill the click-tween so `applyPointer` is the sole writer.
       if (pointerAnimRef.current) {
         pointerAnimRef.current.stop();
         pointerAnimRef.current = null;
@@ -183,18 +161,24 @@ export function usePointerDrag({
     applyPointer(e.clientX);
   };
 
-  // Snap on capture-release rather than pointerup: this fires for pointerup,
-  // the pointer leaving the element entirely, and OS forced-release — covering
-  // the finger-flies-off-the-track case that a pointerup-only handler misses.
+  // Capture-release, not pointerup: also covers the pointer leaving the element and OS
+  // forced-release — the finger-flies-off-the-track case a pointerup handler misses.
   const onLostPointerCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     if (pointerIdRef.current !== e.pointerId) return;
     draggingRef.current = false;
     pointerIdRef.current = null;
-    rubberBand.releaseStretch();
-    // After a real drag, `reported` may hold a sub-step fraction. Tween it
-    // to the stepped prop value so signed sliders don't leave a sliver of
-    // fill at the crossover. A click already animated toward the stepped
-    // target, so no follow-up tween is needed.
+    // Land the final value immediately (don't wait on the coalescing frame).
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+    }
+    if (pendingRef.current !== null) {
+      onChangeRef.current(pendingRef.current, true);
+      pendingRef.current = null;
+    }
+    // After a real drag `reported` may hold a sub-step fraction; tween it to the stepped
+    // value so signed sliders don't leave a sliver at the crossover. A click already
+    // animated to the stepped target, so it needs no follow-up.
     if (!isClickRef.current) {
       if (pointerAnimRef.current) {
         pointerAnimRef.current.stop();
@@ -217,9 +201,6 @@ export function usePointerDrag({
       stepAnimRef.current.stop();
       stepAnimRef.current = null;
     }
-    // Kill any tick scheduled for the future. Without this, a fast flick
-    // that queued ~40 ms of ticks would keep clicking after release.
-    cancelPendingTicks();
   };
 
   return {

@@ -6,7 +6,7 @@ import type { LineRect, MarkType } from "@highlighters/core";
 import { BASE_SELECTION_OPTIONS, penToTip, type PenTip } from "../../selection-style.tsx";
 import { OpacitySlider } from "./OpacitySlider.tsx";
 
-// A Lisse ShadowConfig so the lift traces the squircle (a CSS box-shadow would clip).
+// Lisse ShadowConfig (not box-shadow) so the lift traces the squircle clip-path.
 const POPOVER_SHADOW: ShadowConfig = {
   offsetX: 0, offsetY: 6, blur: 14, spread: -6, color: "#73574A", opacity: 0.15,
 };
@@ -18,16 +18,14 @@ const MARK_OPTIONS: { type: MarkType; label: string }[] = [
   { type: "underline", label: "Underline" },
 ];
 
-// The preview "line" the band is shaped against. The nib (chisel/bullet/flat) + mark
-// type drive the band's silhouette and position; the cell clips any overshoot.
+// The preview "line" the band is shaped against; the cell clips any overshoot.
 const LINE_W = 24;
 const LINE_H = 22;
-// Ink crossfade duration, matching the dock pens.
-const INK_FADE_MS = 180;
+const INK_FADE_MS = 180; // matches the dock pens
 
-// Endpoint-pooled translucent ink, like the real marker (denser at both ends). Built
-// from the animatable `--ink` via color-mix, so `transition: --ink` fades the whole
-// gradient — transparency and all — in one element, no second copy.
+// Endpoint-pooled translucent ink, denser at both ends like a real marker. Built from
+// the animatable `--ink` via color-mix, so `transition: --ink` fades the whole gradient
+// — transparency and all — in one element, no second copy.
 const INK_GRADIENT =
   "linear-gradient(90deg," +
   " color-mix(in oklab, var(--ink) 50%, transparent) 0%," +
@@ -35,14 +33,9 @@ const INK_GRADIENT =
   " color-mix(in oklab, var(--ink) 33%, transparent) 84%," +
   " color-mix(in oklab, var(--ink) 50%, transparent) 100%)";
 
-/**
- * One mark-type option: a real highlighter band — the active pen's actual
- * chisel/bullet/flat nib shape, wavy edge, and noise texture from the geometry
- * engine, filled with the endpoint-pooled translucent ink. The shape + texture are
- * colour-independent, so they're computed ONCE (memoised); only the `--ink` colour
- * changes, and it CSS-transitions, so a palette swap fades the ink with no extra mark
- * and no geometry rebuild.
- */
+// One mark-type option, rendered as a real highlighter band from the geometry engine.
+// Shape + texture are colour-independent, so they're memoised; only `--ink` changes and
+// CSS-transitions, fading the ink on a palette swap with no geometry rebuild.
 function MarkOption({
   type,
   label,
@@ -63,9 +56,8 @@ function MarkOption({
   const ink = useMemo(() => {
     // Tighter overshoot than the live nib so the small stroke + caps fit the cell.
     const tip = { ...penToTip(pen).tip, overshoot: 4, overshootJitter: 0 };
-    // Chisel/flat ends square off on thin bands (a flat nib lays a flat end), so a
-    // thin under/over/strike doesn't read like the bullet's rounded cap. The bullet
-    // ignores this — its cap radius is height-driven — so it stays round regardless.
+    // Square off chisel/flat ends on thin bands so they don't read like the bullet's
+    // round cap. The bullet ignores this — its cap radius is height-driven.
     const radius = type === "highlight" ? (BASE_SELECTION_OPTIONS.edge?.radius ?? 3) : 0.8;
     const resolved = resolveOptions({
       ...BASE_SELECTION_OPTIONS,
@@ -77,7 +69,6 @@ function MarkOption({
       left: 0, top: 0, width: LINE_W, height: LINE_H, seed, isFirst: true, isLast: true,
     };
     const geo = buildMarkGeometry(line, resolved, seed);
-    // Static style (everything but the live colour), so the colour can transition.
     const style: CSSProperties = {
       position: "absolute",
       left: geo.box.x,
@@ -120,8 +111,6 @@ function MarkOption({
   );
 }
 
-/** The settings panel above the active pen: a mark-type row + opacity slider, both
- *  driving the shared selection style. Lisse squircle container. */
 export function MarkerPopover({
   inkColor,
   pen,

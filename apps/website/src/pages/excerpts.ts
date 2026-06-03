@@ -1,27 +1,15 @@
-// A small, hand-picked shelf of passages. The homepage shows one per load from a
-// shuffle bag (see pickNextExcerpt), so the demo reads a little differently each
-// time. Straight ASCII apostrophes throughout; the em dashes inside the passages
-// are the authors' own.
+// Passages the homepage draws from, one per load via a shuffle bag (pickNextExcerpt).
 
 export interface Excerpt {
-  /** Work title, if it has one — part of the quiet attribution line. */
   title?: string;
-  /** Author or source, if known. */
   author?: string;
-  /** The passage. Blank lines (\n\n) split it into paragraphs. */
+  /** Blank lines (\n\n) split it into paragraphs. */
   text: string;
 }
 
-/**
- * The credit shown after "from " under a passage: "Title by Author" when both
- * are known, otherwise whichever single part exists (a lone title, a lone
- * author/handle, or "Unknown"). Some passages are untitled web pieces, so the
- * line has to read naturally with one part missing.
- */
+/** "Title by Author", or whichever single part exists, or "Unknown" if neither. */
 export function creditLine(e: Excerpt): string {
   if (e.title && e.author) return `${e.title} by ${e.author}`;
-  // "Unknown" (as the doc promises) rather than "" so an untitled, anonymous
-  // passage never renders a bare dash with no attribution.
   return e.title ?? e.author ?? "Unknown";
 }
 
@@ -42,7 +30,6 @@ export const EXCERPTS: Excerpt[] = [
     text: "You are so quiet, my love. If I could see your face more clearly, I should know if you were cross. Are you cross, my lonely angel?\n\nThe sigh is silent now. I have often complained of the ceaseless chatter, but I fear I've come to miss it. What has become of all the merry chatter? Where are all the people? Why are you so quiet, doctor?\n\nIn the many years I waited for you, I imagined we would talk the night away, you and I, and yet the dark remains and you are silent. Why can't I see your face, doctor?\n\nI have been assailed by a gleam of late, and yet not precisely a dream. I have thoughts in the dark which troubled me. Those clockwork monsters who came to take my head — you told me once that they were in the habit of making portraits of my mind. I believe you said they were scanning my brain, but then you always had such a comical turn of phrase. I took your words to mean that they had made a catalogue of my thoughts and memories and stored them for safekeeping in something I think you called a group computer, a computer inside a vessel lost in a distant void. The idea makes me shiver. This computer, doctor, full of my thoughts and memories and secrets — might it not in time come to mistake itself for me? I fear for this computer creature, doctor. Abandoned in infinite silence. I am prone to loneliness. Perhaps it will share my weakness. I look to you for comfort, but I cannot see you. Why can't I see you? Why is it so quiet, doctor? Why can't I feel the breath in my lungs, the air stirring on my skin? Where am I doctor? Where am I, doctor? Where am I?",
   },
   {
-    // Source unknown.
     author: "Unknown",
     text: "You ask me why you cannot cast magic. It's because you are not casting it. You are copying what I have shown you. That is not magic. Magic is taking what already exists, making it yours and creating. You are not making it yours. You're trying to create something that has already been created. The air in front of you is not something you convert into fire. When you say those words, you wield those flames from nothing into something. When I was fighting demons, I was not looking forward, asking the air to turn to fire. I was telling the world, create fire! So if you wish to stay a mage, and you wish to continue forward, you have to tell the world, I am here, and I wish for it to be!",
   },
@@ -95,19 +82,16 @@ export const EXCERPTS: Excerpt[] = [
   },
 ];
 
-// Where the shuffle bag lives between loads. Each refresh is a full page reload,
-// so the bag has to survive in localStorage for "no repeats" to mean anything.
+// The bag survives in localStorage so "no repeats" holds across full page reloads.
 const BAG_KEY = "highlighters:excerpt-bag";
 
-/** A shuffled draw order plus the index we handed out last, for the no-repeat rule. */
 interface BagState {
-  /** Indices still in the bag, in the order they'll be drawn (next = end of array). */
+  /** Indices still in the bag, next drawn from the end. */
   order: number[];
-  /** The index shown on the previous load, so a fresh bag never repeats it first. */
+  /** The index shown last load, so a fresh bag never repeats it first. */
   last: number;
 }
 
-// Fisher-Yates. Client-only (no SSR), so Math.random is fine here.
 function shuffledIndices(n: number): number[] {
   const a = Array.from({ length: n }, (_, i) => i);
   for (let i = n - 1; i > 0; i--) {
@@ -122,14 +106,13 @@ function readBag(): BagState | null {
     const raw = localStorage.getItem(BAG_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as BagState;
-    // Drop anything that no longer points at a real excerpt (e.g. the shelf
-    // shrank since this bag was saved) so we never index out of range.
+    // Drop stale indices (the shelf may have shrunk since this bag was saved).
     const order = parsed.order.filter((i) => i >= 0 && i < EXCERPTS.length);
     const last =
       parsed.last >= 0 && parsed.last < EXCERPTS.length ? parsed.last : -1;
     return { order, last };
   } catch {
-    return null; // private mode, disabled storage, or corrupt JSON: fall through to a fresh bag.
+    return null; // disabled/corrupt storage: fall through to a fresh bag.
   }
 }
 
@@ -137,24 +120,21 @@ function writeBag(state: BagState): void {
   try {
     localStorage.setItem(BAG_KEY, JSON.stringify(state));
   } catch {
-    // Storage unavailable: we just lose the no-repeat guarantee, not the page.
+    // Storage unavailable: lose the no-repeat guarantee, not the page.
   }
 }
 
 /**
- * Draw the next passage from a shuffle bag. Every excerpt is shown once before
- * any repeats; when the bag empties it refills with a fresh shuffle, and that
- * refill is nudged so it never hands back the passage we just showed. Called
- * once on the client when the homepage mounts, so each full page load advances
- * the bag by one. (Client-only; the site does not server-render.)
+ * Draw the next passage from a shuffle bag: every excerpt shown once before any
+ * repeats, the refill nudged so it never repeats the passage shown last load.
+ * Called once on mount, so each page load advances the bag by one.
  */
 export function pickNextExcerpt(): Excerpt {
   const { order, last } = readBag() ?? { order: [], last: -1 };
 
   if (order.length === 0) {
     order.push(...shuffledIndices(EXCERPTS.length));
-    // The next draw is the tail of the bag; if a refill would repeat the last
-    // passage straight away, swap it to the front so it comes out last instead.
+    // If the refill's next draw would repeat the last passage, swap it to the front.
     const lastOut = order.length - 1;
     if (order.length > 1 && order[lastOut] === last) {
       [order[0], order[lastOut]] = [order[lastOut], order[0]];

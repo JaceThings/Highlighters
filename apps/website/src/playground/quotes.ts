@@ -1,7 +1,3 @@
-// Quotes shown on the paper-card demos. buildQuoteSequence hands out a randomized run with
-// no repeats and the same author kept at least three apart; the playground re-derives it on
-// every load, so the page reshuffles each time.
-
 export type Quote = { text: string; author: string };
 
 export const QUOTES: Quote[] = [
@@ -42,9 +38,8 @@ function shuffle<T>(arr: readonly T[]): T[] {
   return a;
 }
 
-// A randomized run of `count` distinct quotes where no author appears within any three
-// consecutive (differs from the previous two). Falls back to relaxing the author rule only
-// if genuinely cornered, which this dataset never is for the page's count.
+// `count` distinct quotes where no author repeats within three consecutive,
+// relaxing that rule only if cornered.
 export function buildQuoteSequence(count: number): Quote[] {
   const pool = shuffle(QUOTES);
   const out: Quote[] = [];

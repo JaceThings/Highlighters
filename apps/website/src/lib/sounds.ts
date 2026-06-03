@@ -2,10 +2,8 @@
 // tick (fires dozens/sec on drags), and a silent looper that keeps iOS on the media
 // audio session.
 
-// === File-based sounds =====================================================
 // Fresh `Audio` per play so rapid triggers overlap; play() rejection (autoplay
 // policy, pre-interaction) is swallowed.
-
 const SOUND_FILES = [
   "/click.webm",
   "/copy-success.webm",
@@ -29,10 +27,8 @@ export const playClick = () => playFile("/click.webm", 0.6);
 export const playCopySuccess = () => playFile("/copy-success.webm", 0.5);
 export const playPillSelect = () => playFile("/pill-select.webm", 0.6);
 
-// === Tick (synthesised) ====================================================
-// A 5.5 kHz sine partial + a short noise burst through a Q=18 bandpass — rings like
-// a small rigid click (ratchet pawl).
-
+// The tick: a 5.5 kHz sine partial + a short noise burst through a Q=18 bandpass,
+// ringing like a small rigid click (ratchet pawl).
 const TICK_VOLUME = 0.075;
 const TICK_FREQ = 5500;
 const TICK_DECAY_SEC = 0.006;

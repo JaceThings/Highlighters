@@ -14,20 +14,17 @@ import { DOCK_H } from "./constants.ts";
 // Start the tray fully below the viewport so it rises in from the bottom.
 const ENTER_FROM = DOCK_H + 96;
 
-// Holds at `hidden` (off-screen, scaled down, blurred) until the text settles.
 const ENTRANCE = {
   hidden: { y: ENTER_FROM, scale: 0.98, opacity: 0, filter: "blur(4px)" },
   shown: { y: 0, scale: 1, opacity: 1, filter: "blur(0px)" },
 } as const;
 
-/** The PencilKit-style tool tray: nav buttons, the three marker pens, the ink well,
- *  and action buttons. The selected pen + ink drive the live SelectionMarker. The
- *  outer layer is pointer-events:none so only the capsule is interactive. */
+/** The tool tray. The outer layer is pointer-events:none so only the capsule is
+ *  interactive. */
 export function Dock() {
   const { style, setColor, setPen, setOpacity, setMarkType } = useSelectionStyle();
   // Hold the entrance until the page's text cascade has landed.
   const { ready } = useDockEntrance();
-  // Which page we're on, so the matching nav button reads as current.
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   // `popoverX` = the active pen's centre relative to the tray (null = closed).
@@ -35,7 +32,6 @@ export function Dock() {
   const [popoverX, setPopoverX] = useState<number | null>(null);
   const open = popoverX !== null;
 
-  // Clicking the active pen toggles the popover, anchored to that pen.
   const handleActivate = useCallback((button: HTMLButtonElement) => {
     setPopoverX((prev) => {
       if (prev !== null) return null;
@@ -79,8 +75,6 @@ export function Dock() {
       className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex select-none justify-center"
       aria-label="Highlighter tray"
     >
-      {/* Rises in once the text has landed: spring up with scale + focus (blur→0).
-          reducedMotion at the App root reduces it to a fade. */}
       <motion.div
         ref={trayRef}
         className="pointer-events-auto relative max-w-[calc(100vw-32px)]"
@@ -99,7 +93,6 @@ export function Dock() {
       >
         <CapsuleBackground />
 
-        {/* Buttons + ink well centre; markers self-end to the tray floor. */}
         <div className="relative flex h-full items-center gap-[32px]">
           <nav className="flex items-center gap-[12px] pr-[25px] pl-[32px]">
             <DockButton to="/" label="Home" active={pathname === "/"}>
@@ -133,14 +126,12 @@ export function Dock() {
           </div>
         </div>
 
-        {/* Drawer grab-handle. */}
         <div
           aria-hidden
           className="absolute top-[7.5px] left-1/2 -translate-x-1/2 rounded-full bg-[#efeeed]"
           style={{ width: 42.787, height: 5.943 }}
         />
 
-        {/* Settings popover — rises from the active pen, centred above the tray. */}
         <AnimatePresence>
           {open && (
             <motion.div

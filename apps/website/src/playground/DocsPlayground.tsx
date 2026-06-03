@@ -2,23 +2,14 @@ import { useMemo } from "react";
 import { Stagger } from "../components/Stagger.tsx";
 import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { RecommendedLooks } from "./RecommendedLooks.tsx";
-import { OptionDemo, OPTION_DEMOS, isPaperDemo } from "./sections/OptionDemo.tsx";
+import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
 import { buildQuoteSequence } from "./quotes.ts";
 
-// One live demo PER visual option: each renders the shared Preview (gated to on-screen so
-// the page stays smooth) plus that option's single control, all writing one shared options
-// object. RecommendedLooks leads as one-shot starting points; MoreSection lists the rest of
-// the API and links to the full reference. Lazy-loaded by Docs (pulls @highlighters/react +
-// @lisse) to stay out of the home bundle.
+// One live demo per visual option, all writing one shared options object.
+// Lazy-loaded by Docs (pulls @highlighters/react + @lisse) to stay out of the home bundle.
 export function DocsPlayground() {
-  // Assign a quote to each paper (button) demo, in page order, once per load — so quotes
-  // never repeat and the same author stays ≥3 apart, reshuffling on every reload.
-  const quotes = useMemo(() => {
-    const seq = buildQuoteSequence(OPTION_DEMOS.filter(isPaperDemo).length);
-    let q = 0;
-    return OPTION_DEMOS.map((d) => (isPaperDemo(d) ? seq[q++] : undefined));
-  }, []);
+  const quotes = useMemo(() => buildQuoteSequence(OPTION_DEMOS.length), []);
 
   return (
     <PlaygroundOptionsProvider>

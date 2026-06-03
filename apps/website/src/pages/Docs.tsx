@@ -1,10 +1,8 @@
 import { Suspense, lazy } from "react";
 import { Stagger } from "../components/Stagger.tsx";
 
-// /docs is the live playground — every setting with its own demo. The heavy engine
-// (pulls @highlighters/react + @lisse) is lazy-loaded so it stays out of the home
-// bundle; Docs itself is light enough for PageFade to import eagerly (the
-// cross-fade renders concrete page components, not <Outlet/>).
+// The heavy playground engine (@highlighters/react + @lisse) is lazy-loaded so it
+// stays out of the home bundle; Docs itself is imported eagerly by PageFade.
 const DocsPlayground = lazy(() =>
   import("../playground/DocsPlayground.tsx").then((m) => ({ default: m.DocsPlayground })),
 );

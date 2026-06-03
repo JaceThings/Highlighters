@@ -2,20 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PALETTES, resolveSwatch } from "@highlighters/core";
 import type { ColorValue, PaletteSwatch, ShapeType } from "@highlighters/core";
 import { SmoothCorners } from "@lisse/react";
-import { FigureCard } from "../../components/playground/FigureCard.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
-import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
 import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
 import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
-import { Preview, SnapPreview, CANVAS_HEIGHT } from "../Preview.tsx";
+import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
+import { Preview, SnapPreview } from "../Preview.tsx";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
 
-// ~35 Previews is too heavy to mount on first paint, so each defers until its
-// section nears the viewport — then stays mounted. The latch is ONE-WAY: a painted
-// preview is never unmounted, so its marks persist and update in place.
+// Defer each Preview until its section nears the viewport. One-way latch: once
+// painted it never unmounts, so its marks persist and update in place.
 function useSeen(rootMargin = "350px") {
   const ref = useRef<HTMLDivElement | null>(null);
   const [seen, setSeen] = useState(false);
@@ -42,7 +40,6 @@ function useSeen(rootMargin = "350px") {
   return { ref, seen };
 }
 
-// --- option-value readers (1–2 level paths, off the committed options) ---------
 function readPath(o: PlaygroundOptions, path: string): unknown {
   const s = path.split(".");
   const top = (o as Record<string, unknown>)[s[0]];
@@ -75,7 +72,6 @@ const TOGGLE_OPTS = [
   { value: "off", label: "Off" },
 ] as const;
 
-// --- demo descriptors ----------------------------------------------------------
 interface Base {
   title: string;
   desc: string;
@@ -86,37 +82,6 @@ type Demo =
   | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
   | (Base & { kind: "color" });
 
-// --- the controls --------------------------------------------------------------
-// Continuous / colour demos only — the discrete (button) ones render as a ScribbleLegend on
-// the paper card (see LegendControl), never here.
-function Control({ demo }: { demo: Exclude<Demo, { kind: "pills" | "toggle" }> }) {
-  const { options, set } = usePlaygroundOptions();
-
-  const onNum = useCallback(
-    (path: string) => (v: number, fromDrag?: boolean) => set(path, v, fromDrag),
-    [set],
-  );
-
-  if (demo.kind === "slider") {
-    return (
-      <div className={SLIDER_ROW}>
-        <Slider
-          label={demo.label}
-          value={getNum(options, demo.path, demo.def)}
-          min={demo.min}
-          max={demo.max}
-          step={demo.step}
-          format={FORMAT[demo.unit]}
-          onChange={onNum(demo.path)}
-        />
-      </div>
-    );
-  }
-
-  return <SwatchPicker />;
-}
-
-// The colour swatch row (a trimmed ColorSection — opacity is its own demo now).
 const SWATCH_REFS: ReadonlyArray<PaletteSwatch> = [
   { palette: "fluorescent", swatch: "yellow" },
   { palette: "fluorescent", swatch: "green" },
@@ -156,13 +121,12 @@ function SwatchPicker() {
   const isRef = !!color && typeof color === "object" && "swatch" in color;
 
   return (
-    <div className={`w-full ${ROW_DIVIDER}`}>
-      <div
-        role="radiogroup"
-        aria-label="Color swatch"
-        className="flex w-full flex-wrap content-center items-center justify-center gap-3 p-3"
-      >
-        {SWATCH_CHIPS.map(({ ref, key, hex }) => {
+    <div
+      role="radiogroup"
+      aria-label="Color swatch"
+      className="flex w-full flex-wrap content-center items-center justify-center gap-3 px-4 py-5"
+    >
+      {SWATCH_CHIPS.map(({ ref, key, hex }) => {
           const selected = isRef && hex.toLowerCase() === activeHex;
           return (
             <button
@@ -189,18 +153,11 @@ function SwatchPicker() {
             </button>
           );
         })}
-      </div>
     </div>
   );
 }
 
-// Which demos render on the paper card (live quote + scribble legend) vs the white figure
-// card. A type guard so both this file and DocsPlayground agree, and `demo` narrows.
-export function isPaperDemo(demo: Demo): demo is Extract<Demo, { kind: "pills" | "toggle" }> {
-  return demo.kind === "pills" || demo.kind === "toggle";
-}
-
-// The discrete (button) controls render as a scribble-underline legend on the paper card.
+// Discrete (button) controls render as a scribble-underline legend.
 function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle" }> }) {
   const { options, set, setShape } = usePlaygroundOptions();
   if (demo.kind === "toggle") {
@@ -225,33 +182,55 @@ function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle
   );
 }
 
+// A slider whose fill is a hand-drawn scribble, drawn/undrawn as the value moves.
+function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" }> }) {
+  const { options, set } = usePlaygroundOptions();
+  // Fresh seed per slider so each scribble is uniquely hand-drawn.
+  const [seed] = useState(() => Math.floor(Math.random() * 1e9));
+  const onNum = useCallback(
+    (v: number, fromDrag?: boolean) => set(demo.path, v, fromDrag),
+    [set, demo.path],
+  );
+  return (
+    <div className="px-5 py-4">
+      <Slider
+        label={demo.label}
+        value={getNum(options, demo.path, demo.def)}
+        min={demo.min}
+        max={demo.max}
+        step={demo.step}
+        format={FORMAT[demo.unit]}
+        onChange={onNum}
+        renderFill={(ctx) => <ScribbleFill seed={seed} {...ctx} />}
+      />
+    </div>
+  );
+}
+
 export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   const { ref, seen } = useSeen();
-  // Button demos get the paper card (live-highlighted quote on top, scribble-underline legend
-  // below); sliders/colour keep the white figure card.
-  if (isPaperDemo(demo)) {
-    return (
-      <div ref={ref}>
-        <Section title={demo.title} description={demo.desc}>
-          <PaperCard>
-            {seen && quote ? (
-              demo.path === "snap" ? <SnapPreview quote={quote} /> : <Preview quote={quote} />
-            ) : (
-              <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
-            )}
-            <LegendControl demo={demo} />
-          </PaperCard>
-        </Section>
-      </div>
-    );
-  }
+  // The `snap` demo swaps in a Range-based preview so the boundary clamp shows.
   return (
     <div ref={ref}>
       <Section title={demo.title} description={demo.desc}>
-        <FigureCard>
-          {seen ? <Preview /> : <div style={{ height: CANVAS_HEIGHT }} aria-hidden />}
-          <Control demo={demo} />
-        </FigureCard>
+        <PaperCard>
+          {seen && quote ? (
+            demo.kind === "pills" && demo.path === "snap" ? (
+              <SnapPreview quote={quote} />
+            ) : (
+              <Preview quote={quote} />
+            )
+          ) : (
+            <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
+          )}
+          {demo.kind === "slider" ? (
+            <ScribbleSliderControl demo={demo} />
+          ) : demo.kind === "color" ? (
+            <SwatchPicker />
+          ) : (
+            <LegendControl demo={demo} />
+          )}
+        </PaperCard>
       </Section>
     </div>
   );

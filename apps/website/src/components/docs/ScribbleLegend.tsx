@@ -4,8 +4,7 @@ import { MarkUnderline } from "./MarkUnderline.tsx";
 import { SQUIGGLES, nextSquiggle } from "./squiggles.ts";
 
 // A row of selectable labels where the active one is underlined by a hand-drawn marker
-// scribble (a fresh random one per selection). Sits in the lower quarter of a PaperCard, on
-// the fold. Clicking the active label is a no-op so it doesn't pointlessly redraw.
+// scribble (a fresh random one per selection). Re-selecting the active label is a no-op.
 
 const INK = "#73574a";
 const UNDERLINE_W = 65.542;

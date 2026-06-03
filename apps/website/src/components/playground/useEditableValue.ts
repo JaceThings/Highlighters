@@ -34,8 +34,7 @@ export function useEditableValue({
     setEditing(true);
   };
 
-  // Focus + select once the input mounts so the user can immediately
-  // overtype the current value without an extra click.
+  // Focus + select on mount so the user can overtype immediately.
   useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus();
@@ -44,9 +43,8 @@ export function useEditableValue({
   }, [editing]);
 
   const commitEdit = () => {
-    // `parseFloat` is intentionally lenient — it grabs any leading numeric
-    // portion, so formatted seeds like "0.60" or "37" both round-trip even
-    // if the format prop ever decorates the value with non-digit suffixes.
+    // `parseFloat` is lenient by design — grabs the leading numeric portion, so a
+    // decorated seed (e.g. with a unit suffix) still round-trips.
     const parsed = parseFloat(draft);
     if (!Number.isNaN(parsed)) {
       const stepped = clamp(snap(parsed, step), min, max);

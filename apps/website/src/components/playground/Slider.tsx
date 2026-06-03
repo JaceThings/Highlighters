@@ -1,10 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   animate,
   motion,
   useMotionValue,
   useMotionValueEvent,
   useTransform,
+  type MotionValue,
 } from "framer-motion";
 import NumericText from "@numeric-text/react";
 import { SmoothCorners } from "@lisse/react";
@@ -20,7 +21,6 @@ import {
 } from "./slider-utils.ts";
 import { useEditableValue } from "./useEditableValue.ts";
 import { usePointerDrag } from "./usePointerDrag.ts";
-import { useRubberBand } from "./useRubberBand.ts";
 
 interface SliderProps {
   label: string;
@@ -45,6 +45,18 @@ interface SliderProps {
    *  reserved column width, so special-case formatted strings (wider than
    *  the endpoints) still fit without reflow. */
   formatSamples?: readonly number[];
+  /** Replace the default solid fill with custom content (e.g. a hand-drawn
+   *  scribble), painted inside the rounded track. Receives the live `reported`
+   *  motion value so it can reveal itself by the slider fraction. */
+  renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number }) => ReactNode;
+}
+
+// Isolates the per-frame readout state so digit morphing re-renders only this node, not the
+// whole Slider (and its scribble-fill subtree).
+function Readout({ displayed }: { displayed: MotionValue<string> }) {
+  const [text, setText] = useState(() => displayed.get());
+  useMotionValueEvent(displayed, "change", setText);
+  return <NumericText value={text} transition={READOUT_TRANSITION} />;
 }
 
 export function Slider({
@@ -58,6 +70,7 @@ export function Slider({
   formatSeed,
   formatSamples,
   description,
+  renderFill,
 }: SliderProps) {
   const id = useId();
   const tuning = usePlaygroundTuning();
@@ -69,28 +82,20 @@ export function Slider({
   const initialValueRef = useRef<number>(value);
 
   const safeRange = max - min === 0 ? 1 : max - min;
-  // Memoised: `reservedChars` calls `format()` to measure the widest legal
-  // display — recompute only when its inputs change, not on every drag tick.
+  // Memoised so `reservedChars` (which calls `format()`) doesn't rerun on every drag tick.
   const readoutMinWidth = useMemo(
     () => `${reservedChars(min, max, step, format, formatSamples)}ch`,
     [min, max, step, format, formatSamples],
   );
 
-  const rubberBand = useRubberBand({ tuning });
-
-  // Stays in [min, max]: the value shown in the readout and reflected to
-  // the hidden range input. Decoupled from the visible stretch so the
-  // readout never displays an illegal value during rubber-band.
   const reported = useMotionValue(value);
 
-  // Signed ranges (min < 0 < max) anchor the fill chunk at zero and grow
-  // outward. Unsigned ranges stay left-anchored. Both fall out of the same
-  // `leftEdge`/`rightEdge` math.
+  // Signed ranges (min < 0 < max) anchor the fill chunk at zero and grow outward;
+  // unsigned ranges stay left-anchored.
   const isSigned = min < 0 && max > 0;
   const toPercent = (v: number) => ((v - min) / safeRange) * 100;
-  // Treat the ±step/2 band around zero as exactly zero in fill geometry so
-  // a sub-step `reported` value (e.g. 0.4 with step=1) doesn't paint a
-  // sliver while the readout already shows "0".
+  // Treat the ±step/2 band around zero as exactly zero so a sub-step `reported` value
+  // doesn't paint a sliver while the readout already shows "0".
   const fillLeft = useTransform(reported, (v) => {
     const clamped = clamp(v, min, max);
     if (isSigned && Math.abs(clamped) < step / 2) {
@@ -112,12 +117,6 @@ export function Slider({
     return format ? format(stepped) : String(stepped);
   });
 
-  // Mirror the motion value into React state — NumericText takes a plain
-  // string prop, so it needs a re-render on every tween frame to morph its
-  // digits in step with the fill bar.
-  const [displayedText, setDisplayedText] = useState(() => displayed.get());
-  useMotionValueEvent(displayed, "change", setDisplayedText);
-
   const drag = usePointerDrag({
     trackRef,
     value,
@@ -126,7 +125,6 @@ export function Slider({
     step,
     onChange,
     reported,
-    rubberBand,
     stopPropAnim: () => {
       if (propAnimRef.current) {
         propAnimRef.current.stop();
@@ -135,9 +133,8 @@ export function Slider({
     },
   });
 
-  // Tween `reported` toward the controlled prop on non-drag changes
-  // (preset, keyboard). During a pointer drag the drag is the source of
-  // truth — skip the tween so the input stays snappy.
+  // Tween `reported` toward the controlled prop on non-drag changes (preset, keyboard).
+  // During a drag the drag is the source of truth — skip the tween.
   useEffect(() => {
     if (drag.isDraggingRef.current) return;
     if (propAnimRef.current) propAnimRef.current.stop();
@@ -212,16 +209,13 @@ export function Slider({
             className="playground-slider-value inline-flex shrink-0 select-none justify-end whitespace-nowrap text-[rgba(126,117,108,0.5)]"
             style={{ minWidth: readoutMinWidth }}
           >
-            <NumericText value={displayedText} transition={READOUT_TRANSITION} />
+            <Readout displayed={displayed} />
           </span>
         )}
       </div>
-      {/* Hit-area band. Asymmetric padding so the band's painted top
-          sits at the label's bottom edge (no overlap onto the label's
-          double-click target) while still extending the bottom hit
-          area into the row's padding below. `-mt-2` exactly cancels
-          the `gap-2` above; `pt-2` reclaims that 8px as a top
-          hit extension into the gap. Total target: 8 + 8 + 16 = 32px. */}
+      {/* Hit-area band. `-mt-2` cancels the `gap-2` above and `pt-2` reclaims it as a top
+          hit extension into the gap, so the target reaches ~32px without overlapping the
+          label's double-click area. */}
       <div
         className="w-full touch-none select-none pt-2 pb-4 -mt-2 -mb-4"
         onPointerDown={drag.onPointerDown}
@@ -233,34 +227,32 @@ export function Slider({
           className="relative w-full"
           style={{ height: trackHeight }}
         >
-          <motion.div
-            className="absolute top-0 left-0 h-full"
-            style={{
-              width: rubberBand.width,
-              x: rubberBand.x,
-              scaleY: rubberBand.scaleY,
-            }}
-          >
-            <SmoothCorners
-              asChild
-              autoEffects={false}
-              corners={{ radius: trackHeight / 2, smoothing: tuning.trackSmoothing }}
-            >
-              <div
-                className="relative h-full w-full overflow-hidden bg-[rgba(126,117,108,0.12)]"
-                aria-hidden
-              >
-                <motion.div
-                  className="absolute top-0 h-full bg-[#7e756c]"
-                  style={{ left: fillLeft, width: fillWidth }}
-                />
+          <div className="absolute inset-0 h-full w-full">
+            {renderFill ? (
+              // A custom fill owns the whole track; `overflow: visible` lets a warped edge bleed.
+              <div className="relative h-full w-full" style={{ overflow: "visible" }} aria-hidden>
+                {renderFill({ reported, min, max })}
               </div>
-            </SmoothCorners>
-          </motion.div>
-          {/* Hidden native range stays as the keyboard + screen-reader path.
-              Pointer events are disabled so it never steals drags from the
-              elastic handler. It remains focusable via Tab and still
-              receives arrow-key input. */}
+            ) : (
+              <SmoothCorners
+                asChild
+                autoEffects={false}
+                corners={{ radius: trackHeight / 2, smoothing: tuning.trackSmoothing }}
+              >
+                <div
+                  className="relative h-full w-full overflow-hidden bg-[rgba(126,117,108,0.12)]"
+                  aria-hidden
+                >
+                  <motion.div
+                    className="absolute top-0 h-full bg-[#7e756c]"
+                    style={{ left: fillLeft, width: fillWidth }}
+                  />
+                </div>
+              </SmoothCorners>
+            )}
+          </div>
+          {/* Hidden native range = the keyboard + screen-reader path. Pointer events are
+              disabled so it never steals drags; it stays focusable via Tab for arrow input. */}
           <input
             id={id}
             type="range"

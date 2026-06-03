@@ -4,9 +4,7 @@ import { SQUIGGLES } from "../components/docs/squiggles.ts";
 
 const BROWN = "#73574a";
 
-// Demo: every marker squiggle in the library, drawn at once. Hit Replay to re-scribble them
-// all (the same draw animation the legend underline uses). The underline picks one of these
-// at random on each selection, so it looks freshly hand-drawn every time.
+// Scratch page: every marker squiggle in the library, drawn at once. Replay re-scribbles them all.
 export function Squiggles() {
   const [gen, setGen] = useState(0);
 

@@ -1,26 +1,16 @@
 /**
- * The fully-resolved baseline configuration that sits at the bottom of the merge
- * chain (A7: defaults → preset → user).
- *
- * Every documented default lives here as a concrete value with no optionals, so
- * `resolveOptions()` can layer partial overrides on top of a guaranteed-complete
- * object. Defaults are chosen in the Japan-Stationery-Award spirit: maximize
- * legibility, minimize what the consumer has to think about — fluorescent yellow
- * ink, subtractive `multiply` optics, soft rounded edges, no glow.
- *
- * Frozen and side-effect-free (no DOM access).
+ * The fully-resolved baseline that sits at the bottom of the merge chain
+ * (defaults → preset → user). Every default is a concrete value with no optionals,
+ * so `resolveOptions()` can layer partial overrides on a guaranteed-complete
+ * object. Deep-frozen so it can be shared as the merge floor without any consumer
+ * mutating it.
  */
 
 import type { ResolvedOptions } from "../types.js";
 import { defaultSwatch } from "./palettes.js";
 
-/**
- * The baseline {@link ResolvedOptions}. Deep-frozen so it can be safely shared as
- * the merge floor without any consumer mutating the shared constant.
- */
 export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   markType: "highlight",
-  // Fluorescent yellow — the canonical least-text-obscuring hue (R15).
   color: defaultSwatch("fluorescent"),
   gradient: null,
   opacity: 0.85,
@@ -30,8 +20,6 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     width: 16,
     thickness: 4,
     angle: 35,
-    // A hair of overrun past the text with a touch of per-end variance — the
-    // default "real swipe" end behaviour (R12); fully tunable via the Ends knobs.
     overshoot: 2,
     overshootJitter: 1,
     angleJitter: 0,
@@ -44,14 +32,9 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     streakiness: 0.35,
     dryout: 0.15,
     startEndBuildup: 0.25,
-    // On by default: a real marker lays the most ink where it touches down and
-    // runs drier as it slides, so each line starts saturated and fades toward its end.
     flowFade: 0.5,
   }),
-  // Speed-aware deposit — a Beta effect, OFF by default (opt-in). When enabled it
-  // stays full thickness through a normal drag and only a genuinely fast flick
-  // lightens it (full at/below 2.5 px/ms, driest at 10.5), with strong dry-out,
-  // edge-sharpening, and end-pooling at the extreme.
+  // Speed-aware deposit is Beta and off by default; thresholds are px/ms.
   speed: Object.freeze({
     enabled: false,
     sensitivity: 1,
@@ -67,8 +50,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   }),
   edge: Object.freeze({
     waviness: 1.5,
-    // px segmentLength of the wave grid — width-independent (R22c).
-    frequency: 22,
+    frequency: 22, // px segmentLength of the wave grid
     roughness: 0.3,
     cap: "round",
     radius: 4,

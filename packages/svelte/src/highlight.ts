@@ -1,23 +1,14 @@
 import { highlight as coreHighlight } from "@highlighters/core";
 import type { HighlightOptions, MarkHandle } from "@highlighters/core";
 
-/** The action return contract: `update` on param change, `destroy` on unmount. */
 export interface HighlightAction {
   update: (options?: HighlightOptions) => void;
   destroy: () => void;
 }
 
 /**
- * Svelte action that highlights an element's text content with a realistic
- * highlighter mark. Delegates entirely to the core `highlight()` pipeline
- * (blueprint A1): the mark is created when the action attaches, re-applied via
- * `handle.update()` when the action parameter changes, and removed in
- * `destroy()` (R9). The element's text stays intact and selectable (R29) — the
- * mark is a decorative overlay.
- *
- * @param node - The element to highlight (the `use:` host).
- * @param options - Highlight options forwarded to the core pipeline.
- * @returns A {@link HighlightAction} with `update` / `destroy` lifecycle hooks.
+ * Svelte action that highlights an element's text content with a realistic mark.
+ * Text stays intact and selectable — the mark is a decorative overlay.
  *
  * @example
  * ```svelte
@@ -32,8 +23,7 @@ export function highlight(node: Element, options?: HighlightOptions): HighlightA
 
   return {
     update(next?: HighlightOptions): void {
-      // Push the new options through the live handle so stable geometry is
-      // preserved (R22d) rather than tearing down and re-seeding the mark.
+      // Push through the live handle to preserve geometry rather than re-seeding.
       handle.update(next ?? {});
     },
     destroy(): void {

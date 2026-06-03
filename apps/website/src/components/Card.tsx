@@ -2,8 +2,7 @@ import { SmoothCorners } from "@lisse/react";
 import type { ShadowConfig } from "@lisse/core";
 import type { ReactNode } from "react";
 
-// Figma's 5-layer card shadow as Lisse ShadowConfigs, so the lift traces the
-// squircle (a CSS box-shadow would be clipped by the clip-path).
+// Lisse ShadowConfigs (not box-shadow) so the lift traces the squircle clip-path.
 const CARD_SHADOW: ShadowConfig[] = [
   { offsetX: 0, offsetY: 0, blur: 0, spread: 1, color: "#777777", opacity: 0.19 },
   { offsetX: 0, offsetY: 0, blur: 0, spread: 0.5, color: "#73574A", opacity: 0.08 },

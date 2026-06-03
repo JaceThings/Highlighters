@@ -16,21 +16,15 @@ import { buildPoolGradient } from "./pool.js";
 import { hashJitter } from "./rng.js";
 
 /**
- * The resolution-independent tie-it-together step (anchored-grid doc, blueprint
- * R22c/R22d/A14): from one line rect + resolved options + seed, produce the
- * complete absolute-px {@link MarkGeometry} for a single visual line.
+ * The resolution-independent tie-it-together step: from one line rect + resolved
+ * options + seed, produce the complete absolute-px {@link MarkGeometry} for a
+ * single visual line.
  *
- * Everything here is anchored to absolute pixel coordinates and seeded by the
- * line's stable seed, so:
- *
- *  - identical inputs yield a **byte-identical** result (V2 determinism);
- *  - the same logical mark at two widths shares wave wavelength, grain density,
- *    and cap-pool px — only the *count* of wave periods differs (V9e);
- *  - growing the mark only appends fresh grid vertices; the path prefix for the
- *    already-covered region stays unchanged (V9f).
- *
- * The function consumes a plain {@link LineRect} (no DOM access), so it is safe
- * from the SSR `/path` entry.
+ * Everything is anchored to absolute px and seeded by the line's stable seed, so
+ * identical inputs yield a byte-identical result; the same mark at two widths
+ * shares wave wavelength, grain density, and cap-pool px (only the period count
+ * differs); and growing the mark only appends fresh grid vertices. Consumes a
+ * plain {@link LineRect} (no DOM access), so it is safe from the SSR `/path` entry.
  */
 
 /** Vertical padding above/below the text so the wavy edge stays clear of glyphs. */
@@ -43,7 +37,6 @@ const SEED_TOP_EDGE = 200;
 const SEED_BOTTOM_EDGE = 300;
 const SEED_ANGLE = 400;
 
-/** Mask-sample offset multipliers (A14 §1 / source). */
 const MASK_X_MULT = 37;
 const MASK_Y_MULT = 13;
 
@@ -53,12 +46,11 @@ function mod(n: number, m: number): number {
 }
 
 /**
- * Resolve the band's vertical placement and thickness for the mark type (A8).
- * Every mark is one band primitive at a different vertical position/height:
- * `highlight` fills the line; `underline` is a thin band at the baseline,
- * `overline` a thin band at the top, `strike-through` a thin centered band.
- * Returns the band's top offset (relative to the line's padded top) and height,
- * both px.
+ * Resolve the band's vertical placement and thickness for the mark type. Every
+ * mark is one band primitive at a different position/height: highlight fills the
+ * line; underline/overline are thin bands at the baseline/top; strike-through a
+ * thin centered band. Returns the top offset (relative to the padded top) and
+ * height, both px.
  */
 function resolveBand(
   markType: ResolvedOptions["markType"],
@@ -72,7 +64,6 @@ function resolveBand(
       return { offsetY: 0, height: thin };
     case "strike-through":
       return { offsetY: (lineHeight - thin) / 2, height: thin };
-    // highlight: the full-line band.
     default:
       return { offsetY: 0, height: lineHeight };
   }
@@ -81,17 +72,13 @@ function resolveBand(
 /**
  * Build the full geometry for one visual line.
  *
- * @param lineRect - The line's measured rect, in absolute px.
- * @param options - Fully-resolved options (the single source of truth).
- * @param seed - The stable seed every value derives from. The caller passes the
- *   line's anchor-relative seed (or an explicit `options.seed`).
+ * @param seed - The stable seed every value derives from (the line's
+ *   anchor-relative seed, or an explicit `options.seed`).
  * @param flowReversed - Pour the dry-out gradient from the right (the nib's
- *   touchdown end on a right-to-left / backward live selection). Forward by
- *   default; only the live-selection path sets it.
- * @param speedProfile - Live-only per-line swipe-speed read (see
- *   {@link LineSpeedProfile}). When present, the line gets speed-aware deposit
- *   (per-x, in the pool gradient) and texture (per-line). Absent for every static
- *   mark and no-drag paint, leaving byte-identical geometry.
+ *   touchdown end on a backward live selection). Only the live-selection path sets it.
+ * @param speedProfile - Live-only per-line swipe-speed read. When present, the line
+ *   gets speed-aware deposit (per-x, in the pool gradient) and texture (per-line).
+ *   Absent for every static mark and no-drag paint, leaving byte-identical geometry.
  */
 export function buildMarkGeometry(
   lineRect: LineRect,
@@ -102,48 +89,38 @@ export function buildMarkGeometry(
 ): MarkGeometry {
   const { edge, ink, tip, paper, speed } = options;
 
-  // --- End extensions (deterministic per seed) ------------------------------
-  // `tip.overshoot` governs how far EACH end of EVERY line runs past (positive)
-  // or short of (negative) the text edge — applied uniformly to every line, not
-  // just a run's outer ends. A deterministic per-end jitter keeps the two ends
-  // from landing on an identical inset (R12), seeded by the (width-independent)
-  // line seed so growing a mark never shifts its start (the anchored-grid prefix
-  // invariant, R22d).
+  // `tip.overshoot` is how far EACH end of EVERY line runs past (positive) or
+  // short of (negative) the text edge. The per-end jitter keeps the two ends off
+  // an identical inset, seeded by the width-independent line seed so growing a
+  // mark never shifts its start.
   const endOver = (s: number): number =>
     tip.overshoot + hashJitter(s) * tip.overshootJitter;
   const leftExt = endOver(seed + SEED_LEFT_OVER);
   const rightExt = endOver(seed + SEED_RIGHT_OVER);
 
-  // --- Per-line slant jitter ------------------------------------------------
-  // `tip.angleJitter` nudges the chisel angle by a deterministic ±jitter per line
-  // (seeded by the line seed, so it's stable under scroll/resize/draw-on) — a
-  // hand never repeats the exact lean. Drives BOTH the clip-path and the
-  // `slant`/`minFront` fields, so the painted shape and the draw-on front agree.
+  // Per-line slant jitter, seeded by the line seed (stable under
+  // scroll/resize/draw-on). Drives BOTH the clip-path and the `slant`/`minFront`
+  // fields, so the painted shape and the draw-on front agree.
   const slantTip =
     tip.angleJitter > 0
       ? { ...tip, angle: tip.angle + hashJitter(seed + SEED_ANGLE) * tip.angleJitter }
       : tip;
 
-  // --- Band box in absolute px ----------------------------------------------
   const band = resolveBand(options.markType, lineRect.height);
   const boxX = lineRect.left - leftExt;
   const boxY = lineRect.top - VERT_PAD + band.offsetY;
-  // Clamp to a positive width so an aggressive negative overshoot on a short
-  // mark can never invert the box.
+  // Positive-width clamp so an aggressive negative overshoot can't invert the box.
   const boxWidth = Math.max(1, lineRect.width + leftExt + rightExt);
   const boxHeight = band.height + VERT_PAD * 2;
   const box: Box = { x: boxX, y: boxY, width: boxWidth, height: boxHeight };
 
-  // --- Wave edges on the fixed global grid ----------------------------------
   // Amplitude grows slightly with paper absorbency (a wetter, fuzzier edge);
-  // wavelength is the resolved px segmentLength (frequency), width-independent.
+  // wavelength is the resolved px frequency, width-independent.
   const amplitude = edge.waviness * (1 + paper.absorbency * 0.5);
   const segmentLength = edge.frequency;
 
-  // Edge baselines are local to the box: the top edge runs along y≈0 (after the
-  // top corner inset), the bottom edge along y≈height. The grid uses absolute x
-  // (box.x .. box.x + width) so growing the extent appends fresh grid vertices;
-  // we then shift the emitted vertices into local box coordinates for the path.
+  // The grid uses absolute x so growing the extent appends fresh grid vertices;
+  // the emitted vertices are then shifted into local box coordinates for the path.
   const absStartX = box.x;
   const absEndX = box.x + box.width;
 
@@ -166,8 +143,7 @@ export function buildMarkGeometry(
     seed: seed + SEED_BOTTOM_EDGE,
   });
 
-  // Translate grid x into local box coordinates for the clip path. The grid
-  // index is preserved so prefix-stability tests can compare per-index vertices.
+  // Grid index is preserved so prefix-stability tests can compare per-index vertices.
   const toLocal = (v: EdgeVertex): EdgeVertex => ({
     x: v.x - box.x,
     y: v.y,
@@ -176,10 +152,9 @@ export function buildMarkGeometry(
   const topEdge: EdgeVertex[] = topAbs.map(toLocal);
   const bottomEdge: EdgeVertex[] = bottomAbs.map(toLocal);
 
-  // --- Clip path (absolute-px local path()) ---------------------------------
-  // The clip-path, parameterized by an advancing front for the draw-on. The full
-  // mark is `clipAtFront(box.width)`; the entrance calls it with a growing front
-  // so the band gains grid nodes frame to frame (never stretches).
+  // Clip-path parameterized by an advancing front for the draw-on. The full mark
+  // is `clipAtFront(box.width)`; the entrance calls it with a growing front so the
+  // band gains grid nodes frame to frame (never stretches).
   const clipAtFront = (front: number): string =>
     buildClipPath({
       box,
@@ -192,15 +167,12 @@ export function buildMarkGeometry(
     });
   const clipPath = clipAtFront(box.width);
 
-  // --- Shared noise tile + per-line sample offset (never scaled) ------------
-  // streakiness → lengthwise lanes, feathering (+ absorbency) → soft blotches,
-  // dryout → probabilistic transparent skip-holes (viscosity raises dryout, since
-  // a more viscous ink skips more on a dry pass).
-  // Speed-aware texture (live drag only): a faster MEAN swipe lays a drier,
-  // streakier, sharper line. This is per-line — the noise tile is one sample window
-  // per line and can't vary within it — so it tracks the line's mean speed; the
-  // continuous per-x dry-out lives in the pool gradient below. With no profile, the
-  // three values reduce to exactly the original expressions (byte-identical).
+  // Shared noise tile (never scaled): streakiness → lengthwise lanes, feathering
+  // (+ absorbency) → soft blotches, dryout → transparent skip-holes (viscosity
+  // raises dryout). Speed-aware texture (live drag only): a faster mean swipe lays
+  // a drier, streakier line. This is per-line — the tile is one sample window per
+  // line — so it tracks mean speed; the per-x dry-out lives in the pool gradient.
+  // With no profile, the three values reduce to the original expressions.
   const sp = speedProfile;
   const m = sp ? sp.meanNorm : 0;
   const sens = speed.sensitivity;
@@ -222,7 +194,6 @@ export function buildMarkGeometry(
     y: -mod(seed * MASK_Y_MULT, noiseTile.height),
   };
 
-  // --- End-pool gradient (absolute-px clamped) ------------------------------
   const pool = buildPoolGradient({
     lengthPx: box.width,
     startEndBuildup: ink.startEndBuildup,
@@ -232,7 +203,7 @@ export function buildMarkGeometry(
     flowFade: ink.flowFade,
     flowReversed,
     // Live speed path: per-x deposit across N stops + extra end pooling from
-    // deceleration into the line. Omitted entirely without a profile (legacy 4-stop).
+    // deceleration. Omitted without a profile (legacy 4-stop).
     ...(sp
       ? {
           coreStopCount: speed.resolution,
@@ -247,9 +218,7 @@ export function buildMarkGeometry(
     seed,
     clipPath,
     clipAtFront,
-    // Same slant the clip-path uses (top leads bottom by this many px).
     slant: chiselSlant(slantTip, box.width, box.height),
-    // The tip touchdown width the draw-on starts from (no sub-tip pause).
     minFront: Math.min(minVisibleFront(slantTip, edge.cap, box.width, box.height, edge.radius), box.width),
     topEdge,
     bottomEdge,

@@ -1,17 +1,15 @@
 /**
  * Tier C renderer — the CSS Custom Highlight API (`::highlight()`).
  *
- * The maximally-safe tier (blueprint R26 / R29): it registers the mark's `Range`s
- * with `CSS.highlights` and paints them via a generated `::highlight()` rule. It
- * adds **zero** overlay DOM, multiline is native, find-in-page and selection are
- * unaffected, and the text nodes are never touched. The trade-off is fidelity —
- * the highlight is flat colour only, with no edge organicness, texture, or
- * multiply optics. Degrade to this tier is fidelity-only: the band's colour and
- * coverage still match the other tiers (R28).
+ * The maximally-safe tier (blueprint R26 / R29): registers the mark's `Range`s with
+ * `CSS.highlights` and paints them via a generated `::highlight()` rule. Zero overlay
+ * DOM, native multiline, find-in-page/selection unaffected, text nodes untouched.
+ * The trade-off is fidelity — flat colour only, no edge organicness/texture/multiply
+ * — but colour and coverage still match the other tiers (R28).
  *
- * Each renderer instance owns one named `Highlight` registration and one CSS rule
- * in a shared, document-level `<style>` element. `unmount()` deregisters the
- * highlight and removes its rule, leaving the document pristine (R9).
+ * Each instance owns one named `Highlight` registration and one CSS rule in a
+ * shared `<style>`. `unmount()` deregisters and removes its rule, leaving the
+ * document pristine (R9).
  */
 
 import type { Renderer, RenderContext } from "../types.js";
@@ -19,14 +17,9 @@ import type { Renderer, RenderContext } from "../types.js";
 /** Monotonic id source so concurrent marks never collide on a highlight name. */
 let highlightSeq = 0;
 
-/** The id of the shared `<style>` element holding every `::highlight()` rule. */
 const STYLE_ID = "highlighters-highlight-api-styles";
 
-/**
- * Lazily create (or return) the single document-level `<style>` that holds all
- * `::highlight()` rules. One shared stylesheet keeps DOM churn to a single node
- * regardless of how many Tier C marks are live.
- */
+/** Lazily create (or return) the single shared `<style>` for all `::highlight()` rules. */
 function getSharedStyle(doc: Document): HTMLStyleElement {
   const existing = doc.getElementById(STYLE_ID);
   if (existing instanceof HTMLStyleElement) return existing;
@@ -37,10 +30,7 @@ function getSharedStyle(doc: Document): HTMLStyleElement {
   return style;
 }
 
-/**
- * Whether the Custom Highlight API is usable in this environment. Guarded so the
- * renderer no-ops safely under SSR or on engines without the API (C1).
- */
+/** Whether the Custom Highlight API is usable here; guarded for SSR/old engines (C1). */
 function highlightApiAvailable(): boolean {
   return (
     typeof CSS !== "undefined" &&
@@ -50,14 +40,9 @@ function highlightApiAvailable(): boolean {
 }
 
 /**
- * Create a Tier C renderer.
- *
- * The renderer paints the mark's originating ranges (from
- * {@link RenderContext.ranges}) in a flat colour derived from the resolved
- * options. It writes one rule into the shared stylesheet keyed by a unique
- * highlight name and registers a `Highlight` over the ranges.
- *
- * @returns A {@link Renderer} whose `tier` is `"highlight-api"`.
+ * Create a Tier C renderer (`tier: "highlight-api"`). Paints the mark's originating
+ * ranges in a flat colour: one rule in the shared stylesheet keyed by a unique
+ * highlight name, plus a `Highlight` registered over the ranges.
  */
 export function createHighlightApiRenderer(): Renderer {
   const name = `highlighters-${++highlightSeq}`;
@@ -65,19 +50,16 @@ export function createHighlightApiRenderer(): Renderer {
   let styleEl: HTMLStyleElement | null = null;
   let ruleText = "";
 
-  /** Build the `::highlight()` rule body from resolved options. */
   function ruleFor(context: RenderContext): string {
     const { options } = context;
-    // Tier C is flat colour only, but it must honour OPACITY so its coverage
-    // matches Tiers A/B (R28: degrade is fidelity-only — identity stays). The
-    // Highlight API exposes no `opacity` or `mix-blend-mode` on `::highlight()`,
-    // so fold opacity into the fill via `color-mix` toward transparent. Blend
-    // mode is unavoidably dropped (no paintable property for it).
+    // The Highlight API exposes no `opacity`/`mix-blend-mode` on `::highlight()`,
+    // so fold opacity into the fill via `color-mix` to match Tiers A/B coverage
+    // (R28). Blend mode is unavoidably dropped (no paintable property for it).
     const alpha = Math.max(0, Math.min(1, options.opacity));
-    // options.color lands in stylesheet RULE TEXT here (`styleEl.textContent`),
-    // not a CSSOM property setter — so it must be guarded against CSS injection.
-    // `CSS.supports` accepts only a bare colour value and rejects anything crafted
-    // to close `color-mix()` and inject extra rules; fall back to transparent.
+    // options.color lands in stylesheet RULE TEXT (`styleEl.textContent`), not a
+    // CSSOM setter, so it must be guarded against CSS injection: `CSS.supports`
+    // accepts only a bare colour and rejects anything crafted to close `color-mix()`
+    // and inject extra rules. Fall back to transparent.
     const raw = String(options.color);
     const color =
       typeof CSS !== "undefined" && CSS.supports?.("color", raw) ? raw : "transparent";
@@ -86,7 +68,6 @@ export function createHighlightApiRenderer(): Renderer {
     return `::highlight(${name}) { ${decls.join("; ")}; }`;
   }
 
-  /** Register (or re-register) the ranges under this renderer's highlight name. */
   function register(ranges: Range[]): void {
     if (!highlightApiAvailable()) return;
 
@@ -106,17 +87,14 @@ export function createHighlightApiRenderer(): Renderer {
     if (!doc) return;
     styleEl ??= getSharedStyle(doc);
     ruleText = ruleFor(context);
-    // Rebuild this renderer's rule in place; updates replace rather than
-    // accumulate, and other marks' rules in the shared sheet are untouched.
     rewriteOwnRule();
   }
 
   /** Replace this renderer's rule in the shared sheet without disturbing others. */
   function rewriteOwnRule(): void {
     if (!styleEl) return;
-    // Strip only THIS renderer's `::highlight(name){…}` rule (others stay byte-intact),
-    // then append the fresh one. Targeting the rule by pattern is more robust than
-    // splitting the whole sheet on `}`. `name` is escaped for regex safety.
+    // Strip only THIS renderer's rule by pattern (others stay byte-intact), then
+    // append the fresh one. `name` is escaped for regex safety.
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const ownRule = new RegExp(`\\s*::highlight\\(${escaped}\\)\\s*\\{[^}]*\\}`, "g");
     const base = (styleEl.textContent ?? "").replace(ownRule, "").trim();
@@ -136,8 +114,7 @@ export function createHighlightApiRenderer(): Renderer {
       writeRule(context);
     },
 
-    // Tier C adds no overlay DOM (it paints via ::highlight()), so there is no
-    // wrapper to draw on — the draw-on is a no-op for this tier.
+    // No overlay DOM (paints via ::highlight()), so there's no wrapper to draw on.
     bandFor: (): HTMLElement | null => null,
 
     unmount(): void {
@@ -146,10 +123,9 @@ export function createHighlightApiRenderer(): Renderer {
       }
       highlight = null;
       if (styleEl) {
-        // Remove only this renderer's rule; leave the shared sheet for others.
         ruleText = "";
         rewriteOwnRule();
-        // If the sheet is now empty, drop the node entirely so we leave no trace.
+        // Drop the node entirely once the sheet is empty, so we leave no trace.
         if (!styleEl.textContent || styleEl.textContent.trim() === "") {
           styleEl.remove();
         }

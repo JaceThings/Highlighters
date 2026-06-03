@@ -11,8 +11,8 @@ const KNOB = 39;
 const TRAVEL_MIN = TRACK_H / 2;
 const TRAVEL_MAX = TRACK_W - TRACK_H / 2;
 
-// SVG checkerboard — vector (crisp at any DPR) and one rect per cell, so no diagonal
-// seam like a gradient checker leaves. Three cells tall.
+// SVG checkerboard (crisp at any DPR, one rect per cell) avoids the diagonal seam a
+// gradient checker leaves.
 const CELL = TRACK_H / 3;
 const checkerboard = {
   backgroundImage: `url("${checkerUrl}")`,
@@ -20,7 +20,7 @@ const checkerboard = {
   backgroundRepeat: "repeat",
 };
 
-// Clip the checker + ramp to the capsule (single-path mask → no cap/middle seam).
+// Clip checker + ramp to the capsule with a single-path mask, so no cap/middle seam.
 const capsuleMask = {
   maskImage: `url("${maskUrl}")`,
   WebkitMaskImage: `url("${maskUrl}")`,
@@ -32,8 +32,8 @@ const capsuleMask = {
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
-/** Opacity slider: an ink ramp over a transparency checker, clipped to the dock's
- *  capsule, with a draggable knob. Drag / tap sets 0–1; arrows nudge 5%. */
+/** Opacity slider: ink ramp over a transparency checker, clipped to the capsule.
+ *  Drag / tap sets 0–1; arrows nudge 5%. */
 export function OpacitySlider({
   inkColor,
   value,
@@ -91,7 +91,6 @@ export function OpacitySlider({
       style={{ height: TRACK_H }}
     >
       <div aria-hidden className="absolute inset-0" style={{ ...capsuleMask, ...checkerboard }}>
-        {/* Ink ramp: transparent → full at the current colour; only the knob tracks the value. */}
         <div
           className="absolute inset-0"
           style={{ backgroundImage: `linear-gradient(to right, rgba(${rgb}, 0), rgba(${rgb}, 1))` }}

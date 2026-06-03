@@ -8,7 +8,7 @@ import { SelectionMarker } from "./components/SelectionMarker.tsx";
 import { SelectionStyleProvider } from "./selection-style.tsx";
 import { DockEntranceContext } from "./dock-entrance.tsx";
 
-// Loads the agentation dev-feedback toolbar in dev only.
+// The agentation dev-feedback toolbar, dev only.
 function DevAgentation() {
   const [Toolbar, setToolbar] = useState<ComponentType | null>(null);
   useEffect(() => {
@@ -23,11 +23,10 @@ function DevAgentation() {
 // The persistent app shell. Overlays + dock sit outside PageFade so they never
 // re-animate between pages; MotionConfig respects prefers-reduced-motion.
 export function RootLayout() {
-  // The dock holds its entrance until the page signals (signalReady); the timer is
-  // the fallback for routes with no cascade.
+  // The dock holds its entrance until the page signals; the timer is the fallback
+  // for routes with no cascade.
   const [dockReady, setDockReady] = useState(false);
   const signalReady = useCallback(() => setDockReady(true), []);
-  // Stable provider value so consumers re-render only when `dockReady` flips.
   const dockEntrance = useMemo(() => ({ ready: dockReady, signalReady }), [dockReady, signalReady]);
   useEffect(() => {
     const t = setTimeout(() => setDockReady(true), 2500);
@@ -44,9 +43,7 @@ export function RootLayout() {
             <PageFade />
           </Layout>
           <FocusRingOverlay />
-          {/* Document-global live selection marker (see SelectionMarker.tsx). */}
           <SelectionMarker />
-          {/* The PencilKit-style tool tray, fixed at the bottom-centre. */}
           <Dock />
           <DevAgentation />
         </DockEntranceContext.Provider>

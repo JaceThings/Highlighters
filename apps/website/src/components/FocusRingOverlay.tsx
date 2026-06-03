@@ -53,10 +53,9 @@ export function FocusRingOverlay({
     const ww = Math.max(0, wv as number);
     const hh = Math.max(0, hv as number);
     if (ww === 0 || hh === 0) return "";
-    // Cap radius against the rect's min dimension so small elements
-    // (e.g. compact footer links) don't render as near-capsules — the
-    // smoothing extends the curve past `radius` and eats the straight
-    // edge entirely on the short axis without this clamp.
+    // Cap radius against the rect's min dimension so small elements don't render as
+    // near-capsules — smoothing extends the curve past `radius` and would eat the
+    // straight edge entirely on the short axis.
     const r = Math.min(
       radius + Math.min(offsetX, offsetY),
       Math.min(ww, hh) / 2.5,
@@ -74,9 +73,8 @@ export function FocusRingOverlay({
     type Rect = { nx: number; ny: number; nw: number; nh: number };
     let pendingTarget: Rect | null = null;
 
-    // Per-element outset via `data-focus-inset-x` / `-y` (in px). Lets
-    // text-only links (e.g. footer nav) request a wider ring without
-    // changing layout. Falls back to the prop defaults when absent.
+    // Per-element outset via `data-focus-inset-x` / `-y` (px) lets text-only links
+    // request a wider ring without changing layout. Falls back to the prop defaults.
     const measure = (el: HTMLElement): Rect => {
       const r = el.getBoundingClientRect();
       const insetX = Number(el.dataset.focusInsetX) || offsetX;
@@ -89,8 +87,7 @@ export function FocusRingOverlay({
       };
     };
 
-    // Jump springs alongside raw values so they don't interpolate from
-    // the previous position.
+    // Jump springs alongside raw values so they don't interpolate from the previous position.
     const snap = ({ nx, ny, nw, nh }: Rect) => {
       xS.jump(nx); yS.jump(ny); wS.jump(nw); hS.jump(nh);
       x.set(nx); y.set(ny); w.set(nw); h.set(nh);
@@ -146,8 +143,7 @@ export function FocusRingOverlay({
         getSection(targetRef.current) !== getSection(t);
 
       if (crossingSections) {
-        // Fade out, snap while invisible, fade back in — no long-distance
-        // slide between groups (e.g. a control pill → first install row).
+        // Fade out, snap while invisible, fade back in — no long-distance slide between groups.
         targetRef.current = t;
         fadingOut = true;
         pendingTarget = dest;
@@ -181,9 +177,8 @@ export function FocusRingOverlay({
       });
     };
 
-    // Activation keys (Enter/Space/Escape) don't indicate in-page
-    // navigation; counting them would re-trigger the ring on the next
-    // programmatic .focus().
+    // Only NAV_KEYS count as keyboard modality; activation keys (Enter/Space/Escape)
+    // would re-trigger the ring on the next programmatic .focus().
     const onModalityKey = (e: KeyboardEvent) => {
       if (!NAV_KEYS.has(e.key)) return;
       // Modifier + arrow is a browser shortcut, not in-page navigation.
@@ -194,10 +189,9 @@ export function FocusRingOverlay({
       lastModality.current = "mouse";
     };
 
-    // The focused link itself never fades; its motion.span ancestor does
-    // (Home link exit, route exit). Any ancestor below opacity 1 means
-    // we're being animated out — fade the ring instead of tracking the
-    // moving target.
+    // The focused link itself never fades, but a motion.span ancestor can (route exit).
+    // Any ancestor below opacity 1 means we're animating out — fade the ring instead of
+    // tracking the moving target.
     const isMidExit = (el: HTMLElement): boolean => {
       let node: HTMLElement | null = el;
       while (node && node !== document.body) {
@@ -208,11 +202,9 @@ export function FocusRingOverlay({
       return false;
     };
 
-    // Targets can move externally (footer slides on route change). The
-    // poll re-feeds raw values so the springs follow; writes are no-ops
-    // when nothing's moving. Bail on removed or mid-exit elements —
-    // otherwise getBoundingClientRect on a detached node returns the
-    // zero-rect and the ring snaps to the viewport origin.
+    // Targets can move externally (footer slides on route change); the poll re-feeds raw
+    // values so the springs follow. Bail on removed/mid-exit elements — getBoundingClientRect
+    // on a detached node returns the zero-rect and the ring snaps to the viewport origin.
     let rafId = 0;
     const follow = () => {
       if (visible.current && targetRef.current && !fadingOut) {

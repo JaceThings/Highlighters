@@ -1,8 +1,6 @@
 import { Section } from "../../components/playground/Section.tsx";
 
-// Everything not given its own live demo above — documented here so the page still covers
-// the whole API. Some are best tried on the home page (live selection); the rest are
-// straightforward enough to read about and set in code. Full reference link below.
+// Options without their own live demo, documented here so the page covers the whole API.
 const ROWS: { name: string; note: string }[] = [
   { name: "ink.startEndBuildup", note: "Ink at the stroke ends. Positive pools (wet look); negative engages the anti-pool guardrail (premium look)." },
   { name: "glow.enabled / intensity / spread", note: "Additive fluorescence over the multiply ink, with its own strength and bloom radius. Off by default." },
