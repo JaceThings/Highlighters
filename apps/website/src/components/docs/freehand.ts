@@ -21,7 +21,7 @@ export function samplePath(d: string, n: number): [number, number][] {
     const len = p.getTotalLength();
     const pts: [number, number][] = [];
     for (let i = 0; i < n; i++) {
-      const pt = p.getPointAtLength((i / (n - 1)) * len);
+      const pt = p.getPointAtLength((i / Math.max(n - 1, 1)) * len);
       pts.push([pt.x, pt.y]);
     }
     pathCache.set(key, pts);

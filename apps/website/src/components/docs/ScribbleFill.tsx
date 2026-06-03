@@ -44,7 +44,7 @@ function getOutlines(): string[] {
  */
 export function ScribbleDefs() {
   return (
-    <svg width="0" height="0" aria-hidden className="absolute" style={{ position: "absolute" }}>
+    <svg width="0" height="0" aria-hidden className="absolute">
       <defs>
         <filter id={FILTER_ID} x="-4%" y="-50%" width="108%" height="200%">
           <feTurbulence type="fractalNoise" baseFrequency="0.6 0.9" numOctaves="2" seed="4" result="noise" />
