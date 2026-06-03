@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import getStroke from "perfect-freehand";
 import type { Squiggle, PressurePoint } from "./squiggles.ts";
+import { outlineViewBox, samplePath, toPath } from "./freehand.ts";
 
 // A hand-drawn marker underline, drawn the way the site's dividers are: take a squiggle's
 // centreline, sample it into points, and run it through Perfect Freehand each frame so the
@@ -43,47 +44,6 @@ function lerpPressure(c: PressurePoint[], t: number): number {
   return c[c.length - 1].pressure;
 }
 
-// Evenly sample n points along a path's length (uses a throwaway off-screen SVG). Cached at
-// module level so the DOM measurement runs once per unique path string — keeping the caller's
-// render-time useMemo free of repeat side effects and skipping re-measurement on remount.
-const pathCache = new Map<string, [number, number][]>();
-function samplePath(d: string, n: number): [number, number][] {
-  const key = `${d}:${n}`;
-  const hit = pathCache.get(key);
-  if (hit) return hit;
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.style.cssText = "position:absolute;visibility:hidden;width:0;height:0";
-  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  p.setAttribute("d", d);
-  svg.appendChild(p);
-  document.body.appendChild(svg);
-  try {
-    const len = p.getTotalLength();
-    const pts: [number, number][] = [];
-    for (let i = 0; i < n; i++) {
-      const pt = p.getPointAtLength((i / (n - 1)) * len);
-      pts.push([pt.x, pt.y]);
-    }
-    pathCache.set(key, pts);
-    return pts;
-  } finally {
-    document.body.removeChild(svg);
-  }
-}
-
-// getStroke outline → closed SVG path with quadratic midpoints.
-function toPath(pts: number[][]): string {
-  if (pts.length < 2) return "";
-  const d = [`M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const c = pts[i];
-    const nx = pts[i + 1];
-    d.push(`Q ${c[0].toFixed(2)} ${c[1].toFixed(2)} ${((c[0] + nx[0]) / 2).toFixed(2)} ${((c[1] + nx[1]) / 2).toFixed(2)}`);
-  }
-  d.push("Z");
-  return d.join(" ");
-}
-
 export function MarkUnderline({
   squiggle,
   color = "#73574a",
@@ -102,19 +62,7 @@ export function MarkUnderline({
     const raw = samplePath(squiggle.d, N);
     const samples = raw.map((p, i) => [p[0], p[1], lerpPressure(squiggle.pressure, i / (N - 1))] as [number, number, number]);
     const outline = getStroke(samples, strokeOpts(true));
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const [x, y] of outline) {
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-    }
-    const pad = 1;
-    const viewBox = `${(minX - pad).toFixed(2)} ${(minY - pad).toFixed(2)} ${(maxX - minX + 2 * pad).toFixed(2)} ${(maxY - minY + 2 * pad).toFixed(2)}`;
-    return { samples, staticD: toPath(outline), viewBox };
+    return { samples, staticD: toPath(outline), viewBox: outlineViewBox(outline) };
   }, [squiggle]);
 
   useEffect(() => {
