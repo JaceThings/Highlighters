@@ -12,7 +12,7 @@ const VIEW_W = 472;
 const VIEW_H = 10;
 const TRACK_BG = "rgba(126,117,108,0.12)";
 const INK = "#7e756c";
-const PEN_BLUE = "#3b7cf5";
+const PEN_BLUE = "#91b4ff";
 const STROKE_W = 2.3;
 const BG_WAVE = 1.3;
 
