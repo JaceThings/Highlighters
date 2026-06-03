@@ -6,59 +6,39 @@ import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
 import type { Quote } from "./quotes.ts";
 
 /**
- * The live preview EXHIBIT. Mirrors the Lisse Preview's framing — a centered
- * ~255px-tall canvas inside the white {@link FigureCard} — holding real sample
- * prose that is PRE-HIGHLIGHTED with the user's live build.
+ * The live preview that fills the top of every docs paper card: a real quote +
+ * attribution, PRE-HIGHLIGHTED with the user's live build so marks are visible by
+ * default (no selection) and LIVE-UPDATE the instant any control changes. The
+ * reader adjusts the control below; the quote itself is `select-none`.
  *
- * MENTAL MODEL — "museum exhibit". This prose is the exhibit: representative
- * phrases are wrapped in `<Highlight as="span">` and painted automatically with
- * the live {@link usePlaygroundOptions | playground options}, so marks are
- * visible by default (no selection required) and LIVE-UPDATE the instant any
- * control changes. The reader can press buttons to adjust what's inside, but
- * they never touch the exhibit itself — the whole block is `select-none`.
- *
- * RACE-PROOFING. The prose lives inside a `position: relative` container.
+ * RACE-PROOFING. The quote lives inside a `position: relative` container.
  * @highlighters attaches its overlay to the nearest positioned ancestor, so the
- * mark overlay is scoped INSIDE the exhibit's own DOM and visibility context.
- * It can never paint as a floating band before/over the text (the old
- * on-mount/refresh bug), and it can never land on the surrounding chrome.
+ * mark overlay is scoped INSIDE this block's own DOM and visibility context — it
+ * can never paint as a floating band over the text (the old on-mount/refresh bug)
+ * or land on the surrounding chrome.
  *
- * The sample deliberately exercises what a highlighter must get right:
- * - the heading (a short, bold run),
- * - a multi-word phrase that WRAPS across lines (per-line band seeding),
- * - an OVERLAPPING pair — an outer run with an inner word marked twice, the
- *   live demonstration of the Stack control: the inner word is painted by a
- *   second, separate mark laid over the first. With Stack ON (the `multiply`
- *   optic) the overlap reads visibly DARKER, the way two passes of translucent
- *   ink build up; with Stack OFF (the `normal` optic) the two same-colour bands
- *   merge into ONE cohesive colour with no darkening where they cross,
- * - a tail phrase.
+ * The middle ~64% of the quote is marked, with an inner word painted TWICE (a
+ * second mark over the first) to keep the Stack control legible: Stack ON (the
+ * `multiply` optic) darkens the overlap as two translucent passes build up; Stack
+ * OFF (`normal`) merges the same-colour bands flat with no darkening. The doubled
+ * word only changes OPACITY when toggled, so the mark never re-draws.
  *
- * Each run gets a distinct stable `seed` so its ink texture is deterministic and
- * the runs don't all share identical jitter. Every run's options are lowered
- * through {@link toCoreOptions} so the playground-only `stack` / overshoot knobs
- * become exactly what the core renderer consumes (`stack` → blend mode).
+ * Each run gets a distinct stable `seed` for deterministic ink texture; options
+ * are lowered through {@link toCoreOptions} so the playground-only `stack` /
+ * overshoot knobs become what the core renderer consumes (`stack` → blend mode).
+ * The `snap` demo uses {@link SnapPreview} instead (a Range, not span marks).
  */
 
-// Match the Lisse "Figure Content" frame height across every section. Exported so the
-// figure-card demos can reserve the same height before the Preview mounts.
-export const CANVAS_HEIGHT = 255;
-
 interface PreviewProps {
-  /** Bump to replay the draw-on animation: changing it remounts every
-   *  `<Highlight>` mark (via its React `key`) so each stroke re-draws.
-   *  Defaults to 0 — no replays. */
-  replayNonce?: number;
-  /** Render the paper-card variant: this quote + author (live-highlighted) filling the
-   *  sheet above the legend, instead of the fixed-height exhibit. */
-  quote?: Quote;
+  /** The quote + author painted (live-highlighted) on the sheet above the control. */
+  quote: Quote;
 }
 
 // Handwriting face for the quote (no webfont installed — fall back to a system hand).
 const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
 const QUOTE_INK = "#73574a";
 
-export function Preview({ replayNonce = 0, quote }: PreviewProps) {
+export function Preview({ quote }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Gate the marks on the Stagger entrance: before the text has fully faded
   // in, render the phrases as plain text; only paint marks once entered.
@@ -66,12 +46,11 @@ export function Preview({ replayNonce = 0, quote }: PreviewProps) {
 
   // Wrap a phrase in a live <Highlight> once entered, else render the SAME
   // children as plain inline text. The text is byte-identical in both states and
-  // the mark is an overlay, so swapping has zero layout shift. Folding
-  // `replayNonce` into the `key` remounts the mark to replay its draw-on; the
-  // per-run `seed` keeps each mark's key distinct so they don't collide.
+  // the mark is an overlay, so swapping has zero layout shift. Each run's stable
+  // `seed` keys its mark so the two overlapping marks never collide.
   const mark = (children: ReactNode, runOptions: HighlightOptions) =>
     entered ? (
-      <Highlight as="span" options={runOptions} key={`${runOptions.seed}-${replayNonce}`}>
+      <Highlight as="span" options={runOptions} key={runOptions.seed}>
         {children}
       </Highlight>
     ) : (
@@ -96,79 +75,45 @@ export function Preview({ replayNonce = 0, quote }: PreviewProps) {
   const stacked = previewOptions.stack !== false;
   const liveOpacity = core.opacity ?? 0.5;
 
-  const headingRun = { ...core, seed: 101 };
-  const phraseRun = { ...core, seed: 202 };
   const overlapOuterRun = { ...core, seed: 303 };
   const overlapInnerRun = { ...core, seed: 404, opacity: stacked ? liveOpacity : 0 };
-  const tailRun = { ...core, seed: 505 };
 
-  // Paper-card variant: a real quote with attribution, a middle phrase live-highlighted (with
-  // an inner word doubled so the stack toggle still reads). Fills the sheet above the legend.
-  if (quote) {
-    // Mark the middle ~64% of the quote.
-    const words = quote.text.split(" ");
-    const n = words.length;
-    const a = Math.min(n - 1, Math.floor(n * 0.18));
-    const b = Math.max(a + 1, Math.ceil(n * 0.82));
-    const lead = (s: string) => (s ? s + " " : "");
-    const trail = (s: string) => (s ? " " + s : "");
+  // A real quote with attribution, its middle ~64% live-highlighted (with an inner word doubled
+  // so the stack toggle still reads). Fills the sheet above the control.
+  const words = quote.text.split(" ");
+  const n = words.length;
+  const a = Math.min(n - 1, Math.floor(n * 0.18));
+  const b = Math.max(a + 1, Math.ceil(n * 0.82));
+  const lead = (s: string) => (s ? s + " " : "");
+  const trail = (s: string) => (s ? " " + s : "");
 
-    // `m` is the inner-overlap word that keeps the stack toggle legible.
-    const m = Math.min(b - 1, Math.floor((a + b) / 2));
-    const pre = lead(words.slice(0, a).join(" "));
-    const marked = (
-      <>
-        {lead(words.slice(a, m).join(" "))}
-        {mark(words[m], overlapInnerRun)}
-        {trail(words.slice(m + 1, b).join(" "))}
-      </>
-    );
-    const post = trail(words.slice(b).join(" "));
-
-    return (
-      <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
-        <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
-          <p
-            className="m-0 text-wrap-pretty"
-            style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line" }}
-          >
-            {"“"}
-            {pre}
-            {mark(marked, overlapOuterRun)}
-            {post}
-            {"”"}
-          </p>
-          <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
-            {"— " + quote.author}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // `m` is the inner-overlap word that keeps the stack toggle legible.
+  const m = Math.min(b - 1, Math.floor((a + b) / 2));
+  const pre = lead(words.slice(0, a).join(" "));
+  const marked = (
+    <>
+      {lead(words.slice(a, m).join(" "))}
+      {mark(words[m], overlapInnerRun)}
+      {trail(words.slice(m + 1, b).join(" "))}
+    </>
+  );
+  const post = trail(words.slice(b).join(" "));
 
   return (
-    <div
-      className="flex w-full items-center justify-center overflow-hidden px-7 py-6"
-      style={{ height: CANVAS_HEIGHT }}
-    >
-      {/* The exhibit: position:relative scopes the @highlighters overlay inside
-          this block, and select-none means the reader can never grab it. */}
-      <div className="relative flex max-w-[420px] select-none flex-col gap-3 text-text-primary">
-        <h3 className="text-[20px] leading-[1.3] font-[560] tracking-[-0.4px]">
-          {mark("The anchored-grid method", headingRun)}
-        </h3>
-
-        <p className="text-[15px] leading-[1.65] font-medium tracking-[-0.2px] text-wrap-pretty">
-          Real highlighters lay down{" "}
-          {mark(
-            <>
-              ink that {mark("pools", overlapInnerRun)} at the ends
-            </>,
-            overlapOuterRun,
-          )}{" "}
-          and {mark("feathers into the paper", phraseRun)}, never a flat
-          rectangle. Each mark is seeded deterministically so server and client
-          agree, and it {mark("stays perfectly legible", tailRun)} underneath.
+    <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
+      <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
+        <p
+          className="m-0 text-wrap-pretty"
+          style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line" }}
+        >
+          {"“"}
+          {pre}
+          {mark(marked, overlapOuterRun)}
+          {post}
+          {"”"}
+        </p>
+        <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
+          {"— " + quote.author}
         </p>
       </div>
     </div>
@@ -206,10 +151,11 @@ function snapRangeOffsets(text: string): { start: number; end: number } {
   const LEAD = 1; // the opening “ is one code unit
   const fw = words[ai];
   const lw = words[bi];
-  return {
-    start: LEAD + offsetOf(ai) + Math.floor(fw.length / 2), // mid word `ai`
-    end: LEAD + offsetOf(bi) + Math.max(1, Math.ceil(lw.length / 2)), // mid word `bi`
-  };
+  const start = LEAD + offsetOf(ai) + Math.floor(fw.length / 2); // mid word `ai`
+  const end = LEAD + offsetOf(bi) + Math.max(1, Math.ceil(lw.length / 2)); // mid word `bi`
+  // A single short even-length word would collapse start===end; never hand back an empty range
+  // (the snap demo's whole point is a non-empty mid-word span).
+  return { start, end: Math.max(end, start + 1) };
 }
 
 /**
@@ -244,9 +190,12 @@ export function SnapPreview({ quote }: { quote: Quote }) {
     const node = pRef.current?.firstChild;
     if (!node) return;
     const max = node.textContent?.length ?? 0;
+    const s = Math.min(start, Math.max(0, max - 1));
+    const e = Math.min(Math.max(end, s + 1), max);
+    if (e <= s) return; // nothing to mark (degenerate text)
     const r = document.createRange();
-    r.setStart(node, Math.min(start, max));
-    r.setEnd(node, Math.min(end, max));
+    r.setStart(node, s);
+    r.setEnd(node, e);
     setRange(r);
     setHost(hostRef.current);
   }, [entered, start, end, full]);

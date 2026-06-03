@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PALETTES, resolveSwatch } from "@highlighters/core";
 import type { ColorValue, PaletteSwatch, ShapeType } from "@highlighters/core";
 import { SmoothCorners } from "@lisse/react";
-import { FigureCard } from "../../components/playground/FigureCard.tsx";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
-import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
 import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
 import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
-import { Preview, SnapPreview, CANVAS_HEIGHT } from "../Preview.tsx";
+import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
+import { nextScribble } from "../../components/docs/scribbles.ts";
+import { Preview, SnapPreview } from "../Preview.tsx";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
 
@@ -87,36 +87,8 @@ type Demo =
   | (Base & { kind: "color" });
 
 // --- the controls --------------------------------------------------------------
-// Continuous / colour demos only — the discrete (button) ones render as a ScribbleLegend on
-// the paper card (see LegendControl), never here.
-function Control({ demo }: { demo: Exclude<Demo, { kind: "pills" | "toggle" }> }) {
-  const { options, set } = usePlaygroundOptions();
-
-  const onNum = useCallback(
-    (path: string) => (v: number, fromDrag?: boolean) => set(path, v, fromDrag),
-    [set],
-  );
-
-  if (demo.kind === "slider") {
-    return (
-      <div className={SLIDER_ROW}>
-        <Slider
-          label={demo.label}
-          value={getNum(options, demo.path, demo.def)}
-          min={demo.min}
-          max={demo.max}
-          step={demo.step}
-          format={FORMAT[demo.unit]}
-          onChange={onNum(demo.path)}
-        />
-      </div>
-    );
-  }
-
-  return <SwatchPicker />;
-}
-
-// The colour swatch row (a trimmed ColorSection — opacity is its own demo now).
+// The colour swatch row, sitting in the lower strip of the paper card (opacity is its own
+// slider demo now).
 const SWATCH_REFS: ReadonlyArray<PaletteSwatch> = [
   { palette: "fluorescent", swatch: "yellow" },
   { palette: "fluorescent", swatch: "green" },
@@ -156,13 +128,12 @@ function SwatchPicker() {
   const isRef = !!color && typeof color === "object" && "swatch" in color;
 
   return (
-    <div className={`w-full ${ROW_DIVIDER}`}>
-      <div
-        role="radiogroup"
-        aria-label="Color swatch"
-        className="flex w-full flex-wrap content-center items-center justify-center gap-3 p-3"
-      >
-        {SWATCH_CHIPS.map(({ ref, key, hex }) => {
+    <div
+      role="radiogroup"
+      aria-label="Color swatch"
+      className="flex w-full flex-wrap content-center items-center justify-center gap-3 px-4 py-5"
+    >
+      {SWATCH_CHIPS.map(({ ref, key, hex }) => {
           const selected = isRef && hex.toLowerCase() === activeHex;
           return (
             <button
@@ -189,15 +160,8 @@ function SwatchPicker() {
             </button>
           );
         })}
-      </div>
     </div>
   );
-}
-
-// Which demos render on the paper card (live quote + scribble legend) vs the white figure
-// card. A type guard so both this file and DocsPlayground agree, and `demo` narrows.
-export function isPaperDemo(demo: Demo): demo is Extract<Demo, { kind: "pills" | "toggle" }> {
-  return demo.kind === "pills" || demo.kind === "toggle";
 }
 
 // The discrete (button) controls render as a scribble-underline legend on the paper card.
@@ -225,33 +189,58 @@ function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle
   );
 }
 
+// A slider on the paper card whose fill is a hand-drawn scribble (a fresh random variation per
+// slider), drawn/undrawn by Perfect Freehand as the value moves. Sits in the lower strip of a
+// PaperCard, on the fold, mirroring the button legend.
+function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" }> }) {
+  const { options, set } = usePlaygroundOptions();
+  const [scribble] = useState(nextScribble);
+  const onNum = useCallback(
+    (v: number, fromDrag?: boolean) => set(demo.path, v, fromDrag),
+    [set, demo.path],
+  );
+  return (
+    <div className="px-5 pt-1 pb-5">
+      <Slider
+        label={demo.label}
+        value={getNum(options, demo.path, demo.def)}
+        min={demo.min}
+        max={demo.max}
+        step={demo.step}
+        format={FORMAT[demo.unit]}
+        onChange={onNum}
+        renderFill={(ctx) => <ScribbleFill index={scribble} {...ctx} />}
+      />
+    </div>
+  );
+}
+
 export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   const { ref, seen } = useSeen();
-  // Button demos get the paper card (live-highlighted quote on top, scribble-underline legend
-  // below); sliders/colour keep the white figure card.
-  if (isPaperDemo(demo)) {
-    return (
-      <div ref={ref}>
-        <Section title={demo.title} description={demo.desc}>
-          <PaperCard>
-            {seen && quote ? (
-              demo.path === "snap" ? <SnapPreview quote={quote} /> : <Preview quote={quote} />
-            ) : (
-              <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
-            )}
-            <LegendControl demo={demo} />
-          </PaperCard>
-        </Section>
-      </div>
-    );
-  }
+  // Every option is a paper card: a live-highlighted quote on top, a hand-drawn control in the
+  // lower strip — a scribble-underline legend (buttons), a scribble-fill slider, or the swatch
+  // row (colour). The `snap` demo swaps in a Range-based preview so the boundary clamp shows.
   return (
     <div ref={ref}>
       <Section title={demo.title} description={demo.desc}>
-        <FigureCard>
-          {seen ? <Preview /> : <div style={{ height: CANVAS_HEIGHT }} aria-hidden />}
-          <Control demo={demo} />
-        </FigureCard>
+        <PaperCard>
+          {seen && quote ? (
+            demo.kind === "pills" && demo.path === "snap" ? (
+              <SnapPreview quote={quote} />
+            ) : (
+              <Preview quote={quote} />
+            )
+          ) : (
+            <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
+          )}
+          {demo.kind === "slider" ? (
+            <ScribbleSliderControl demo={demo} />
+          ) : demo.kind === "color" ? (
+            <SwatchPicker />
+          ) : (
+            <LegendControl demo={demo} />
+          )}
+        </PaperCard>
       </Section>
     </div>
   );

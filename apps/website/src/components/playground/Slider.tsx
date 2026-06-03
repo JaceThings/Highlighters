@@ -1,10 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   animate,
   motion,
   useMotionValue,
   useMotionValueEvent,
   useTransform,
+  type MotionValue,
 } from "framer-motion";
 import NumericText from "@numeric-text/react";
 import { SmoothCorners } from "@lisse/react";
@@ -45,6 +46,10 @@ interface SliderProps {
    *  reserved column width, so special-case formatted strings (wider than
    *  the endpoints) still fit without reflow. */
   formatSamples?: readonly number[];
+  /** Replace the default solid fill with custom content (e.g. a hand-drawn
+   *  scribble), painted inside the rounded track. Receives the live `reported`
+   *  motion value so it can reveal itself by the slider fraction. */
+  renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number }) => ReactNode;
 }
 
 export function Slider({
@@ -58,6 +63,7 @@ export function Slider({
   formatSeed,
   formatSamples,
   description,
+  renderFill,
 }: SliderProps) {
   const id = useId();
   const tuning = usePlaygroundTuning();
@@ -250,10 +256,14 @@ export function Slider({
                 className="relative h-full w-full overflow-hidden bg-[rgba(126,117,108,0.12)]"
                 aria-hidden
               >
-                <motion.div
-                  className="absolute top-0 h-full bg-[#7e756c]"
-                  style={{ left: fillLeft, width: fillWidth }}
-                />
+                {renderFill ? (
+                  renderFill({ reported, min, max })
+                ) : (
+                  <motion.div
+                    className="absolute top-0 h-full bg-[#7e756c]"
+                    style={{ left: fillLeft, width: fillWidth }}
+                  />
+                )}
               </div>
             </SmoothCorners>
           </motion.div>

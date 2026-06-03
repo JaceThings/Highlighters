@@ -2,8 +2,9 @@ import { useMemo } from "react";
 import { Stagger } from "../components/Stagger.tsx";
 import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { RecommendedLooks } from "./RecommendedLooks.tsx";
-import { OptionDemo, OPTION_DEMOS, isPaperDemo } from "./sections/OptionDemo.tsx";
+import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
+import { ScribbleDefs } from "../components/docs/ScribbleFill.tsx";
 import { buildQuoteSequence } from "./quotes.ts";
 
 // One live demo PER visual option: each renders the shared Preview (gated to on-screen so
@@ -12,16 +13,13 @@ import { buildQuoteSequence } from "./quotes.ts";
 // the API and links to the full reference. Lazy-loaded by Docs (pulls @highlighters/react +
 // @lisse) to stay out of the home bundle.
 export function DocsPlayground() {
-  // Assign a quote to each paper (button) demo, in page order, once per load — so quotes
-  // never repeat and the same author stays ≥3 apart, reshuffling on every reload.
-  const quotes = useMemo(() => {
-    const seq = buildQuoteSequence(OPTION_DEMOS.filter(isPaperDemo).length);
-    let q = 0;
-    return OPTION_DEMOS.map((d) => (isPaperDemo(d) ? seq[q++] : undefined));
-  }, []);
+  // Assign a quote to each demo's paper card, in page order, once per load — so quotes never
+  // repeat and the same author stays ≥3 apart, reshuffling on every reload.
+  const quotes = useMemo(() => buildQuoteSequence(OPTION_DEMOS.length), []);
 
   return (
     <PlaygroundOptionsProvider>
+      <ScribbleDefs />
       <div className="flex w-full flex-col" style={{ gap: 48 }}>
         <Stagger index={1}>
           <RecommendedLooks />
