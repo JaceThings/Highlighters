@@ -8,7 +8,6 @@ import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
 import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
 import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
-import { nextScribble } from "../../components/docs/scribbles.ts";
 import { Preview, SnapPreview } from "../Preview.tsx";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
@@ -194,13 +193,14 @@ function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle
 // PaperCard, on the fold, mirroring the button legend.
 function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" }> }) {
   const { options, set } = usePlaygroundOptions();
-  const [scribble] = useState(nextScribble);
+  // A fresh random seed per slider → each scribble is uniquely hand-drawn.
+  const [seed] = useState(() => Math.floor(Math.random() * 1e9));
   const onNum = useCallback(
     (v: number, fromDrag?: boolean) => set(demo.path, v, fromDrag),
     [set, demo.path],
   );
   return (
-    <div className="px-5 pt-1 pb-5">
+    <div className="px-5 py-4">
       <Slider
         label={demo.label}
         value={getNum(options, demo.path, demo.def)}
@@ -209,7 +209,7 @@ function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" 
         step={demo.step}
         format={FORMAT[demo.unit]}
         onChange={onNum}
-        renderFill={(ctx) => <ScribbleFill index={scribble} {...ctx} />}
+        renderFill={(ctx) => <ScribbleFill seed={seed} {...ctx} />}
       />
     </div>
   );

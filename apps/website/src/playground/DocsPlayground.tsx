@@ -4,7 +4,6 @@ import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { RecommendedLooks } from "./RecommendedLooks.tsx";
 import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
-import { ScribbleDefs } from "../components/docs/ScribbleFill.tsx";
 import { buildQuoteSequence } from "./quotes.ts";
 
 // One live demo PER visual option: each renders the shared Preview (gated to on-screen so
@@ -19,7 +18,6 @@ export function DocsPlayground() {
 
   return (
     <PlaygroundOptionsProvider>
-      <ScribbleDefs />
       <div className="flex w-full flex-col" style={{ gap: 48 }}>
         <Stagger index={1}>
           <RecommendedLooks />

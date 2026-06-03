@@ -1,93 +1,72 @@
-import { motion, useTransform, type MotionValue } from "framer-motion";
-import getStroke from "perfect-freehand";
-import { toPath } from "./freehand.ts";
-import { SCRIBBLES } from "./scribbles.ts";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
+import { useMotionValueEvent, type MotionValue } from "framer-motion";
+import { makeZigzag, pointsUpTo, smoothStrokePath } from "./scribble-render.ts";
 
-// The slider "fill", drawn as a hand-scribbled sawtooth instead of a solid bar. Each scribble
-// (a Perfect-Freehand stroke over a zigzag, see scribbles.ts) spans the whole track, and a
-// clip-inset reveals it left→right by the slider fraction — so it draws on as the value rises
-// and retracts as it falls. A shared turbulence displacement adds a faint hand-drawn wobble.
-//
-// The four getStroke outlines are heavy, so they're built once and emitted ONCE into a shared
-// <defs> ({@link ScribbleDefs}); every slider just <use>s its variation by id. That keeps the
-// DOM to four paths total no matter how many sliders mount, and there's no per-frame getStroke
-// — only the clip moves while dragging.
+// The slider "fill", drawn as the Figma's hand-scribbled sawtooth instead of a solid bar. The
+// scribble is a dense, tall, hand-jittered zigzag rendered as a SMOOTH stroke — a Catmull-Rom
+// spline through the teeth (passes through every tip, so it keeps full amplitude). It's genuinely
+// drawn: the path is rebuilt over the points UP TO the slider fraction, so it lays on as the
+// value rises and retracts as it falls, with a round nib at the leading end. Each slider passes
+// its own random seed, so every one is a uniquely hand-drawn line. The faint track background
+// gets a wavy hand-drawn edge from a small feTurbulence displacement.
 
-const STROKE = {
-  size: 1.7,
-  thinning: 0.16, // nearly uniform — a pen line, not a brush
-  smoothing: 0.4,
-  streamline: 0.3,
-  simulatePressure: false,
-  start: { cap: true, taper: 0 },
-  end: { cap: true, taper: 0 },
-  last: true,
-};
+const useIso = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-// Common authoring box (matches scribbles.ts). preserveAspectRatio="none" stretches it to the
-// track, so the teeth fill the track height and x maps linearly to the slider fraction.
-const VIEW_BOX = "0 0 472 10";
-const FILTER_ID = "docs-scribble-turb";
-const pathId = (i: number) => `docs-scribble-${i}`;
+const VIEW_W = 472;
+const VIEW_H = 10;
+const TRACK_BG = "rgba(126,117,108,0.12)";
+const INK = "#7e756c";
+const STROKE_W = 2.3;
+const BG_WAVE = 1.3;
 
-// Outline `d` per variation, built once (getStroke on a dense zigzag is expensive). 1-decimal
-// coords keep the long string compact.
-let outlines: string[] | null = null;
-function getOutlines(): string[] {
-  if (!outlines) outlines = SCRIBBLES.map((s) => toPath(getStroke(s.pts, STROKE), 1));
-  return outlines;
-}
-
-/**
- * Emits the four scribble outlines and the shared turbulence filter into one hidden SVG.
- * Render ONCE near the top of the docs page; every {@link ScribbleFill} references these by id.
- */
-export function ScribbleDefs() {
-  return (
-    <svg width="0" height="0" aria-hidden className="absolute">
-      <defs>
-        <filter id={FILTER_ID} x="-4%" y="-50%" width="108%" height="200%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.6 0.9" numOctaves="2" seed="4" result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.7" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-        {getOutlines().map((d, i) => (
-          <path key={i} id={pathId(i)} d={d} />
-        ))}
-      </defs>
-    </svg>
-  );
-}
+// The locked-in scribble shape; only the seed varies per slider.
+const ZIG = { width: VIEW_W, height: VIEW_H, meanStep: 2.4, toothHeight: 8, jitterX: 1.2, jitterY: 0.55 };
 
 export function ScribbleFill({
-  index,
+  seed,
   reported,
   min,
   max,
-  color = "#7e756c",
 }: {
-  /** Which of the four SCRIBBLES to draw. */
-  index: number;
-  /** The slider's live value (already tweened/dragged). Drives how much is revealed. */
+  /** Per-slider random seed → a unique hand-drawn zigzag. */
+  seed: number;
+  /** The slider's live value (already tweened/dragged). Drives how far the line is drawn. */
   reported: MotionValue<number>;
   min: number;
   max: number;
-  color?: string;
 }) {
+  const pathRef = useRef<SVGPathElement>(null);
+  const waveId = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const pts = useMemo(() => makeZigzag({ ...ZIG, seed }), [seed]);
   const span = max - min === 0 ? 1 : max - min;
-  const clipPath = useTransform(reported, (v) => {
-    const pct = Math.max(0, Math.min(1, (v - min) / span)) * 100;
-    return `inset(-30% ${(100 - pct).toFixed(2)}% -30% 0)`;
-  });
+
+  // Redraw the smooth stroke up to the value fraction (drag + tween frames, and on seed change).
+  const draw = (v: number) => {
+    const el = pathRef.current;
+    if (!el) return;
+    const f = Math.max(0, Math.min(1, (v - min) / span));
+    el.setAttribute("d", smoothStrokePath(pointsUpTo(pts, f)));
+  };
+  useIso(() => draw(reported.get()), [pts]); // eslint-disable-line react-hooks/exhaustive-deps
+  useMotionValueEvent(reported, "change", draw);
 
   return (
-    <motion.svg
-      viewBox={VIEW_BOX}
+    <svg
+      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
       preserveAspectRatio="none"
       aria-hidden
       className="absolute inset-0 h-full w-full"
-      style={{ clipPath, overflow: "visible" }}
+      style={{ overflow: "visible" }}
     >
-      <use href={`#${pathId(index)}`} fill={color} filter={`url(#${FILTER_ID})`} />
-    </motion.svg>
+      <defs>
+        {/* Wavy hand-drawn edges on the track background only (the scribble stays crisp). */}
+        <filter id={waveId} x="-2%" y="-50%" width="104%" height="200%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.04 0.12" numOctaves="2" seed="11" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale={BG_WAVE} xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
+      <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill={TRACK_BG} filter={`url(#${waveId})`} />
+      <path ref={pathRef} fill="none" stroke={INK} strokeWidth={STROKE_W} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

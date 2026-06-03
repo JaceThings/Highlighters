@@ -27,7 +27,7 @@ export function PaperCard({
 
   return (
     <div
-      className={`relative isolate flex flex-col ${className ?? ""}`}
+      className={`demo-paper relative isolate flex flex-col ${className ?? ""}`}
       style={{ minHeight: 288, ...style }}
     >
       <div

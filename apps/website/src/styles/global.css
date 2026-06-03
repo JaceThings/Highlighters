@@ -134,6 +134,15 @@ h3 {
   -webkit-user-select: none;
 }
 
+/* The docs paper is a read-only demonstration: never selectable (Cmd+A, drag) — forced onto
+ * descendants so the quote marks can't re-enable it. Controls stay tab-focusable (user-select
+ * doesn't affect focus); inputs stay editable. */
+.demo-paper,
+.demo-paper * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Native range input restyle for the Playground sliders. We layer a
  * styled track + fill div underneath the input (see Slider.tsx); the
  * input itself stays interactive (keyboard focus, drag, accessibility)

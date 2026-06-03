@@ -21,7 +21,6 @@ import {
 } from "./slider-utils.ts";
 import { useEditableValue } from "./useEditableValue.ts";
 import { usePointerDrag } from "./usePointerDrag.ts";
-import { useRubberBand } from "./useRubberBand.ts";
 
 interface SliderProps {
   label: string;
@@ -50,6 +49,14 @@ interface SliderProps {
    *  scribble), painted inside the rounded track. Receives the live `reported`
    *  motion value so it can reveal itself by the slider fraction. */
   renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number }) => ReactNode;
+}
+
+// Owns the per-frame readout state so the digit morphing on every tween frame re-renders only
+// this node, not the whole Slider (and its scribble-fill subtree).
+function Readout({ displayed }: { displayed: MotionValue<string> }) {
+  const [text, setText] = useState(() => displayed.get());
+  useMotionValueEvent(displayed, "change", setText);
+  return <NumericText value={text} transition={READOUT_TRANSITION} />;
 }
 
 export function Slider({
@@ -82,11 +89,7 @@ export function Slider({
     [min, max, step, format, formatSamples],
   );
 
-  const rubberBand = useRubberBand({ tuning });
-
-  // Stays in [min, max]: the value shown in the readout and reflected to
-  // the hidden range input. Decoupled from the visible stretch so the
-  // readout never displays an illegal value during rubber-band.
+  // Stays in [min, max]: the value shown in the readout and reflected to the hidden range input.
   const reported = useMotionValue(value);
 
   // Signed ranges (min < 0 < max) anchor the fill chunk at zero and grow
@@ -118,12 +121,6 @@ export function Slider({
     return format ? format(stepped) : String(stepped);
   });
 
-  // Mirror the motion value into React state — NumericText takes a plain
-  // string prop, so it needs a re-render on every tween frame to morph its
-  // digits in step with the fill bar.
-  const [displayedText, setDisplayedText] = useState(() => displayed.get());
-  useMotionValueEvent(displayed, "change", setDisplayedText);
-
   const drag = usePointerDrag({
     trackRef,
     value,
@@ -132,7 +129,6 @@ export function Slider({
     step,
     onChange,
     reported,
-    rubberBand,
     stopPropAnim: () => {
       if (propAnimRef.current) {
         propAnimRef.current.stop();
@@ -218,7 +214,7 @@ export function Slider({
             className="playground-slider-value inline-flex shrink-0 select-none justify-end whitespace-nowrap text-[rgba(126,117,108,0.5)]"
             style={{ minWidth: readoutMinWidth }}
           >
-            <NumericText value={displayedText} transition={READOUT_TRANSITION} />
+            <Readout displayed={displayed} />
           </span>
         )}
       </div>
@@ -239,37 +235,34 @@ export function Slider({
           className="relative w-full"
           style={{ height: trackHeight }}
         >
-          <motion.div
-            className="absolute top-0 left-0 h-full"
-            style={{
-              width: rubberBand.width,
-              x: rubberBand.x,
-              scaleY: rubberBand.scaleY,
-            }}
-          >
-            <SmoothCorners
-              asChild
-              autoEffects={false}
-              corners={{ radius: trackHeight / 2, smoothing: tuning.trackSmoothing }}
-            >
-              <div
-                className="relative h-full w-full overflow-hidden bg-[rgba(126,117,108,0.12)]"
-                aria-hidden
+          <div className="absolute inset-0 h-full w-full">
+            {renderFill ? (
+              // A custom fill owns the whole track (its own background + shape), painted into a
+              // bare rectangular box — `overflow: visible` lets a warped/hand-drawn edge bleed.
+              <div className="relative h-full w-full" style={{ overflow: "visible" }} aria-hidden>
+                {renderFill({ reported, min, max })}
+              </div>
+            ) : (
+              <SmoothCorners
+                asChild
+                autoEffects={false}
+                corners={{ radius: trackHeight / 2, smoothing: tuning.trackSmoothing }}
               >
-                {renderFill ? (
-                  renderFill({ reported, min, max })
-                ) : (
+                <div
+                  className="relative h-full w-full overflow-hidden bg-[rgba(126,117,108,0.12)]"
+                  aria-hidden
+                >
                   <motion.div
                     className="absolute top-0 h-full bg-[#7e756c]"
                     style={{ left: fillLeft, width: fillWidth }}
                   />
-                )}
-              </div>
-            </SmoothCorners>
-          </motion.div>
+                </div>
+              </SmoothCorners>
+            )}
+          </div>
           {/* Hidden native range stays as the keyboard + screen-reader path.
               Pointer events are disabled so it never steals drags from the
-              elastic handler. It remains focusable via Tab and still
+              pointer handler. It remains focusable via Tab and still
               receives arrow-key input. */}
           <input
             id={id}
