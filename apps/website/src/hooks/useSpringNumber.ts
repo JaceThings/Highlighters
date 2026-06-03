@@ -4,9 +4,8 @@ import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
 export interface SpringNumberOptions {
   duration: number;
   ease: [number, number, number, number];
-  /** When true, the target was produced by a continuous input (drag) and
-   *  should bypass the tween — the input is already smooth, and stacking
-   *  another animation on top would lag the preview behind the user. */
+  /** Drag-driven target — bypass the tween (the input is already smooth, and
+   *  another animation on top would lag the preview behind the user). */
   fromDrag?: boolean;
 }
 
@@ -14,16 +13,8 @@ const prefersReducedMotion = (): boolean =>
   typeof window !== "undefined" &&
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
-/**
- * Drive a plain `number` toward `target` with a Motion tween. The hook
- * keeps the live value on a motion value internally (no per-frame React
- * re-render storm), then mirrors the latest value into React state so
- * consumers can pass it to props that expect numeric primitives.
- *
- * Discrete changes (preset clicks) tween smoothly with a non-bouncy
- * easing curve; drag-driven changes snap so the input remains the source
- * of truth during interaction.
- */
+/** Drive a `number` toward `target` with a Motion tween, kept on a motion value
+ *  internally and mirrored to React state. Discrete changes tween; drags snap. */
 export function useSpringNumber(
   target: number,
   { duration, ease, fromDrag = false }: SpringNumberOptions,
@@ -35,8 +26,7 @@ export function useSpringNumber(
 
   useMotionValueEvent(mv, "change", setValue);
 
-  // Destructure ease into primitives so a fresh `[a,b,c,d]` literal on the
-  // caller side doesn't retrigger this effect every render and restart the
+  // Destructure ease so a fresh `[a,b,c,d]` literal each render doesn't restart the
   // tween mid-flight.
   const [e0, e1, e2, e3] = ease;
   useEffect(() => {

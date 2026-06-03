@@ -15,6 +15,9 @@ export type HighlightOwnProps = {
   children?: ReactNode;
   /** Highlight options forwarded to the core `highlight()` pipeline. */
   options?: HighlightOptions;
+  /** Optional positioned element to mount the overlay inside (instead of the
+   *  body), scoping it to a transformed/scrolling/stacked container. */
+  host?: HTMLElement | null;
 };
 
 /** Keys `<Highlight>` consumes itself; never forwarded to the DOM element. */
@@ -44,7 +47,7 @@ export type HighlightProps<E extends ElementType = "span"> = HighlightOwnProps &
  * ```
  */
 export function Highlight<E extends ElementType = "span">(props: HighlightProps<E>) {
-  const { as, options, children, ...rest } = props;
+  const { as, options, host, children, ...rest } = props;
   const Component = (as ?? "span") as ElementType;
   // A callback ref into state, so the hook tracks the ACTUAL mounted node: an
   // `as`-element swap or a deferred mount re-runs the hook on the new node rather
@@ -52,7 +55,7 @@ export function Highlight<E extends ElementType = "span">(props: HighlightProps<
   const [node, setNode] = useState<Element | null>(null);
   const ref = useCallback((el: Element | null) => setNode(el), []);
 
-  useHighlight(node, options);
+  useHighlight(node, options, host);
 
   return createElement(Component, { ...rest, ref }, children);
 }

@@ -2,20 +2,12 @@ import type { ReactNode } from "react";
 import { RuledPaper } from "./RuledPaper.tsx";
 import { DOCK_H } from "./dock/constants.ts";
 
-// Bottom clearance so the footer always clears the fixed dock when scrolled to
-// the end: the dock is DOCK_H tall, rests `bottom-6` (24px) off the bottom, plus
-// ~7px breathing room. Derived from DOCK_H so it tracks the dock if that changes.
+// Bottom clearance so the footer clears the fixed dock (DOCK_H + 24px rest + ~7px).
 const FOOTER_CLEARANCE_PX = DOCK_H + 24 + 7;
 
-// `@container/column` lets descendants read the column width via `100cqi`
-// (used by the playground preview). Overlay effects (`FocusRingOverlay`,
-// the selection highlight) are intentionally mounted at App root, not
-// here, so they persist across route changes.
-// The column sits on the ruled-paper grid (1px rules every 1.5rem from the top
-// of <main>). The top padding is a 1.5rem multiple — 4.5rem (72px = 3 rows),
-// matching Figma 2017:781 — so a column whose own line-height is 1.5rem lands
-// every text line cleanly inside a ruled band. The 560px breakpoint's pt-6
-// (1.5rem) is already on the grid.
+// `@container/column` exposes the column width as `100cqi` (used by the preview).
+// Top padding is a 1.5rem multiple (4.5rem) so each text line lands on the ruled
+// grid.
 const ARTICLE_BASE =
   "@container/column relative flex w-[510px] max-w-full flex-col items-stretch pt-[4.5rem] pb-20 max-[560px]:w-[calc(100vw-32px)] max-[560px]:pt-6 max-[560px]:pb-16";
 
@@ -24,13 +16,11 @@ export function Layout({
   articleClassName,
 }: {
   children: ReactNode;
-  /** Tailwind classes appended to the article shell — e.g. `gap-9`
-   *  for Home, smaller gaps for text-heavy pages. */
+  /** Tailwind classes appended to the article shell (e.g. `gap-9` for Home). */
   articleClassName?: string;
 }) {
   return (
-    // `relative` anchors the ruled-paper layer; the bottom padding (derived from
-    // DOCK_H, see FOOTER_CLEARANCE_PX) keeps the footer clear of the fixed dock.
+    // `relative` anchors the ruled-paper layer.
     <main
       className="relative flex min-h-dvh w-full items-stretch justify-center bg-bg"
       style={{ paddingBottom: FOOTER_CLEARANCE_PX }}

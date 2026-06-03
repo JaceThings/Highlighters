@@ -1,54 +1,88 @@
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useRouterState } from "@tanstack/react-router";
 import { CapsuleBackground } from "./CapsuleBackground.tsx";
 import { ColorPalette } from "./ColorPalette.tsx";
 import { DockButton } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
+import { MarkerPopover } from "./MarkerPopover.tsx";
 import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.tsx";
-import { useSelectionStyle } from "../../selection-style.tsx";
+import { useSelectionStyle, type PenTip } from "../../selection-style.tsx";
 import { useDockEntrance } from "../../dock-entrance.tsx";
 import { DOCK_H } from "./constants.ts";
 
-// Entrance offset: start the whole tray well below the viewport so it rises in
-// from the very bottom (it rests 24px off the bottom and is DOCK_H tall, so it's
-// fully off-screen with clear margin), then springs up to y:0.
+// Start the tray fully below the viewport so it rises in from the bottom.
 const ENTER_FROM = DOCK_H + 96;
 
-// Entrance states. The tray holds at `hidden` (off-screen, scaled down, blurred,
-// transparent) until the page's text has settled, then springs to `shown`.
+// Holds at `hidden` (off-screen, scaled down, blurred) until the text settles.
 const ENTRANCE = {
   hidden: { y: ENTER_FROM, scale: 0.98, opacity: 0, filter: "blur(4px)" },
   shown: { y: 0, scale: 1, opacity: 1, filter: "blur(0px)" },
 } as const;
 
-/**
- * The PencilKit-style tool tray: a floating squircle capsule holding nav buttons,
- * the three marker pens, the ink well, action buttons, and a drawer grab-handle up
- * top. The selected pen and ink come from the shared selection style, so picking
- * one here drives the document-wide live selection marker in real time (see
- * selection-style.tsx / SelectionMarker).
- *
- * Mounted fixed at the bottom-centre of the viewport (see App). The outer layer is
- * pointer-events:none so clicks pass through the empty margins; only the capsule is
- * interactive.
- */
+/** The PencilKit-style tool tray: nav buttons, the three marker pens, the ink well,
+ *  and action buttons. The selected pen + ink drive the live SelectionMarker. The
+ *  outer layer is pointer-events:none so only the capsule is interactive. */
 export function Dock() {
-  // Ink + pen come from the shared selection style. MarkerRow crossfades between
-  // inks (a clean dissolve) rather than morphing the colour — complementary inks
-  // can't morph without a false green or a grey dip (gamut geometry).
-  const { style, setColor, setPen } = useSelectionStyle();
-  // Hold the entrance until the page's text cascade has landed (dock-entrance.tsx).
+  const { style, setColor, setPen, setOpacity, setMarkType } = useSelectionStyle();
+  // Hold the entrance until the page's text cascade has landed.
   const { ready } = useDockEntrance();
+  // Which page we're on, so the matching nav button reads as current.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // `popoverX` = the active pen's centre relative to the tray (null = closed).
+  const trayRef = useRef<HTMLDivElement>(null);
+  const [popoverX, setPopoverX] = useState<number | null>(null);
+  const open = popoverX !== null;
+
+  // Clicking the active pen toggles the popover, anchored to that pen.
+  const handleActivate = useCallback((button: HTMLButtonElement) => {
+    setPopoverX((prev) => {
+      if (prev !== null) return null;
+      const tray = trayRef.current;
+      if (!tray) return null;
+      const a = button.getBoundingClientRect();
+      const b = tray.getBoundingClientRect();
+      return a.left + a.width / 2 - b.left;
+    });
+  }, []);
+
+  // Switching to a different pen closes the popover (it belongs to the prior pen).
+  const handleSelectPen = useCallback(
+    (pen: PenTip) => {
+      setPen(pen);
+      setPopoverX(null);
+    },
+    [setPen],
+  );
+
+  // Close on Escape or a press outside the tray. The popover is a DOM child of the
+  // tray, so clicks on it (or the palette) keep it open.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!trayRef.current?.contains(e.target as Node)) setPopoverX(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPopoverX(null);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
     <div
       className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex select-none justify-center"
       aria-label="Highlighter tray"
     >
-      {/* Entrance: the tray holds off-screen until the page's text has finished
-          appearing (dock-entrance.tsx → ready), then rises up, scaling 0.98→1 and
-          focusing in (blur 4px→0, opacity 0→1) with a slight spring overshoot. The
-          fade + focus use smooth ease-out tweens so the blur lands cleanly at 0.
-          Plays once; reducedMotion at the App root reduces it to a fade. */}
+      {/* Rises in once the text has landed: spring up with scale + focus (blur→0).
+          reducedMotion at the App root reduces it to a fade. */}
       <motion.div
+        ref={trayRef}
         className="pointer-events-auto relative max-w-[calc(100vw-32px)]"
         style={{ height: DOCK_H }}
         variants={ENTRANCE}
@@ -65,21 +99,26 @@ export function Dock() {
       >
         <CapsuleBackground />
 
-        {/* Content sits above the capsule. items-center centres the buttons and ink
-            well; the markers self-end so their bodies reach the tray floor. */}
+        {/* Buttons + ink well centre; markers self-end to the tray floor. */}
         <div className="relative flex h-full items-center gap-[32px]">
           <nav className="flex items-center gap-[12px] pr-[25px] pl-[32px]">
-            <DockButton label="Home" dimmed>
+            <DockButton to="/" label="Home" active={pathname === "/"}>
               <HomeIcon />
             </DockButton>
-            <DockButton label="Library">
+            <DockButton to="/docs" label="Docs" active={pathname === "/docs"}>
               <BookIcon />
             </DockButton>
           </nav>
 
           <div className="flex h-full items-center gap-[40px]">
             <div className="flex h-full items-end">
-              <MarkerRow color={style.color} selected={style.pen} onSelect={setPen} />
+              <MarkerRow
+                color={style.color}
+                selected={style.pen}
+                opacityByPen={style.opacityByPen}
+                onSelect={handleSelectPen}
+                onActivate={handleActivate}
+              />
             </div>
             <ColorPalette value={style.color} onChange={setColor} />
           </div>
@@ -100,6 +139,34 @@ export function Dock() {
           className="absolute top-[7.5px] left-1/2 -translate-x-1/2 rounded-full bg-[#efeeed]"
           style={{ width: 42.787, height: 5.943 }}
         />
+
+        {/* Settings popover — rises from the active pen, centred above the tray. */}
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              key="marker-popover"
+              className="absolute"
+              style={{
+                left: popoverX ?? 0,
+                bottom: "calc(100% + 14px)",
+                transformOrigin: "bottom center",
+              }}
+              initial={{ opacity: 0, scale: 0.96, y: 6, x: "-50%" }}
+              animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
+              exit={{ opacity: 0, scale: 0.97, y: 4, x: "-50%" }}
+              transition={{ type: "spring", duration: 0.3, bounce: 0 }}
+            >
+              <MarkerPopover
+                inkColor={style.color}
+                pen={style.pen}
+                opacity={style.opacity}
+                markType={style.markType}
+                onOpacity={setOpacity}
+                onMarkType={setMarkType}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

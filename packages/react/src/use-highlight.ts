@@ -42,11 +42,15 @@ function resolveTarget(target: HighlightTarget): Target | null {
  *
  * @param target - A ref to the element, a DOM node/core `Target`, or `null`.
  * @param options - Highlight options; re-applied via `update()` when they change.
+ * @param host - Optional positioned element to mount the overlay inside (instead of
+ *   the body), scoping it to a transformed/scrolling/stacked container. Changing it
+ *   re-creates the mark.
  * @returns A ref holding the current {@link MarkHandle}, or `null` before mount.
  */
 export function useHighlight(
   target: HighlightTarget,
   options?: HighlightOptions,
+  host?: HTMLElement | null,
 ): React.RefObject<MarkHandle | null> {
   const handleRef = useRef<MarkHandle | null>(null);
 
@@ -67,13 +71,13 @@ export function useHighlight(
   useIsoLayoutEffect(() => {
     const resolved = resolveTarget(target);
     if (resolved != null && !handleRef.current) {
-      handleRef.current = highlight(resolved, optionsRef.current);
+      handleRef.current = highlight(resolved, optionsRef.current, host ?? undefined);
     }
     return () => {
       handleRef.current?.remove();
       handleRef.current = null;
     };
-  }, [target]);
+  }, [target, host]);
 
   // Recovery: a bare RefObject can populate AFTER mount without changing identity,
   // so the setup effect (keyed on the ref) never fires. Re-check each render and
@@ -82,7 +86,7 @@ export function useHighlight(
     if (handleRef.current) return;
     const resolved = resolveTarget(target);
     if (resolved != null) {
-      handleRef.current = highlight(resolved, optionsRef.current);
+      handleRef.current = highlight(resolved, optionsRef.current, host ?? undefined);
     }
   });
 
