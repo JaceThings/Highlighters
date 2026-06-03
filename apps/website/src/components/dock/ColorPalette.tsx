@@ -18,10 +18,10 @@ const SWATCHES: Swatch[] = [
 
 const PRESET_COLORS = new Set(SWATCHES.map((s) => s.color));
 
-// The custom disc wears a rainbow ring (the colour wheel) once a custom colour is active;
-// otherwise the wheel art fills it, hinting that it opens the HSL picker.
-const RAINBOW_RING =
-  "conic-gradient(from 90deg, hsl(0 90% 60%), hsl(60 90% 60%), hsl(120 90% 60%), hsl(180 90% 60%), hsl(240 90% 60%), hsl(300 90% 60%), hsl(360 90% 60%))";
+// The custom disc wears a ring of the colour wheel once a custom colour is active; otherwise
+// the same wheel art fills it, hinting that it opens the HSL picker. Both use the one wheel
+// image so the ring and the fill can't drift apart.
+const WHEEL = `url("${colorPickerUrl}") center / cover no-repeat`;
 
 export function ColorPalette({
   value,
@@ -78,12 +78,12 @@ function CustomDisc({
         {/* Rainbow ring + white gap, revealed as the centre scales down — the same select
             reveal (and timing) as the preset discs. The centre carries the wheel art until a
             custom colour is active, then the picked colour. */}
-        <span className="absolute inset-0 rounded-full" style={{ background: RAINBOW_RING }} />
+        <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
         <span className="absolute rounded-full bg-white" style={{ inset: 3.57 }} />
         <span
           className="absolute inset-0 rounded-full"
           style={{
-            background: active ? color : `url("${colorPickerUrl}") center / cover no-repeat`,
+            background: active ? color : WHEEL,
             transform: active ? "scale(0.703)" : "scale(1)",
             transition: active
               ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
