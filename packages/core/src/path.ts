@@ -1,9 +1,9 @@
 /**
- * `@highlighters/core/path` — the DOM-free, SSR-safe subpath.
+ * `@highlighters/core/path` - the DOM-free, SSR-safe subpath.
  *
  * Importing this entry MUST NOT touch `window`/`document`/`Element`/`Range` at
  * module load. It re-exports only pure geometry primitives, config/preset/palette
- * helpers, and the pure (Section 1) types — never any `render/*` or `targeting/*`
+ * helpers, and the pure (Section 1) types - never any `render/*` or `targeting/*`
  * module. Randomness is seed-deterministic, so identical `(geometry, options,
  * seed)` inputs produce byte-identical output on server and client.
  */
@@ -20,7 +20,7 @@ export { buildNoiseTile, buildNoiseTileDataUrl } from "./geometry/noise-tile.js"
 export { buildPoolGradient } from "./geometry/pool.js";
 export { hashJitter, hashU32, mulberry } from "./geometry/rng.js";
 
-// Pure (Section 1) types only — no DOM-touching types.
+// Pure (Section 1) types only - no DOM-touching types.
 export type {
   ColorValue,
   MarkType,

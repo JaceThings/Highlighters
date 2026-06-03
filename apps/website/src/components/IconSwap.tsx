@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 
-// Cross-fade between icon variants. Every layer stays mounted — unmounting kills the
+// Cross-fade between icon variants. Every layer stays mounted - unmounting kills the
 // cross-fade and breaks colour inheritance.
 
 const ACTIVE_STYLE: CSSProperties = {

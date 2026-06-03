@@ -53,7 +53,7 @@ export function ScribbleFill({
   };
   useIso(() => {
     draw(reported.get());
-    // The floor squiggle is static — drawn once to its fraction, redrawn only if it changes.
+    // The floor squiggle is static - drawn once to its fraction, redrawn only if it changes.
     if (floor != null && floorRef.current) {
       floorRef.current.setAttribute("d", smoothStrokePath(pointsUpTo(floorPts, floorFrac)));
     }

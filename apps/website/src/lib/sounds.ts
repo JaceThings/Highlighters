@@ -68,7 +68,7 @@ if (typeof window !== "undefined") {
       silent.volume = 0.0001;
       silent.play().catch(() => {});
     } catch {
-      // Let the next gesture retry — don't strip the listeners.
+      // Let the next gesture retry - don't strip the listeners.
       return;
     }
     window.removeEventListener("pointerdown", unlock);
@@ -89,7 +89,7 @@ function getNoise(c: AudioContext) {
   return noiseBuffer;
 }
 
-// Cap at ~25 Hz (40 ms gap) — faster and the clicks smear into a buzz. The matching
+// Cap at ~25 Hz (40 ms gap) - faster and the clicks smear into a buzz. The matching
 // queue-ahead keeps at most ~1 tick pending, so a release feels sharp.
 const TICK_MIN_GAP_SEC = 0.04;
 const MAX_QUEUE_AHEAD_SEC = 0.04;

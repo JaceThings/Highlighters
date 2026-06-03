@@ -1,7 +1,7 @@
 /**
  * The single normalization front door: every {@link Target} variant collapses to
  * a flat array of DOM `Range`s here, so the rest of the pipeline only ever deals
- * with ranges. Never throws — an unmatched selector, empty page, collapsed
+ * with ranges. Never throws - an unmatched selector, empty page, collapsed
  * selection, or no DOM all yield `[]`.
  */
 

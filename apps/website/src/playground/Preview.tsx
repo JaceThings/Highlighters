@@ -22,7 +22,7 @@ interface PreviewProps {
   strategy: MarkStrategy;
 }
 
-// No webfont installed — fall back to a system hand.
+// No webfont installed - fall back to a system hand.
 const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
 const QUOTE_INK = "#73574a";
 
@@ -45,7 +45,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
 
   // The stack-demo overlap word is ALWAYS painted by a second mark, so toggling
   // Stack only changes its OPACITY (an in-place update) rather than adding/removing
-  // a node — which would remeasure and replay the outer draw-on. ON: live alpha so
+  // a node - which would remeasure and replay the outer draw-on. ON: live alpha so
   // the two passes darken; OFF: 0, flat.
   const stacked = previewOptions.stack !== false;
   const liveOpacity = core.opacity ?? 0.5;
@@ -90,7 +90,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
           {"”"}
         </p>
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
-          {"— " + quote.author}
+          {"- " + quote.author}
         </p>
       </div>
     </div>
@@ -181,7 +181,7 @@ export function SnapPreview({ quote }: { quote: Quote }) {
           {full}
         </p>
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
-          {"— " + quote.author}
+          {"- " + quote.author}
         </p>
       </div>
     </div>

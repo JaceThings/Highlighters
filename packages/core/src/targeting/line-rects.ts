@@ -29,7 +29,7 @@ function rectArray(list: DOMRectList): DOMRect[] {
  * Client rects for a range, collected per text node.
  *
  * `Range.getClientRects()` across block boundaries emits full-width "bbox" rects
- * for the straddled blocks (and any empty block between) — spurious bands the
+ * for the straddled blocks (and any empty block between) - spurious bands the
  * height-only filter in {@link mergeRectsByLine} doesn't catch. So for a
  * multi-text-node range we take the rects of a sub-range clamped to each text
  * node: tight to glyphs, no bbox possible. A single-text-node range has no
@@ -145,7 +145,7 @@ export function mergeRectsByLine(rects: DOMRect[]): DOMRect[] {
     let merged = false;
     for (const line of lines) {
       if (Math.abs(cy - (line.top + line.bottom) / 2) >= tol) continue;
-      // Only merge when horizontally adjacent — wide gaps mean separate columns.
+      // Only merge when horizontally adjacent - wide gaps mean separate columns.
       const gap = Math.max(r.left - line.right, line.left - r.right);
       if (gap > maxGap) continue;
       if (r.top < line.top) line.top = r.top;
@@ -239,7 +239,7 @@ export function rangesToLineRects(
     // Seed off `originTop` (overlay container's document origin), NOT the
     // selection's min-top: min-top moves when an upward drag adds a line above,
     // which would re-roll every seed and re-randomize already-painted shapes. The
-    // container origin never moves with the selection (still scroll-stable — both
+    // container origin never moves with the selection (still scroll-stable - both
     // shift together).
     seed: Math.round((rect.top - originTop) * SEED_SCALE),
     isFirst: index === 0,

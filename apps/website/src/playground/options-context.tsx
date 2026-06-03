@@ -47,7 +47,7 @@ export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
  * The DEFAULT build the playground opens on. The state is a hand-built config,
  * not a named look: there is deliberately NO `preset` field, every knob is
  * concrete (no `undefined`), and presets are only ever COPIED in via
- * {@link applyRecipe}. `shape`/`markType` are written in lockstep — the library
+ * {@link applyRecipe}. `shape`/`markType` are written in lockstep - the library
  * reads them as last-wins synonyms.
  */
 function buildInitialOptions(): PlaygroundOptions {
@@ -282,7 +282,7 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
 
   const previewOptions = useAnimatedOptions(options, fromDrag);
 
-  // previewOptions is deliberately NOT in this value — it rides the separate
+  // previewOptions is deliberately NOT in this value - it rides the separate
   // PlaygroundPreviewContext so sections don't re-render every spring frame.
   const value = useMemo<PlaygroundOptionsContextValue>(
     () => ({ options, set, merge, applyRecipe, setShape, reset }),

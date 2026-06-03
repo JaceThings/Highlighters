@@ -47,7 +47,7 @@ export function planMarks(words: string[], strategy: MarkStrategy): MarkPlan {
     if (kf >= 2 && kb >= 2 && kf + kb <= n - 1) {
       return { ranges: [[0, kf], [n - kb, n]] };
     }
-    // too short to split cleanly — fall through to central
+    // too short to split cleanly - fall through to central
   }
 
   let a = Math.min(n - 1, Math.floor(n * 0.2));

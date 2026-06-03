@@ -16,7 +16,7 @@ const RECIPES: ReadonlyArray<{
   {
     name: "classic-yellow",
     label: "Classic yellow",
-    blurb: "The archetypal saturated yellow marker — juicy, a touch of pooling.",
+    blurb: "The archetypal saturated yellow marker - juicy, a touch of pooling.",
   },
   {
     name: "mild",
@@ -41,7 +41,7 @@ const RECIPES: ReadonlyArray<{
   {
     name: "minimal",
     label: "Minimal",
-    blurb: "A restrained underline — thin, flat, straight, no animation.",
+    blurb: "A restrained underline - thin, flat, straight, no animation.",
   },
 ];
 
@@ -49,8 +49,8 @@ const SWATCH_W = 44;
 const SWATCH_H = 22;
 
 // A real highlighter band per recipe, built from the geometry engine so each preset
-// shows its actual look — wet feathers soft, dry streaks and skips, minimal is a thin
-// underline — not just a flat colour chip. Same single-element technique as the dock's
+// shows its actual look - wet feathers soft, dry streaks and skips, minimal is a thin
+// underline - not just a flat colour chip. Same single-element technique as the dock's
 // marker preview: clip-path for the shape, the noise tile as a mask for the ink texture.
 function RecipeSwatch({ name, seed }: { name: PresetName; seed: number }) {
   const style = useMemo<CSSProperties>(() => {
@@ -106,7 +106,7 @@ export function RecommendedLooks() {
   return (
     <Section
       title="Recommended looks"
-      description="Starting points, not a menu — apply one and then make it your own. Each copies a coherent set of ink, edge, and color values into the controls below, where everything stays editable."
+      description="Starting points, not a menu - apply one and then make it your own. Each copies a coherent set of ink, edge, and color values into the controls below, where everything stays editable."
     >
       <div className="grid w-full grid-cols-2 gap-3 max-[480px]:grid-cols-1">
         {RECIPES.map((recipe, i) => (

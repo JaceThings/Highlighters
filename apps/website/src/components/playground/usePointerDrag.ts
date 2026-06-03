@@ -18,7 +18,7 @@ interface UsePointerDragOptions {
   max: number;
   step: number;
   /** Enforced lower bound. X still maps over the full min→max track, but the committed
-   *  value can't drop below this — dragging into the floor region parks at the floor. */
+   *  value can't drop below this - dragging into the floor region parks at the floor. */
   floor?: number;
   onChange: (next: number, fromDrag?: boolean) => void;
   reported: MotionValue<number>;
@@ -156,7 +156,7 @@ export function usePointerDrag({
       const downPos = pointerDownPosRef.current;
       if (!downPos) return;
       if (Math.abs(e.clientX - downPos.x) < CLICK_THRESHOLD) return;
-      // Promote to a drag — kill the click-tween so `applyPointer` is the sole writer.
+      // Promote to a drag - kill the click-tween so `applyPointer` is the sole writer.
       if (pointerAnimRef.current) {
         pointerAnimRef.current.stop();
         pointerAnimRef.current = null;
@@ -167,7 +167,7 @@ export function usePointerDrag({
   };
 
   // Capture-release, not pointerup: also covers the pointer leaving the element and OS
-  // forced-release — the finger-flies-off-the-track case a pointerup handler misses.
+  // forced-release - the finger-flies-off-the-track case a pointerup handler misses.
   const onLostPointerCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     if (pointerIdRef.current !== e.pointerId) return;
     draggingRef.current = false;

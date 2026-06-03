@@ -40,7 +40,7 @@ export function Dock() {
   const lastCustom = useRef("#a855f7");
 
   // Centre of `button` relative to the tray, clamped so the (centred) popover stays
-  // inside the tray — the rightmost swatch would otherwise overflow.
+  // inside the tray - the rightmost swatch would otherwise overflow.
   const centerX = useCallback((button: HTMLButtonElement) => {
     const tray = trayRef.current;
     if (!tray) return null;
@@ -90,7 +90,7 @@ export function Dock() {
     [setPen],
   );
 
-  // A preset swatch closes the picker — it replaces the custom ink.
+  // A preset swatch closes the picker - it replaces the custom ink.
   const handleSelectColor = useCallback(
     (color: string) => {
       setColor(color);

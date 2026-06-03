@@ -107,7 +107,7 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
 
 /**
  * Return a shallow clone of the named preset. Namespaced groups are shared by
- * reference — the merge layer treats them as immutable and only reads them.
+ * reference - the merge layer treats them as immutable and only reads them.
  * Throws on an unknown preset.
  */
 export function getPreset(name: PresetName): Partial<HighlightOptions> {

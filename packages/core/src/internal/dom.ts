@@ -1,28 +1,28 @@
 /**
  * Internal SSR-environment predicates and `NodeFilter` sentinels.
  *
- * Each predicate preserves a distinct capability question — intentionally NOT
+ * Each predicate preserves a distinct capability question - intentionally NOT
  * collapsed into one, because each call site reads a different set of globals and
  * a wider check would over- or under-guard it. Internal (never re-exported);
  * every export touches no DOM global at module load, so importing it is SSR-safe.
  */
 
-/** `document` + `Range` present — guards the targeting collectors that build `Range`s. */
+/** `document` + `Range` present - guards the targeting collectors that build `Range`s. */
 export function hasDomWithRange(): boolean {
   return typeof document !== "undefined" && typeof Range !== "undefined";
 }
 
-/** `document` + `window` present — guards the render entry points. */
+/** `document` + `window` present - guards the render entry points. */
 export function hasDom(): boolean {
   return typeof document !== "undefined" && typeof window !== "undefined";
 }
 
-/** `window` present — guards the observer layer. */
+/** `window` present - guards the observer layer. */
 export function hasWindow(): boolean {
   return typeof window !== "undefined";
 }
 
-/** `window.matchMedia` present — guards tier selection's preference reads. */
+/** `window.matchMedia` present - guards tier selection's preference reads. */
 export function hasMediaQueries(): boolean {
   return (
     typeof document !== "undefined" &&
@@ -32,7 +32,7 @@ export function hasMediaQueries(): boolean {
 }
 
 // NodeFilter sentinels as literals so collectors configure a TreeWalker without
-// touching the global NodeFilter at module load — it doesn't exist outside a DOM.
+// touching the global NodeFilter at module load - it doesn't exist outside a DOM.
 export const SHOW_TEXT = 0x4;
 export const FILTER_ACCEPT = 1;
 export const FILTER_REJECT = 2;

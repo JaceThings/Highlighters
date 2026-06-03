@@ -19,7 +19,7 @@ const TIPS = {
   },
 } as const;
 
-// The ink band near the funnel — outside the barrel's drop-shadow so MarkerRow can
+// The ink band near the funnel - outside the barrel's drop-shadow so MarkerRow can
 // crossfade just the colour (band + tip) over a static barrel.
 const BAND = "M8 57.0525H34.1475V67.7492H8V57.0525Z";
 
@@ -32,7 +32,7 @@ interface PenProps {
   className?: string;
   style?: CSSProperties;
   /** Render only the coloured layer (band + tip), skipping the grey barrel and
-   *  its drop-shadow — used for the dissolving crossfade overlay. */
+   *  its drop-shadow - used for the dissolving crossfade overlay. */
   colorOnly?: boolean;
 }
 
@@ -40,7 +40,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
   // Namespace the gradient/filter ids so multiple <Pen>s don't collide on shared defs.
   const id = useId();
   const ink = parseOklch(color);
-  // A pure-white ink would vanish against the panel — cap the displayed nib lightness so the
+  // A pure-white ink would vanish against the panel - cap the displayed nib lightness so the
   // marker stays visible even at full white.
   const visibleInk = ink.L > 0.9 ? { L: 0.9, C: ink.C, H: ink.H } : ink;
   const visibleColor = oklchToCss(visibleInk);
@@ -74,7 +74,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           </g>
         </g>
       )}
-      {/* Ink band — no shadow, so it crossfades cleanly over the static barrel. */}
+      {/* Ink band - no shadow, so it crossfades cleanly over the static barrel. */}
       <path d={BAND} style={{ fill: visibleColor }} />
       <path
         d={BAND}
@@ -215,7 +215,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           y2="16"
           gradientUnits="userSpaceOnUse"
         >
-          {/* The JS tween drives these colours each frame — no CSS transition,
+          {/* The JS tween drives these colours each frame - no CSS transition,
               which would fight the per-frame updates. */}
           <stop style={{ stopColor: tipTop }} />
           <stop offset="1" style={{ stopColor: visibleColor }} />

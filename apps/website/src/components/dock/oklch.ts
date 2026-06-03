@@ -80,7 +80,7 @@ export function hslToHex({ h, s, l }: Hsl): string {
   return `#${to255(r1)}${to255(g1)}${to255(b1)}`;
 }
 
-// CSS Color 4 oklch() literal — accepted in SVG fill/stop-color/flood-color.
+// CSS Color 4 oklch() literal - accepted in SVG fill/stop-color/flood-color.
 export function oklchToCss(c: Oklch): string {
   return `oklch(${c.L.toFixed(4)} ${c.C.toFixed(4)} ${c.H.toFixed(2)})`;
 }

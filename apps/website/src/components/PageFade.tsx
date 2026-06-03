@@ -26,7 +26,7 @@ const FADE: Variants = {
 export function PageFade() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Skip the wrapper fade on cold load so the page's Stagger cascade owns the
-  // entrance. `initial={false}` goes on the motion.div, NOT <AnimatePresence> —
+  // entrance. `initial={false}` goes on the motion.div, NOT <AnimatePresence> -
   // there it propagates a PresenceContext that suppresses the nested cascade.
   const firstRef = useRef(true);
   const isFirst = firstRef.current;

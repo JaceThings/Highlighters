@@ -22,7 +22,7 @@ export function ColorPickerPopover({
   onChange: (hex: string) => void;
 }) {
   // Hold H/S/L locally: dragging lightness to 0 or 100 makes the hex pure black/white,
-  // which has no hue to read back — keeping our own H/S/L preserves it across the extremes.
+  // which has no hue to read back - keeping our own H/S/L preserves it across the extremes.
   const [{ h, s, l }, setHsl] = useState(() => hexToHsl(color));
   // Re-sync only on an OUTSIDE change (a preset/swatch); our own edits already match, so the
   // round-trip can't clobber the hue mid-drag.

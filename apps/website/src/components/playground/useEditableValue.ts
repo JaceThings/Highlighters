@@ -7,7 +7,7 @@ interface UseEditableValueOptions {
   max: number;
   step: number;
   format?: (value: number) => string;
-  /** Optional seed formatter for the editable input — falls back to `format`.
+  /** Optional seed formatter for the editable input - falls back to `format`.
    *  Use this when `format` returns a non-parseable display string (e.g. a
    *  decorated label) but the input should still seed with a clean number. */
   formatSeed?: (value: number) => string;
@@ -43,7 +43,7 @@ export function useEditableValue({
   }, [editing]);
 
   const commitEdit = () => {
-    // `parseFloat` is lenient by design — grabs the leading numeric portion, so a
+    // `parseFloat` is lenient by design - grabs the leading numeric portion, so a
     // decorated seed (e.g. with a unit suffix) still round-trips.
     const parsed = parseFloat(draft);
     if (!Number.isNaN(parsed)) {

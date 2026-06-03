@@ -38,7 +38,7 @@ interface SliderProps {
   /** Enforced minimum: the value can't drop below it. The track still spans min→max, so a
    *  custom fill can mark the 0→floor region. */
   floor?: number;
-  /** Optional display formatter — e.g. `(v) => v.toFixed(2)` for smoothing. */
+  /** Optional display formatter - e.g. `(v) => v.toFixed(2)` for smoothing. */
   format?: (value: number) => string;
   /** Optional seed formatter for the editable input. Used when `format`
    *  produces a decorated string the input shouldn't seed with (e.g. an
@@ -81,7 +81,7 @@ export function Slider({
   const trackHeight = tuning.trackHeight;
   const trackRef = useRef<HTMLDivElement | null>(null);
   const propAnimRef = useRef<ReturnType<typeof animate> | null>(null);
-  // Captured once on mount — double-click on the label reverts to this.
+  // Captured once on mount - double-click on the label reverts to this.
   // Subsequent prop updates (presets, drags) don't touch the ref.
   const initialValueRef = useRef<number>(value);
 
@@ -141,7 +141,7 @@ export function Slider({
   });
 
   // Tween `reported` toward the controlled prop on non-drag changes (preset, keyboard).
-  // During a drag the drag is the source of truth — skip the tween.
+  // During a drag the drag is the source of truth - skip the tween.
   useEffect(() => {
     if (drag.isDraggingRef.current) return;
     if (propAnimRef.current) propAnimRef.current.stop();

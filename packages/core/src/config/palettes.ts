@@ -70,7 +70,7 @@ export const PALETTES: Record<PaletteName, Palette> = {
   },
 };
 
-/** Canonical default swatch per family — the least-text-obscuring hue (yellow where present). */
+/** Canonical default swatch per family - the least-text-obscuring hue (yellow where present). */
 const DEFAULT_SWATCH_NAMES: Record<PaletteName, string> = {
   fluorescent: "yellow",
   mild: "yellow",

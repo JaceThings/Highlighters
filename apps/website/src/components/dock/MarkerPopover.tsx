@@ -25,7 +25,7 @@ const INK_FADE_MS = 180; // matches the dock pens
 
 // Endpoint-pooled translucent ink, denser at both ends like a real marker. Built from
 // the animatable `--ink` via color-mix, so `transition: --ink` fades the whole gradient
-// — transparency and all — in one element, no second copy.
+// - transparency and all - in one element, no second copy.
 const INK_GRADIENT =
   "linear-gradient(90deg," +
   " color-mix(in oklab, var(--ink) 50%, transparent) 0%," +
@@ -57,7 +57,7 @@ function MarkOption({
     // Tighter overshoot than the live nib so the small stroke + caps fit the cell.
     const tip = { ...penToTip(pen).tip, overshoot: 4, overshootJitter: 0 };
     // Square off chisel/flat ends on thin bands so they don't read like the bullet's
-    // round cap. The bullet ignores this — its cap radius is height-driven.
+    // round cap. The bullet ignores this - its cap radius is height-driven.
     const radius = type === "highlight" ? (BASE_SELECTION_OPTIONS.edge?.radius ?? 3) : 0.8;
     const resolved = resolveOptions({
       ...BASE_SELECTION_OPTIONS,

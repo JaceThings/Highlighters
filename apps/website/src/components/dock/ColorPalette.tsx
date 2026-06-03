@@ -1,6 +1,6 @@
 import colorPickerUrl from "./color-picker.svg";
 
-// `ring` is the selected outline — solid, since box-shadow can't take a gradient.
+// `ring` is the selected outline - solid, since box-shadow can't take a gradient.
 interface Swatch {
   id: string;
   label: string;
@@ -52,7 +52,7 @@ export function ColorPalette({
 }
 
 // The custom-colour disc: a rainbow ring with the picked colour at its centre when active,
-// or the wheel art when not — so it reads as "open the colour picker".
+// or the wheel art when not - so it reads as "open the colour picker".
 function CustomDisc({
   active,
   color,
@@ -78,7 +78,7 @@ function CustomDisc({
         // edges against each other (the preset discs dodge this with their simpler structure).
         style={{ willChange: "transform", backfaceVisibility: "hidden" }}
       >
-        {/* Rainbow ring + white gap, revealed as the centre scales down — the same select
+        {/* Rainbow ring + white gap, revealed as the centre scales down - the same select
             reveal (and timing) as the preset discs. The centre carries the wheel art until a
             custom colour is active, then the picked colour. */}
         <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
@@ -118,7 +118,7 @@ function Disc({
       aria-pressed={selected}
       onClick={(e) => onClick(e.currentTarget)}
       data-focus-ring
-      // Never scale the button itself — it shifts the hit area out from under
+      // Never scale the button itself - it shifts the hit area out from under
       // the pointer and the click misfires. Press-scale lives on the visual layer.
       className="group relative size-[43px] shrink-0 rounded-full"
     >

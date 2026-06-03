@@ -14,7 +14,7 @@ export function MoreSection() {
     >
       <div className="flex w-full flex-col gap-3 px-[4px]">
         <p className="text-[14px] leading-[1.6] font-medium tracking-[-0.25px] text-wrap-pretty text-text-secondary">
-          Beyond the controls above, the library has more — <Mono>gradient</Mono>{" "}
+          Beyond the controls above, the library has more - <Mono>gradient</Mono>{" "}
           colour ramps, additive <Mono>glow</Mono>, the full <Mono>animation</Mono>{" "}
           group, <Mono>speed</Mono>-reactive ink, semantic <Mono>{"<mark>"}</Mono>{" "}
           output, <Mono>renderer</Mono> tiers, and a handful more like{" "}

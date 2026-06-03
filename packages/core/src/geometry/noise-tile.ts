@@ -6,12 +6,12 @@ import { hashU32 } from "./rng.js";
  * The fixed-pixel noise tile that gives the mark its organic, hand-inked grain.
  *
  * The grain is two `feTurbulence` layers baked once into a constant-pixel,
- * seamlessly-stitched tile and then repeated — never scaled. Per-line variety
+ * seamlessly-stitched tile and then repeated - never scaled. Per-line variety
  * comes from offsetting the sample window (see `mark-space.ts`'s `maskOffset`),
  * so grain density is invariant to mark width/height. The layers are striations
  * (chunky horizontal pen-stroke lanes parallel to the swipe) and pressure patches
  * (large soft coverage blobs). Both use `stitchTiles="stitch"` so the tile wraps
- * seamlessly, and the whole thing is a `data:` URL of pure string-built SVG —
+ * seamlessly, and the whole thing is a `data:` URL of pure string-built SVG -
  * no DOM access, safe from the SSR `/path` entry.
  */
 
@@ -48,7 +48,7 @@ export interface NoiseTileOptions {
   seed: number;
   /**
    * Striation density, `0`–`1`. Raises the streak layer's alpha contrast (the
-   * lengthwise lighter/darker lanes) — `1` is obviously streaky, `0` a near-flat
+   * lengthwise lighter/darker lanes) - `1` is obviously streaky, `0` a near-flat
    * wash. Clamped internally.
    */
   streakiness: number;
@@ -60,7 +60,7 @@ export interface NoiseTileOptions {
   /**
    * Probabilistic alpha gaps (skipping), `0`–`1`. Raises the patch layer's
    * contrast and lowers its floor, then a discrete alpha threshold cuts
-   * low-coverage regions to transparent — higher `dryout` punches more holes.
+   * low-coverage regions to transparent - higher `dryout` punches more holes.
    * Clamped internally. Defaults to `0` (no skipping).
    */
   dryout?: number;
@@ -165,7 +165,7 @@ function dryoutTransfer(dryout: number): string {
  * string-building, safe from the SSR `/path` entry.
  */
 // Memoised: a mark's update() rebuilds this every call, but the tile is identical
-// unless an input changes — and most option drags never touch them.
+// unless an input changes - and most option drags never touch them.
 const tileCache = new Map<string, string>();
 
 export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
