@@ -109,9 +109,6 @@ function buildInitialOptions(): PlaygroundOptions {
     // Stack on by default — overlapping marks darken like real translucent ink.
     // `toCoreOptions` lowers this to the `multiply` compositing model.
     stack: STACK_DEFAULT,
-    // Balanced dye↔pigment ink as the neutral starting point.
-    colorant: "balanced",
-    quality: "standard",
     snap: "word",
     tip: {
       type: "chisel",
@@ -282,8 +279,6 @@ function resolvedToPatch(r: ResolvedOptions): PlaygroundOptions {
     color: r.color,
     opacity: r.opacity,
     stack: r.blendMode === "multiply",
-    colorant: r.colorant,
-    quality: r.quality,
     snap: r.snap,
     renderer: r.renderer,
     tip: {

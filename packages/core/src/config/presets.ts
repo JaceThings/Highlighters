@@ -1,8 +1,7 @@
 /**
  * High-level named presets (R19). Each is a *partial* {@link HighlightOptions}
  * expressible as a single string token (`preset: "wet"`), layered over
- * `DEFAULT_OPTIONS` and beneath the `quality` bundle, the colorant axis, and the
- * explicit user options.
+ * `DEFAULT_OPTIONS` and beneath the explicit user options.
  *
  * Pure data, no DOM. `getPreset()` hands back a shallow clone so callers can
  * never mutate the shared constants.
@@ -33,7 +32,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     opacity: 0.9,
     blendMode: "multiply",
     snap: "word",
-    quality: "standard",
     ink: {
       flow: 0.7,
       saturation: 0.85,
@@ -49,8 +47,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     opacity: 0.55,
     blendMode: "multiply",
     snap: "word",
-    quality: "standard",
-    colorant: "pigment",
     ink: {
       flow: 0.45,
       saturation: 0.5,
@@ -66,7 +62,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     opacity: 0.8,
     blendMode: "multiply",
     snap: "line",
-    colorant: "dye",
     ink: {
       flow: 0.9,
       viscosity: 0.2,
@@ -101,18 +96,19 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     opacity: 0.7,
     blendMode: "multiply",
     snap: "word",
-    quality: "premium",
+    // Low-variance, engineered-against-pooling ink (the former "premium" quality
+    // bundle, baked in): suppressed streak/feather/dryout and an anti-pool guardrail.
     ink: {
       flow: 0.55,
       viscosity: 0.45,
       saturation: 0.7,
-      feathering: 0.15,
+      feathering: 0.12,
       streakiness: 0.1,
       dryout: 0.02,
       // Negative engages the anti-pool guardrail (lightens the ends).
-      startEndBuildup: -0.4,
+      startEndBuildup: -0.3,
     },
-    edge: { waviness: 0.75, roughness: 0.1, cap: "round", radius: 6 },
+    edge: { waviness: 0.75, roughness: 0.12, cap: "round", radius: 6 },
   },
 
   minimal: {
@@ -120,10 +116,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     opacity: 0.9,
     blendMode: "multiply",
     snap: "word",
-    // `standard` (the empty quality bundle): the premium bundle would re-inject
-    // feather/streak/dryout variance over the deliberate zeros below, so a
-    // "minimal" mark would render textured rather than flat (R18).
-    quality: "standard",
     ink: {
       flow: 0.4,
       saturation: 0.85,

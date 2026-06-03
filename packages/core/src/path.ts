@@ -17,7 +17,6 @@ export { resolveOptions, mergeOptions } from "./config/merge.js";
 export { DEFAULT_OPTIONS } from "./config/defaults.js";
 export { PRESETS, getPreset } from "./config/presets.js";
 export { PALETTES, getPalette, resolveSwatch, defaultSwatch } from "./config/palettes.js";
-export { applyColorantAxis, normalizeColorant } from "./config/colorant.js";
 
 // --- Geometry (absolute-px mark-space, pure) --------------------------------
 export { buildMarkGeometry } from "./geometry/mark-space.js";
@@ -37,13 +36,11 @@ export type {
   EdgeCap,
   BlendMode,
   SnapMode,
-  QualityTier,
   RendererTier,
   RendererTierPreference,
   AnimationDirection,
   AnimationTrigger,
   EasingValue,
-  ColorantValue,
   // Color, gradient, palettes, presets
   GradientStop,
   GradientConfig,

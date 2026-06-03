@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { applyColorantAxis, normalizeColorant } from "../src/config/colorant.js";
 import { DEFAULT_OPTIONS } from "../src/config/defaults.js";
 import { mergeOptions, resolveOptions } from "../src/config/merge.js";
 import {
@@ -44,80 +43,13 @@ describe("DEFAULT_OPTIONS", () => {
     expect(DEFAULT_OPTIONS.markType).toBe("highlight");
     expect(DEFAULT_OPTIONS.blendMode).toBe("multiply");
     expect(DEFAULT_OPTIONS.color).toBe(defaultSwatch("fluorescent"));
-    expect(DEFAULT_OPTIONS.quality).toBe("standard");
     expect(DEFAULT_OPTIONS.snap).toBe("line");
     expect(DEFAULT_OPTIONS.renderer).toBe("auto");
     expect(DEFAULT_OPTIONS.glow.enabled).toBe(false);
-    expect(DEFAULT_OPTIONS.colorant).toBe(0.5);
     expect(DEFAULT_OPTIONS.seed).toBeNull();
     expect(DEFAULT_OPTIONS.edge.cap).toBe("round");
     expect(Object.isFrozen(DEFAULT_OPTIONS)).toBe(true);
     expect(Object.isFrozen(DEFAULT_OPTIONS.ink)).toBe(true);
-  });
-});
-
-describe("normalizeColorant", () => {
-  it("maps named anchors to axis positions", () => {
-    expect(normalizeColorant("dye")).toBe(0);
-    expect(normalizeColorant("balanced")).toBe(0.5);
-    expect(normalizeColorant("pigment")).toBe(1);
-  });
-
-  it("clamps numbers into [0,1]", () => {
-    expect(normalizeColorant(0.42)).toBe(0.42);
-    expect(normalizeColorant(-3)).toBe(0);
-    expect(normalizeColorant(9)).toBe(1);
-  });
-});
-
-describe("applyColorantAxis", () => {
-  it("sweeping dye→pigment moves params monotonically in the documented directions", () => {
-    // Sample the axis at evenly-spaced positions with no ink set.
-    const samples = [0, 0.25, 0.5, 0.75, 1].map(
-      (c) => applyColorantAxis({}, c).ink!,
-    );
-
-    const monotoneDecreasing = (values: number[]) =>
-      values.every((v, i) => i === 0 || v <= values[i - 1]);
-
-    expect(monotoneDecreasing(samples.map((s) => s.saturation!))).toBe(true);
-    expect(monotoneDecreasing(samples.map((s) => s.feathering!))).toBe(true);
-    expect(monotoneDecreasing(samples.map((s) => s.streakiness!))).toBe(true);
-    expect(monotoneDecreasing(samples.map((s) => s.startEndBuildup!))).toBe(
-      true,
-    );
-
-    // Endpoints: dye is saturated/feathery/pooling; pigment is muted/clean.
-    expect(samples[0].saturation!).toBeGreaterThan(samples[4].saturation!);
-    expect(samples[0].feathering!).toBeGreaterThan(samples[4].feathering!);
-    // Pigment engages the anti-pool guardrail (negative build-up).
-    expect(samples[4].startEndBuildup!).toBeLessThan(0);
-    expect(samples[0].startEndBuildup!).toBeGreaterThan(0);
-  });
-
-  it("opacity tracks the axis: denser at dye, translucent at pigment", () => {
-    expect(applyColorantAxis({}, 0).opacity!).toBeGreaterThan(
-      applyColorantAxis({}, 1).opacity!,
-    );
-  });
-
-  it("only fills unset fields — explicit user values always win", () => {
-    const out = applyColorantAxis(
-      { ink: { saturation: 0.123, feathering: 0.999 }, opacity: 0.05 },
-      0,
-    );
-    expect(out.ink!.saturation).toBe(0.123);
-    expect(out.ink!.feathering).toBe(0.999);
-    expect(out.opacity).toBe(0.05);
-    // …but unset siblings are still defaulted from the axis.
-    expect(out.ink!.streakiness).toBeTypeOf("number");
-  });
-
-  it("does not mutate its input", () => {
-    const input = { ink: { flow: 0.5 } };
-    const before = JSON.stringify(input);
-    applyColorantAxis(input, 0.3);
-    expect(JSON.stringify(input)).toBe(before);
   });
 });
 
@@ -195,11 +127,9 @@ describe("resolveOptions", () => {
     expect(r.opacity).toBe(PRESETS.mild.opacity);
     expect(r.blendMode).toBe("multiply");
     expect(r.snap).toBe("word");
-    // mild pins colorant to pigment → normalized to 1.
-    expect(r.colorant).toBe(1);
   });
 
-  it("applies the precedence defaults → preset → quality → colorant → user", () => {
+  it("applies the precedence defaults → preset → user", () => {
     // User opacity beats the preset.
     expect(resolveOptions({ opacity: 0.33 }).opacity).toBe(0.33);
 
@@ -208,10 +138,8 @@ describe("resolveOptions", () => {
       PALETTES.fluorescent.swatches.yellow,
     );
 
-    // Quality bundle fills unset ink params; user ink still wins over it.
-    const cheap = resolveOptions({ preset: "wet", quality: "cheap" });
-    expect(cheap.quality).toBe("cheap");
-    const userWins = resolveOptions({ quality: "cheap", ink: { streakiness: 0.01 } });
+    // User ink still wins over the preset's ink.
+    const userWins = resolveOptions({ preset: "wet", ink: { streakiness: 0.01 } });
     expect(userWins.ink.streakiness).toBe(0.01);
   });
 
@@ -223,12 +151,6 @@ describe("resolveOptions", () => {
     expect(resolveOptions({ preset: "wet", palette: "vintage" }).color).toBe(
       defaultSwatch("vintage"),
     );
-  });
-
-  it("normalizes the colorant value to a number", () => {
-    expect(resolveOptions({ colorant: "dye" }).colorant).toBe(0);
-    expect(resolveOptions({ colorant: "balanced" }).colorant).toBe(0.5);
-    expect(resolveOptions({ colorant: 0.7 }).colorant).toBe(0.7);
   });
 
   it("setting waviness and roughness to 0 yields clean straight edges (V3/R13)", () => {
@@ -295,7 +217,7 @@ describe("resolveOptions", () => {
     expect(resolveOptions({ speed: { sensitivity: NaN } }).speed.sensitivity).toBe(d.sensitivity);
   });
 
-  it("the minimal preset resolves truly flat (quality no longer re-injects variance)", () => {
+  it("the minimal preset resolves truly flat", () => {
     const r = resolveOptions({ preset: "minimal" });
     expect(r.ink.feathering).toBe(0);
     expect(r.ink.streakiness).toBe(0);

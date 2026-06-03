@@ -118,8 +118,8 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
     update(opts: Partial<HighlightOptions>): void {
       if (removed) return;
       // Accumulate user overrides, then re-resolve through the full merge chain
-      // (defaults → preset → quality → colorant → user) so altitudes compose
-      // correctly across successive updates (A7).
+      // (defaults → preset → user) so altitudes compose correctly across
+      // successive updates (A7).
       userOptions = mergeOptions(userOptions, opts as HighlightOptions);
       resolved = resolveOptions(userOptions);
       rerender();
