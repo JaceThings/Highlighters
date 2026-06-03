@@ -78,7 +78,7 @@ interface Base {
   desc: string;
 }
 type Demo =
-  | (Base & { kind: "slider"; path: string; label: string; def: number; min: number; max: number; step: number; unit: Unit })
+  | (Base & { kind: "slider"; path: string; label: string; def: number; min: number; max: number; step: number; unit: Unit; floor?: number })
   | (Base & { kind: "pills"; path: string; aria: string; def: string; opts: ReadonlyArray<{ value: string; label: string }>; shape?: boolean })
   | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
   | (Base & { kind: "color" });
@@ -200,6 +200,7 @@ function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" 
         min={demo.min}
         max={demo.max}
         step={demo.step}
+        floor={demo.floor}
         format={FORMAT[demo.unit]}
         onChange={onNum}
         renderFill={(ctx) => <ScribbleFill seed={seed} {...ctx} />}
@@ -244,7 +245,7 @@ export const OPTION_DEMOS: Demo[] = [
   { kind: "slider", title: "opacity", label: "Opacity", path: "opacity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Overall ink alpha. Lower lets more of the text read through the band." },
   { kind: "toggle", title: "blendMode (stack)", aria: "Stack", path: "stack", def: true, desc: "Overlap optics. On = multiply: two passes darken where they cross, like real translucent ink. Off = normal: same-colour overlaps merge flat." },
   { kind: "pills", title: "tip.type", aria: "Nib", path: "tip.type", def: "chisel", opts: [{ value: "chisel", label: "Chisel" }, { value: "bullet", label: "Bullet" }, { value: "fine", label: "Fine" }], desc: "Nib shape — a broad slanted chisel, a rounded bullet, or a fine point." },
-  { kind: "slider", title: "tip.angle", label: "Angle", path: "tip.angle", def: 35, min: 0, max: 90, step: 1, unit: "deg", desc: "Chisel slant baked into each band." },
+  { kind: "slider", title: "tip.angle", label: "Angle", path: "tip.angle", def: 35, min: 0, max: 90, step: 1, unit: "deg", floor: 8, desc: "Chisel slant baked into each band, never quite flat." },
   { kind: "slider", title: "tip.overshoot", label: "Overshoot", path: "tip.overshoot", def: 2, min: -8, max: 12, step: 1, unit: "px", desc: "How far each end runs past the text. Positive overruns like a real swipe; negative stops short of the glyphs." },
   { kind: "slider", title: "tip.overshootJitter", label: "End randomness", path: "tip.overshootJitter", def: 1, min: 0, max: 8, step: 1, unit: "px", desc: "Per-end random variance of the overshoot, so the two ends never land on an identical inset." },
   { kind: "slider", title: "ink.flow", label: "Flow", path: "ink.flow", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Juiciness — deposit amount. Raises the band width and softens the edges." },

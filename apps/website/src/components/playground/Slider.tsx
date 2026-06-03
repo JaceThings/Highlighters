@@ -35,6 +35,9 @@ interface SliderProps {
    *  keyboard, double-click revert, and typed input all report `false` so the
    *  consumer animates the value change. */
   onChange: (next: number, fromDrag?: boolean) => void;
+  /** Enforced minimum: the value can't drop below it. The track still spans min→max, so a
+   *  custom fill can mark the 0→floor region. */
+  floor?: number;
   /** Optional display formatter — e.g. `(v) => v.toFixed(2)` for smoothing. */
   format?: (value: number) => string;
   /** Optional seed formatter for the editable input. Used when `format`
@@ -48,7 +51,7 @@ interface SliderProps {
   /** Replace the default solid fill with custom content (e.g. a hand-drawn
    *  scribble), painted inside the rounded track. Receives the live `reported`
    *  motion value so it can reveal itself by the slider fraction. */
-  renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number }) => ReactNode;
+  renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number; floor?: number }) => ReactNode;
 }
 
 // Isolates the per-frame readout state so digit morphing re-renders only this node, not the
@@ -65,6 +68,7 @@ export function Slider({
   min,
   max,
   step = 1,
+  floor,
   onChange,
   format,
   formatSeed,
@@ -82,6 +86,8 @@ export function Slider({
   const initialValueRef = useRef<number>(value);
 
   const safeRange = max - min === 0 ? 1 : max - min;
+  // Enforced lower bound: the track still spans min→max, but committed values clamp to `lo`.
+  const lo = floor != null ? Math.max(min, floor) : min;
   // Memoised so `reservedChars` (which calls `format()`) doesn't rerun on every drag tick.
   const readoutMinWidth = useMemo(
     () => `${reservedChars(min, max, step, format, formatSamples)}ch`,
@@ -113,7 +119,7 @@ export function Slider({
   });
 
   const displayed = useTransform(reported, (v) => {
-    const stepped = clamp(snap(v, step), min, max);
+    const stepped = clamp(snap(v, step), lo, max);
     return format ? format(stepped) : String(stepped);
   });
 
@@ -123,6 +129,7 @@ export function Slider({
     min,
     max,
     step,
+    floor,
     onChange,
     reported,
     stopPropAnim: () => {
@@ -155,7 +162,7 @@ export function Slider({
 
   const handleKeyboardInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (drag.isDraggingRef.current) return;
-    const next = Number(e.currentTarget.value);
+    const next = clamp(Number(e.currentTarget.value), lo, max);
     if (next !== value) onChange(next, false);
   };
 
@@ -168,15 +175,16 @@ export function Slider({
               : 0;
     if (dir === 0) return;
     e.preventDefault();
-    const next = clamp(snap(value + dir * step * 10, step), min, max);
+    const next = clamp(snap(value + dir * step * 10, step), lo, max);
     if (next !== value) onChange(next, false);
   };
 
   const handleLabelDoubleClick = () => {
-    if (initialValueRef.current !== value) onChange(initialValueRef.current, false);
+    const revert = clamp(initialValueRef.current, lo, max);
+    if (revert !== value) onChange(revert, false);
   };
 
-  const editable = useEditableValue({ value, min, max, step, format, formatSeed, onChange });
+  const editable = useEditableValue({ value, min: lo, max, step, format, formatSeed, onChange });
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -231,7 +239,7 @@ export function Slider({
             {renderFill ? (
               // A custom fill owns the whole track; `overflow: visible` lets a warped edge bleed.
               <div className="relative h-full w-full" style={{ overflow: "visible" }} aria-hidden>
-                {renderFill({ reported, min, max })}
+                {renderFill({ reported, min, max, floor })}
               </div>
             ) : (
               <SmoothCorners
@@ -256,7 +264,7 @@ export function Slider({
           <input
             id={id}
             type="range"
-            min={min}
+            min={lo}
             max={max}
             step={step}
             value={value}

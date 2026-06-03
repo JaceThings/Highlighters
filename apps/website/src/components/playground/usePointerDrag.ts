@@ -17,6 +17,9 @@ interface UsePointerDragOptions {
   min: number;
   max: number;
   step: number;
+  /** Enforced lower bound. X still maps over the full min→max track, but the committed
+   *  value can't drop below this — dragging into the floor region parks at the floor. */
+  floor?: number;
   onChange: (next: number, fromDrag?: boolean) => void;
   reported: MotionValue<number>;
   /** Stops any in-flight prop-change tween before the pointer takes over.
@@ -31,10 +34,12 @@ export function usePointerDrag({
   min,
   max,
   step,
+  floor,
   onChange,
   reported,
   stopPropAnim,
 }: UsePointerDragOptions) {
+  const lo = floor != null ? Math.max(min, floor) : min;
   const pointerIdRef = useRef<number | null>(null);
   const draggingRef = useRef(false);
   // Separate from the parent's prop-change tween ref: that effect's cleanup fires when
@@ -75,7 +80,7 @@ export function usePointerDrag({
 
     const ratio = clamp((cx - rect.left) / rect.width, 0, 1);
     const raw = ratio * range + min;
-    const stepped = clamp(snap(raw, step), min, max);
+    const stepped = clamp(snap(raw, step), lo, max);
 
     if (stepped !== lastDragSteppedRef.current) {
       // Non-null: onPointerDown always seeds lastDragSteppedRef before any drag.
@@ -130,7 +135,7 @@ export function usePointerDrag({
     // lastDragSteppedRef here means the first crossing only ticks if it advances past the tap.
     const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
     const raw = ratio * range + min;
-    const targetValue = clamp(snap(raw, step), min, max);
+    const targetValue = clamp(snap(raw, step), lo, max);
     lastDragSteppedRef.current = targetValue;
     if (prefersReducedMotion()) {
       reported.set(targetValue);
