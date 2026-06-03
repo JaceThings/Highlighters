@@ -213,13 +213,12 @@ export function createSvgRenderer(): Renderer {
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
 
-    // saturation multiplies deposited intensity; flow adds opacity, viscosity subtracts.
-    const saturationGain = 0.35 + 0.65 * clamp01(ink.saturation);
+    // flow adds opacity, viscosity subtracts; 0.805 is the baked former ink.saturation gain.
     const flowGain = 1 + 0.35 * (clamp01(ink.flow) - clamp01(ink.viscosity));
     // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
     // so a uniformly-fast swipe dims the layer instead of being normalized to full.
     const effectiveAlpha = clamp01(
-      options.opacity * saturationGain * flowGain * (line.pool.layerScale ?? 1),
+      options.opacity * 0.805 * flowGain * (line.pool.layerScale ?? 1),
     );
     s.opacity = String(round3(effectiveAlpha));
 
@@ -241,14 +240,14 @@ export function createSvgRenderer(): Renderer {
   }
 
   function styleGlow(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
-    const { glow, ink } = context.options;
+    const { glow } = context.options;
     const s = el.style;
     fillWrapper(el);
     s.pointerEvents = "none";
-    // Additive emission over the multiply ink (R16): screen blend + bloom so the
-    // mark can read brighter than its background. Rides the saturation knob too.
+    // Additive emission over the multiply ink: screen blend + bloom so the mark reads brighter
+    // than its background. 0.82 is the baked former ink.saturation contribution.
     s.mixBlendMode = "screen";
-    s.opacity = String(round3(clamp01(glow.intensity * (0.4 + 0.6 * clamp01(ink.saturation)))));
+    s.opacity = String(round3(clamp01(glow.intensity * 0.82)));
     s.backgroundColor = glow.color;
     setVendorPrefixed(el, "clipPath", line.clipPath);
     setStyleOnce(el, "filter", `blur(${glow.spread}px)`);

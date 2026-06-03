@@ -40,7 +40,6 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
     ink: {
       flow: 0.5,
       viscosity: 0.5,
-      saturation: 0.5,
       feathering: 0.4,
       streakiness: 0.5,
       dryout: 0,

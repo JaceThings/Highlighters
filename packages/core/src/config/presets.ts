@@ -17,7 +17,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     snap: "word",
     ink: {
       flow: 0.7,
-      saturation: 0.85,
       feathering: 0.35,
       streakiness: 0.4,
       startEndBuildup: 0.35,
@@ -32,7 +31,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     snap: "word",
     ink: {
       flow: 0.45,
-      saturation: 0.5,
       feathering: 0.2,
       streakiness: 0.25,
       dryout: 0.1,
@@ -48,7 +46,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     ink: {
       flow: 0.9,
       viscosity: 0.2,
-      saturation: 0.8,
       feathering: 0.7,
       streakiness: 0.3,
       dryout: 0.05,
@@ -65,7 +62,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     ink: {
       flow: 0.25,
       viscosity: 0.85,
-      saturation: 0.6,
       feathering: 0.1,
       streakiness: 0.75,
       dryout: 0.6,
@@ -83,7 +79,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     ink: {
       flow: 0.55,
       viscosity: 0.45,
-      saturation: 0.7,
       feathering: 0.12,
       streakiness: 0.1,
       dryout: 0.02,
@@ -100,7 +95,6 @@ export const PRESETS: Record<PresetName, Partial<HighlightOptions>> = {
     snap: "word",
     ink: {
       flow: 0.4,
-      saturation: 0.85,
       feathering: 0,
       streakiness: 0,
       dryout: 0,

@@ -185,8 +185,6 @@ export interface InkOptions {
   flow?: number;
   /** Inverse flow — raises edge sharpness and skip frequency. */
   viscosity?: number;
-  /** Per-pass alpha / intensity of the deposited ink. */
-  saturation?: number;
   /** Capillary lateral edge spread (noise-perturbed, optionally blurred). */
   feathering?: number;
   /** Lengthwise lighter/darker lanes within a stroke (the primary realism tell). */
@@ -388,7 +386,6 @@ export interface ResolvedTip {
 export interface ResolvedInk {
   flow: number;
   viscosity: number;
-  saturation: number;
   feathering: number;
   streakiness: number;
   dryout: number;

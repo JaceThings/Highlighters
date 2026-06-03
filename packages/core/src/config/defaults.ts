@@ -27,7 +27,6 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   ink: Object.freeze({
     flow: 0.5,
     viscosity: 0.5,
-    saturation: 0.7,
     feathering: 0.3,
     streakiness: 0.35,
     dryout: 0.15,

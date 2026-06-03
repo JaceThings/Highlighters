@@ -131,7 +131,6 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   const ink: ResolvedInk = {
     flow: finiteOr(merged.ink?.flow, d.ink.flow),
     viscosity: finiteOr(merged.ink?.viscosity, d.ink.viscosity),
-    saturation: finiteOr(merged.ink?.saturation, d.ink.saturation),
     feathering: finiteOr(merged.ink?.feathering, d.ink.feathering),
     streakiness: finiteOr(merged.ink?.streakiness, d.ink.streakiness),
     dryout: finiteOr(merged.ink?.dryout, d.ink.dryout),

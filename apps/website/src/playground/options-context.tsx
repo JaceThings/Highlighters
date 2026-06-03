@@ -70,7 +70,6 @@ function buildInitialOptions(): PlaygroundOptions {
     ink: {
       flow: 0.5,
       viscosity: 0.5,
-      saturation: 0.7,
       feathering: 0.3,
       streakiness: 0.35,
       dryout: 0.15,
@@ -216,7 +215,6 @@ function useAnimatedOptions(
   const overshootJitter = useSpringNumber(o.tip?.overshootJitter ?? 1, cfg);
   const flow = useSpringNumber(o.ink?.flow ?? 0.5, cfg);
   const viscosity = useSpringNumber(o.ink?.viscosity ?? 0.5, cfg);
-  const saturation = useSpringNumber(o.ink?.saturation ?? 0.7, cfg);
   const feathering = useSpringNumber(o.ink?.feathering ?? 0.3, cfg);
   const streakiness = useSpringNumber(o.ink?.streakiness ?? 0.35, cfg);
   const dryout = useSpringNumber(o.ink?.dryout ?? 0.15, cfg);
@@ -238,7 +236,6 @@ function useAnimatedOptions(
         ...o.ink,
         flow,
         viscosity,
-        saturation,
         feathering,
         streakiness,
         dryout,
@@ -248,7 +245,7 @@ function useAnimatedOptions(
       paper: { ...o.paper, absorbency },
       glow: { ...o.glow, intensity: glowIntensity, spread: glowSpread },
     }),
-    [o, opacity, angle, overshoot, overshootJitter, flow, viscosity, saturation, feathering, streakiness, dryout, startEndBuildup, waviness, frequency, roughness, radius, absorbency, glowIntensity, glowSpread],
+    [o, opacity, angle, overshoot, overshootJitter, flow, viscosity, feathering, streakiness, dryout, startEndBuildup, waviness, frequency, roughness, radius, absorbency, glowIntensity, glowSpread],
   );
 }
 
