@@ -181,7 +181,13 @@ export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
   const hit = tileCache.get(key);
   if (hit !== undefined) return hit;
   const url = `data:image/svg+xml;base64,${toBase64Ascii(buildNoiseTileSvg(resolved))}`;
-  if (tileCache.size > 512) tileCache.clear();
+  // Evict the oldest half rather than clearing all, so a continuous noise-knob drag keeps its
+  // hot working set instead of regenerating every tile on one frame.
+  if (tileCache.size > 512) {
+    const half = Math.floor(tileCache.size / 2);
+    const iter = tileCache.keys();
+    for (let i = 0; i < half; i++) tileCache.delete(iter.next().value!);
+  }
   tileCache.set(key, url);
   return url;
 }
