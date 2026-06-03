@@ -27,7 +27,7 @@ export function ColorPickerPopover({
   // round-trip can't clobber the hue mid-drag.
   useEffect(() => {
     if (hslToHex({ h, s, l }) !== color) setHsl(hexToHsl(color));
-  }, [color]);
+  }, [color]); // eslint-disable-line react-hooks/exhaustive-deps -- only re-sync on an external color change, not our own edits
 
   const hex = hslToHex({ h, s, l });
   const set = (next: { h?: number; s?: number; l?: number }) => {

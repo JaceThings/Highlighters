@@ -71,6 +71,9 @@ export function useCapsuleDrag({
   const rafRef = useRef(0);
   const draggingRef = useRef(false);
   const downXRef = useRef(0);
+  // Read the latest onChange inside the rAF glide, in case the parent re-renders mid-animation.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
@@ -90,7 +93,7 @@ export function useCapsuleDrag({
     const tick = (now: number) => {
       if (draggingRef.current) return;
       const p = Math.min(1, (now - t0) / GLIDE_MS);
-      onChange(from + (target - from) * easeOut(p));
+      onChangeRef.current(from + (target - from) * easeOut(p));
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -108,7 +111,7 @@ export function useCapsuleDrag({
       if (!draggingRef.current && Math.abs(e.clientX - downXRef.current) < 4) return;
       draggingRef.current = true;
       cancelAnimationFrame(rafRef.current);
-      onChange(valueFromClientX(e.clientX));
+      onChangeRef.current(valueFromClientX(e.clientX));
     },
     endDrag: () => {
       draggingRef.current = false;
