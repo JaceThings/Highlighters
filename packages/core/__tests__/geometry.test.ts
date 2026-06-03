@@ -66,6 +66,7 @@ function makeOptions(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions 
     colorant: 0.5,
     quality: "standard",
     snap: "line",
+    fadeOnClear: true,
     renderer: "auto",
     animation: {
       draw: true,

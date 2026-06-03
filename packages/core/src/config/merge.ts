@@ -293,6 +293,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     colorant,
     quality,
     snap: merged.snap ?? d.snap,
+    fadeOnClear: merged.fadeOnClear ?? d.fadeOnClear,
     renderer: merged.renderer ?? d.renderer,
     animation,
     semantic: merged.semantic ?? d.semantic,

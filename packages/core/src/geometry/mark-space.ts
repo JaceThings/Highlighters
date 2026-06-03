@@ -53,30 +53,29 @@ function mod(n: number, m: number): number {
 }
 
 /**
- * Resolve the band's vertical placement and thickness for the mark type.
- *
- * All three marks are the same band primitive at different vertical positions
- * (A8): a `highlight` covers the whole line height, an `underline` is a thin band
- * at the baseline, a `strike-through` is a thin band centered on the x-height.
+ * Resolve the band's vertical placement and thickness for the mark type (A8).
+ * Every mark is one band primitive at a different vertical position/height:
+ * `highlight` fills the line; `underline` is a thin band at the baseline,
+ * `overline` a thin band at the top, `strike-through` a thin centered band.
  * Returns the band's top offset (relative to the line's padded top) and height,
- * both in px.
+ * both px.
  */
 function resolveBand(
   markType: ResolvedOptions["markType"],
   lineHeight: number,
 ): { offsetY: number; height: number } {
-  if (markType === "underline") {
-    const thickness = Math.max(2, lineHeight * 0.12);
-    // Sit just under the text: near the bottom of the line box.
-    return { offsetY: lineHeight - thickness, height: thickness };
+  const thin = Math.max(2, lineHeight * 0.12);
+  switch (markType) {
+    case "underline":
+      return { offsetY: lineHeight - thin, height: thin };
+    case "overline":
+      return { offsetY: 0, height: thin };
+    case "strike-through":
+      return { offsetY: (lineHeight - thin) / 2, height: thin };
+    // highlight: the full-line band.
+    default:
+      return { offsetY: 0, height: lineHeight };
   }
-  if (markType === "strike-through") {
-    const thickness = Math.max(2, lineHeight * 0.12);
-    // Centered vertically on the line.
-    return { offsetY: (lineHeight - thickness) / 2, height: thickness };
-  }
-  // highlight — the full-line band.
-  return { offsetY: 0, height: lineHeight };
 }
 
 /**

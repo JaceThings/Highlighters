@@ -431,6 +431,21 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     return { container, options: resolved, lines, ranges };
   };
 
+  // Clear-fade (resolved.fadeOnClear): when the selection empties, fade the whole
+  // overlay out over CLEAR_FADE_MS, then drop the bands — rather than wiping them
+  // on the spot. Re-selecting cancels the pending fade and snaps back to opaque.
+  const CLEAR_FADE_MS = 200;
+  let clearTimer: ReturnType<typeof setTimeout> | null = null;
+  const cancelClearFade = (): void => {
+    if (clearTimer !== null) {
+      clearTimeout(clearTimer);
+      clearTimer = null;
+    }
+    // Transition off first so resetting opacity is instant, not a fade back.
+    container.style.transition = "";
+    container.style.opacity = "";
+  };
+
   const renderSelection = (): void => {
     const selection = document.getSelection();
     const ranges: Range[] = [];
@@ -455,7 +470,24 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
         ranges.push(selection.getRangeAt(i).cloneRange());
       }
     }
+
+    // Selection just emptied: fade the painted overlay out, then drop the bands
+    // when the fade lands. Disabled or reduced-motion → instant clear (below).
+    const cleared = ranges.length === 0 && currentRanges.length > 0;
     currentRanges = ranges;
+    if (cleared && resolved.fadeOnClear && renderer && !env.prefersReducedMotion) {
+      container.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
+      container.style.opacity = "0";
+      clearTimer = setTimeout(() => {
+        clearTimer = null;
+        renderer?.update(rebuild([], false));
+        container.style.transition = "";
+        container.style.opacity = "";
+      }, CLEAR_FADE_MS);
+      return;
+    }
+    cancelClearFade();
+
     const context = rebuild(ranges, flowReversed);
     if (!renderer) {
       const tier = selectTier(resolved.renderer, env, context.lines.length);
@@ -499,6 +531,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       if (removed) return;
       removed = true;
       showing = false;
+      if (clearTimer !== null) clearTimeout(clearTimer);
       document.removeEventListener("selectionchange", onSelectionChange);
       if (tracker) {
         document.removeEventListener("pointerdown", onPointerDown, true);

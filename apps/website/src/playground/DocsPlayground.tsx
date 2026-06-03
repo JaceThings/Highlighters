@@ -1,0 +1,35 @@
+import { Stagger } from "../components/Stagger.tsx";
+import { PlaygroundOptionsProvider } from "./options-context.tsx";
+import { RecommendedLooks } from "./RecommendedLooks.tsx";
+import { CopyConfig } from "./CopyConfig.tsx";
+import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
+import { MoreSection } from "./sections/MoreSection.tsx";
+
+// One live demo PER option: each renders the shared Preview (gated to on-screen so
+// the page stays smooth) plus that option's single control, all writing one shared
+// options object. RecommendedLooks leads as one-shot starting points; MoreSection
+// documents the settings without a static demo; CopyConfig emits the build as code.
+// Lazy-loaded by Docs (pulls @highlighters/react + @lisse) to stay out of the home
+// bundle.
+export function DocsPlayground() {
+  return (
+    <PlaygroundOptionsProvider>
+      <div className="flex w-full flex-col" style={{ gap: 48 }}>
+        <Stagger index={1}>
+          <RecommendedLooks />
+        </Stagger>
+        {OPTION_DEMOS.map((demo, i) => (
+          <Stagger key={demo.title} index={2 + i}>
+            <OptionDemo demo={demo} />
+          </Stagger>
+        ))}
+        <Stagger index={2 + OPTION_DEMOS.length}>
+          <MoreSection />
+        </Stagger>
+        <Stagger index={3 + OPTION_DEMOS.length}>
+          <CopyConfig />
+        </Stagger>
+      </div>
+    </PlaygroundOptionsProvider>
+  );
+}
