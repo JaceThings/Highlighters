@@ -63,8 +63,14 @@ export function Preview({ quote, strategy }: PreviewProps) {
 
   // Build the marked quote for a given ink colour. Same ranges + seeds each call, so a base
   // copy (new colour) and a fading overlay copy (old colour) align and crossfade.
-  const quoteBody = (color: HighlightOptions["color"]) => {
-    const opts: HighlightOptions = { ...core, color };
+  const quoteBody = (color: HighlightOptions["color"], animate = true) => {
+    // The fading overlay copy renders finished (no draw-on) so a colour change crossfades
+    // instead of replaying the stroke animation.
+    const opts: HighlightOptions = {
+      ...core,
+      color,
+      animation: animate ? core.animation : { ...core.animation, draw: false },
+    };
     const innerMark = (word: string) =>
       renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 });
     const pieces: ReactNode[] = [];
@@ -124,7 +130,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
             style={{ ...QUOTE_STYLE, color: QUOTE_INK, animation: `preview-ink-fade ${PREVIEW_INK_FADE_MS}ms ease forwards` }}
           >
             {"“"}
-            {quoteBody(fadeOut.color)}
+            {quoteBody(fadeOut.color, false)}
             {"”"}
           </p>
         ) : null}

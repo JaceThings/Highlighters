@@ -30,10 +30,10 @@ export function ScribbleLegend({
     setSquiggle(nextSquiggle());
   };
 
-  // Extra bottom padding lifts the underline clear of the paper's bottom edge; the preview
-  // area (flex-1) absorbs it, so the card height stays on the grid.
+  // Footer padding sizes this row to ~75px, matching the slider/swatch controls so the quote
+  // area is the same height on every card; the underline still clears the sheet's bottom edge.
   return (
-    <div role="tablist" aria-label={ariaLabel} className="flex items-center gap-3 px-4 pt-5 pb-9">
+    <div role="tablist" aria-label={ariaLabel} className="flex items-center gap-3 px-4 py-5">
       {options.map((opt) => {
         const isActive = opt.value === value;
         // A focused but not-yet-selected option shows a faded underline preview.
