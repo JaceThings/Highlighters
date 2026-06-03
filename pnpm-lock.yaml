@@ -44,9 +44,6 @@ importers:
 
   apps/website:
     dependencies:
-      '@fontsource-variable/inter':
-        specifier: ^5.1.0
-        version: 5.2.8
       '@highlighters/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -787,9 +784,6 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
-
-  '@fontsource-variable/inter@5.2.8':
-    resolution: {integrity: sha512-kOfP2D+ykbcX/P3IFnokOhVRNoTozo5/JxhAIVYLpea/UBmCQ/YWPBfWIDuBImXX/15KH+eKh4xpEUyS2sQQGQ==}
 
   '@inquirer/external-editor@1.0.3':
     resolution: {integrity: sha512-RWbSrDiYmO4LbejWY7ttpxczuwQyZLBUyygsA9Nsv95hpzUWwnNTVQmAq3xuh7vNwCp07UTmE5i11XAEExx4RA==}
@@ -3358,8 +3352,6 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.0':
     optional: true
-
-  '@fontsource-variable/inter@5.2.8': {}
 
   '@inquirer/external-editor@1.0.3(@types/node@25.9.1)':
     dependencies:

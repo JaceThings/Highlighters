@@ -2,9 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Dark-mode variants come last: browsers use the last matching icon, so the
+         bright-ink set wins under prefers-color-scheme: dark. -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/favicon-32-dark.png"
+      media="(prefers-color-scheme: dark)"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/favicon-16-dark.png"
+      media="(prefers-color-scheme: dark)"
+    />
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- Flattened onto cream: iOS renders transparency as black. -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>highlighters</title>
@@ -12,7 +29,7 @@
       name="description"
       content="Realistic, customizable highlighter-pen marks for the web. Bindings for React, Vue, and Svelte."
     />
-    <meta name="theme-color" content="#f7f6f2" />
+    <meta name="theme-color" content="#fbfbf9" />
     <link rel="canonical" href="https://highlighte.rs/" />
     <meta name="robots" content="index,follow" />
 

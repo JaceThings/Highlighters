@@ -1,24 +1,17 @@
 import { useState } from "react";
-import { CopyablePackages } from "../components/CopyablePackages.tsx";
+import { InstallCommands } from "../components/InstallCommands.tsx";
 import { Stagger } from "../components/Stagger.tsx";
 import { useDockEntrance } from "../dock-entrance.tsx";
 import { creditLine, pickNextExcerpt } from "./excerpts.ts";
 
-// The homepage IS the demonstration: a sheet of ruled paper with real text and a
-// pen tray floating below, so marking it up is the obvious thing to do —
-// selecting any text paints it live (SelectionMarker).
+// The homepage IS the demo: ruled paper with real text and a pen tray below —
+// select any line to paint it live (SelectionMarker). Top to bottom: wordmark,
+// intro, features, npm install commands, divider, then a public-domain passage
+// from a no-repeat shuffle bag per load (excerpts.ts).
 //
-// Top to bottom: the wordmark, what the library is, what it does, the npm
-// packages (one per line), a divider, then a long public-domain passage drawn
-// from a shuffle bag per load (excerpts.ts) so there's always fresh prose to
-// highlight and the same passage never lands twice in a row.
-//
-// Type is locked to the paper's 1.5rem (24px) rhythm (Figma 2017:781): line-height
-// and inter-block gap are each one ruled row, the column starts on a row boundary
-// (Layout's 4.5rem top padding), sizes are rem-based — so every line sits within
-// two rules. The wordmark steps up to the 550 heading weight used across the
-// site; body weight, letter-spacing, colour and the ss02 stylistic set (the
-// tailed lowercase l) inherit from <body>.
+// Type locks to the 24px ruled rhythm (Figma 2017:781): line-height and block gap
+// are each one row, sizes rem-based. The wordmark uses the 550 heading weight;
+// everything else (weight, colour, the cv05 tailed l) inherits from <body>.
 
 const INTRO =
   "This library allows you to draw marker strokes over web text. Not a coloured box sitting behind the words, an actual stroke off a nib: ink that pools where a line starts and stops, streaks left behind as it dries, a little bleed past the last letter. There are three nibs, the kind you'd find in a desk drawer. A broad chisel, a rounded bullet, a fine point.";
@@ -56,10 +49,10 @@ export function Home() {
         <p className="m-0">{FEATURES}</p>
       </Stagger>
 
-      {/* The npm packages, one per line — monospace, click-to-copy, still on the
-          24px grid (four lines = four rows). See CopyablePackages. */}
+      {/* The npm install commands, one per line — plain body text on the 24px
+          grid (four lines = four rows). See InstallCommands. */}
       <Stagger index={3}>
-        <CopyablePackages items={PACKAGES} />
+        <InstallCommands items={PACKAGES} />
       </Stagger>
 
       {/* A playful nudge that the passage below is the demo surface. Muted so it

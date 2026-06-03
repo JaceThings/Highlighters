@@ -14,24 +14,21 @@ html {
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  /* Inter v4 ships an `opsz` axis; pair with the `standard` variant in main.tsx. */
+  /* Inter v4 ships an `opsz` axis; let the browser pick optical sizes from the variable font. */
   font-optical-sizing: auto;
 }
 
 body {
   font-family: var(--font-sans);
-  font-weight: 500;
-  /*
-   * `font-feature-settings` overrides the browser default, so we re-list the
-   * always-on features (kern/liga/calt) alongside `ss02` — Inter's
-   * "Disambiguation" set, which gives the lowercase l its tail (the design
-   * intent; in this Inter build the tail lives on ss02, not the cvNN alternates).
-   */
+  font-weight: 450;
+  /* font-feature-settings replaces (not augments) the defaults, so re-list the
+   * always-on features plus cv05 — Inter's tailed lowercase l (official build only;
+   * see tokens.css). */
   font-feature-settings:
     "kern" 1,
     "liga" 1,
     "calt" 1,
-    "ss02" 1;
+    "cv05" 1;
   font-variant-numeric: tabular-nums;
   font-size: 14px;
   line-height: 1.2;
