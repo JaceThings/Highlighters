@@ -5,7 +5,7 @@ const CLASSES =
   "flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#efeeed] text-[#7e756c] transition-[background-color,transform] duration-200 ease-out-quint hover:bg-[#e6e4e1] active:scale-[0.96]";
 
 /** Tool-tray button: `to` renders a router Link, `href` an external anchor, else a
- *  plain button — all share one style. */
+ *  plain button - all share one style. */
 export function DockButton({
   children,
   label,

@@ -4,7 +4,7 @@ import { Stagger } from "../components/Stagger.tsx";
 import { useDockEntrance } from "../dock-entrance.tsx";
 import { creditLine, pickNextExcerpt } from "./excerpts.ts";
 
-// The homepage IS the demo: ruled paper with real text — select any line to paint
+// The homepage IS the demo: ruled paper with real text - select any line to paint
 // it live (SelectionMarker). Type locks to the 24px ruled rhythm: line-height and
 // block gap are each one row.
 

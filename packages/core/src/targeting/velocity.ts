@@ -5,7 +5,7 @@
  * caret's pixel position over time and store `{x, y, v}` samples in the SAME
  * container-local px space the line geometry is built in. A live drag never reflows
  * between sampling and painting, so a line can look up the swipe speed at any point
- * along its band by spatial position — no character-offset mapping (which would
+ * along its band by spatial position - no character-offset mapping (which would
  * need a brittle per-glyph layer that breaks on ligatures, bidi, and wrapping).
  *
  * Imported ONLY by `highlightSelection` and runs ONLY during an active fine-pointer

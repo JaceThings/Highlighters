@@ -1,5 +1,5 @@
 /**
- * `@highlighters/core` — the framework-agnostic public API.
+ * `@highlighters/core` - the framework-agnostic public API.
  *
  * One pipeline, many front doors: every targeting input normalizes to DOM
  * `Range`s, then per-visual-line rectangles, then absolute-px geometry, then the

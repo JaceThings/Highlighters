@@ -1,15 +1,14 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useRef } from "react";
 import { hexToRgb } from "./oklch.ts";
-import maskUrl from "./slider-mask.svg";
 import checkerUrl from "./checker.svg";
-
-// 1:1 with slider-mask.svg's 284×43 viewBox. The knob centre travels between the two
-// cap centres, so the round knob never clips a corner.
-const TRACK_W = 284;
-const TRACK_H = 43;
-const KNOB = 39;
-const TRAVEL_MIN = TRACK_H / 2;
-const TRAVEL_MAX = TRACK_W - TRACK_H / 2;
+import {
+  TRACK_H,
+  capsuleMask,
+  clamp,
+  knobLeftPercent,
+  useCapsuleDrag,
+  CapsuleKnob,
+} from "./capsuleSlider.tsx";
 
 // SVG checkerboard (crisp at any DPR, one rect per cell) avoids the diagonal seam a
 // gradient checker leaves.
@@ -20,20 +19,8 @@ const checkerboard = {
   backgroundRepeat: "repeat",
 };
 
-// Clip checker + ramp to the capsule with a single-path mask, so no cap/middle seam.
-const capsuleMask = {
-  maskImage: `url("${maskUrl}")`,
-  WebkitMaskImage: `url("${maskUrl}")`,
-  maskSize: "100% 100%",
-  WebkitMaskSize: "100% 100%",
-  maskRepeat: "no-repeat",
-  WebkitMaskRepeat: "no-repeat",
-};
-
-const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
-
-/** Opacity slider: ink ramp over a transparency checker, clipped to the capsule.
- *  Drag / tap sets 0–1; arrows nudge 5%. */
+/** Opacity slider: ink ramp over a transparency checker, clipped to the capsule. A tap
+ *  glides to the value, a drag tracks the pointer, arrows nudge 5%. */
 export function OpacitySlider({
   inkColor,
   value,
@@ -44,32 +31,16 @@ export function OpacitySlider({
   onChange: (next: number) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const drag = useCapsuleDrag({ trackRef, value, min: 0, max: 1, onChange });
   const rgb = hexToRgb(inkColor);
   const pct = Math.round(value * 100);
-  const knobCenter = TRAVEL_MIN + clamp01(value) * (TRAVEL_MAX - TRAVEL_MIN);
 
-  // Map client x onto 0–1 across the knob's travel (not the raw track).
-  const setFromClientX = (clientX: number) => {
-    const track = trackRef.current;
-    if (!track) return;
-    const { left, width } = track.getBoundingClientRect();
-    const x = ((clientX - left) / width) * TRACK_W;
-    onChange(clamp01((x - TRAVEL_MIN) / (TRAVEL_MAX - TRAVEL_MIN)));
-  };
-
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setFromClientX(e.clientX);
-  };
-  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) setFromClientX(e.clientX);
-  };
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1
       : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    onChange(clamp01(value + dir * 0.05));
+    onChange(clamp(value + dir * 0.05, 0, 1));
   };
 
   return (
@@ -84,8 +55,10 @@ export function OpacitySlider({
       aria-valuetext={`${pct}%`}
       tabIndex={0}
       data-focus-ring
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
+      onPointerDown={drag.onPointerDown}
+      onPointerMove={drag.onPointerMove}
+      onPointerUp={drag.endDrag}
+      onLostPointerCapture={drag.endDrag}
       onKeyDown={onKeyDown}
       className="relative w-full shrink-0 cursor-pointer touch-none select-none"
       style={{ height: TRACK_H }}
@@ -96,18 +69,7 @@ export function OpacitySlider({
           style={{ backgroundImage: `linear-gradient(to right, rgba(${rgb}, 0), rgba(${rgb}, 1))` }}
         />
       </div>
-      {/* Knob, above the mask so its white ring stays crisp at the extremes. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute top-1/2 rounded-full border-[3.5px] border-white"
-        style={{
-          width: KNOB,
-          height: KNOB,
-          left: `${(knobCenter / TRACK_W) * 100}%`,
-          transform: "translate(-50%, -50%)",
-          filter: "drop-shadow(0 0 1px rgba(0, 0, 0, 0.3))",
-        }}
-      />
+      <CapsuleKnob left={knobLeftPercent(value, 0, 1)} />
     </div>
   );
 }

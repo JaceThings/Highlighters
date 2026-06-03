@@ -4,7 +4,7 @@ import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
 export interface SpringNumberOptions {
   duration: number;
   ease: [number, number, number, number];
-  /** Drag-driven target — bypass the tween (the input is already smooth, and
+  /** Drag-driven target - bypass the tween (the input is already smooth, and
    *  another animation on top would lag the preview behind the user). */
   fromDrag?: boolean;
 }

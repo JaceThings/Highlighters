@@ -12,6 +12,7 @@ const VIEW_W = 472;
 const VIEW_H = 10;
 const TRACK_BG = "rgba(126,117,108,0.12)";
 const INK = "#7e756c";
+const PEN_BLUE = "#91b4ff";
 const STROKE_W = 2.3;
 const BG_WAVE = 1.3;
 
@@ -23,6 +24,7 @@ export function ScribbleFill({
   reported,
   min,
   max,
+  floor,
 }: {
   /** Per-slider random seed → a unique hand-drawn zigzag. */
   seed: number;
@@ -30,11 +32,17 @@ export function ScribbleFill({
   reported: MotionValue<number>;
   min: number;
   max: number;
+  /** Enforced minimum value. When set, a static blue "pen" squiggle marks 0 → floor. */
+  floor?: number;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
+  const floorRef = useRef<SVGPathElement>(null);
   const waveId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const pts = useMemo(() => makeZigzag({ ...ZIG, seed }), [seed]);
+  // A second, differently-seeded scribble so the floor reads as its own pen stroke.
+  const floorPts = useMemo(() => makeZigzag({ ...ZIG, seed: seed + 9973 }), [seed]);
   const span = max - min === 0 ? 1 : max - min;
+  const floorFrac = floor != null ? Math.max(0, Math.min(1, (floor - min) / span)) : 0;
 
   // Redraw the smooth stroke up to the value fraction (drag + tween frames, and on seed change).
   const draw = (v: number) => {
@@ -43,7 +51,13 @@ export function ScribbleFill({
     const f = Math.max(0, Math.min(1, (v - min) / span));
     el.setAttribute("d", smoothStrokePath(pointsUpTo(pts, f)));
   };
-  useIso(() => draw(reported.get()), [pts]); // eslint-disable-line react-hooks/exhaustive-deps
+  useIso(() => {
+    draw(reported.get());
+    // The floor squiggle is static - drawn once to its fraction, redrawn only if it changes.
+    if (floor != null && floorRef.current) {
+      floorRef.current.setAttribute("d", smoothStrokePath(pointsUpTo(floorPts, floorFrac)));
+    }
+  }, [pts, floorPts, floorFrac]); // eslint-disable-line react-hooks/exhaustive-deps
   useMotionValueEvent(reported, "change", draw);
 
   return (
@@ -63,6 +77,9 @@ export function ScribbleFill({
       </defs>
       <rect x="0" y="0" width={VIEW_W} height={VIEW_H} fill={TRACK_BG} filter={`url(#${waveId})`} />
       <path ref={pathRef} fill="none" stroke={INK} strokeWidth={STROKE_W} strokeLinecap="round" strokeLinejoin="round" />
+      {floor != null ? (
+        <path ref={floorRef} fill="none" stroke={PEN_BLUE} strokeWidth={STROKE_W} strokeLinecap="round" strokeLinejoin="round" />
+      ) : null}
     </svg>
   );
 }

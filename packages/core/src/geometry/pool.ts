@@ -8,7 +8,7 @@ import type { ColorValue, GradientStop, PoolGradient } from "../types.js";
  * page, so the end darkening is a fixed px width, not a percentage of the stroke.
  * The stops sit at `2px, min(10px, 40%), max(100% - 10px, 60%), 100% - 2px`. The
  * `min`/`max` clamps stop the two pools overrunning each other on a short mark, so
- * long and short marks get the same pool width — only the flat middle differs.
+ * long and short marks get the same pool width - only the flat middle differs.
  *
  * `startEndBuildup` scales pool darkness bidirectionally: positive pools the ends
  * darker than the core (cheap/wet look), zero is flat, negative is the anti-pool
@@ -59,7 +59,7 @@ export interface PoolOptions {
   coreStopCount?: number;
   /**
    * Live-speed path only. Deposit multiplier in `[minDeposit, 1]` at core fraction
-   * `f ∈ [0,1]` — `1` where the swipe was slow, lower where fast.
+   * `f ∈ [0,1]` - `1` where the swipe was slow, lower where fast.
    */
   depositAt?: (fraction: number) => number;
   /**
@@ -105,7 +105,7 @@ export function buildPoolGradient(opts: PoolOptions): PoolGradient {
     endInsetPx: END_INSET_PX,
   };
 
-  // Legacy 4-stop gradient — taken whenever no live speed profile is present, so
+  // Legacy 4-stop gradient - taken whenever no live speed profile is present, so
   // static geometry and its CSS stay byte-identical.
   if (opts.coreStopCount == null && opts.depositAt == null && opts.decelBuildup == null) {
     return {

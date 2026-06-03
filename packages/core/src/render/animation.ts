@@ -1,5 +1,5 @@
 /**
- * Entrance animation — the draw-on swipe (blueprint R23–R25).
+ * Entrance animation - the draw-on swipe (blueprint R23–R25).
  *
  * The mark draws itself on by growing its own geometry: each frame the line's
  * `clip-path` is rebuilt truncated to an advancing front (`clipAtFront`), so the
@@ -9,7 +9,7 @@
  * The draw clip lives on the per-line WRAPPER, never its ink/glow children: the
  * renderer owns the children's full geometry clip and rewrites it on every reflow,
  * the draw owns the wrapper's clip, and the two never touch the same property on
- * the same element. Load-bearing — a reflow mid-draw re-runs `renderer.update()`,
+ * the same element. Load-bearing - a reflow mid-draw re-runs `renderer.update()`,
  * which resets the children to their full clip, but the wrapper's front clip is
  * left intact, so the band keeps drawing instead of flashing to full and
  * restarting. The `multiply` optic is carried by the overlay CONTAINER, not the
@@ -29,7 +29,7 @@
  * - reduced motion, `draw === false`, or no rAF (SSR/test) → full mark shown
  *   instantly (R25/R34).
  *
- * Reflow never re-animates — only first appearance or an explicit re-show does
+ * Reflow never re-animates - only first appearance or an explicit re-show does
  * (R22). The {@link Disconnect} cancels the rAF + observer and restores each line's
  * full clip so a cancelled mid-draw never strands a truncated mark (R33).
  */
@@ -110,7 +110,7 @@ function setClip(el: HTMLElement, path: string): void {
 }
 
 /**
- * Onset fade-in (ms). Tiny — takes the hard edge off the touchdown, not a fade you
+ * Onset fade-in (ms). Tiny - takes the hard edge off the touchdown, not a fade you
  * should perceive. Fixed wall-clock time (not a fraction of the draw) so it reads
  * the same at any draw speed. Fading the wrapper is safe for `multiply` (see header).
  */
@@ -124,7 +124,7 @@ function fadeOpacity(elapsedMs: number, fadeMs: number): string {
 /**
  * Resolve a line's stable seed to the wrapper element the draw-on clips. Several
  * marks can share ONE overlay container, so the wrappers of unrelated marks are
- * siblings — an index lookup would alias onto another mark's bands (the "draws
+ * siblings - an index lookup would alias onto another mark's bands (the "draws
  * twice" bug). The renderer owns each line's wrapper keyed by seed, so we ask it
  * directly. Returns `null` for tiers with no overlay DOM (Tier C) or an unmounted line.
  */
@@ -166,14 +166,14 @@ function showFull(items: DrawItem[]): void {
 
 /**
  * A {@link Disconnect} for the draw-on, plus `retarget`: re-point an IN-FLIGHT
- * draw-on at freshly-built geometry without restarting its clock — so a late
+ * draw-on at freshly-built geometry without restarting its clock - so a late
  * web-font load that corrects a line's height mid-entrance is followed seamlessly
  * instead of snapping. Once settled, `retarget` only re-shows the full clip (R22).
  */
 export type DrawOnHandle = Disconnect & {
   retarget: (lines: MarkGeometry[]) => void;
   /**
-   * Replay the draw-on from the start — used by an explicit `handle.show()` so a
+   * Replay the draw-on from the start - used by an explicit `handle.show()` so a
    * re-shown mark re-animates (R24). Reduced motion / draw off → just re-show full.
    */
   replay: () => void;
@@ -250,7 +250,7 @@ export function applyDrawOn(
       // Map progress onto [minFront → width] so the band touches down at its tip
       // and immediately drags. Front 0 (t ≤ 0) stays the empty pre-ink clip, hiding
       // a staggered line until its turn. Mapping onto [0 → width] instead would make
-      // `build` clamp every sub-tip front up to minFront — the band pops to tip
+      // `build` clamp every sub-tip front up to minFront - the band pops to tip
       // width then sits frozen (the start pause).
       const p = t <= 0 ? 0 : ease(t);
       const front = p <= 0 ? 0 : it.minFront + p * (it.width - it.minFront);

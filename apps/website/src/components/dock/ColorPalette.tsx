@@ -1,12 +1,11 @@
 import colorPickerUrl from "./color-picker.svg";
 
-// `ring` is the selected outline — solid, since box-shadow can't take a gradient.
+// `ring` is the selected outline - solid, since box-shadow can't take a gradient.
 interface Swatch {
   id: string;
   label: string;
   color: string;
   ring: string;
-  background?: string;
 }
 
 const SWATCHES: Swatch[] = [
@@ -15,63 +14,133 @@ const SWATCHES: Swatch[] = [
   { id: "green", label: "Green ink", color: "#54c45f", ring: "#54c45f" },
   { id: "yellow", label: "Yellow ink", color: "#f5c842", ring: "#f5c842" },
   { id: "red", label: "Red ink", color: "#ee4a3d", ring: "#ee4a3d" },
-  {
-    id: "rainbow",
-    label: "Custom colour",
-    color: "#a855f7",
-    ring: "#9a918a",
-    background: `url("${colorPickerUrl}") center / cover no-repeat`,
-  },
 ];
+
+const PRESET_COLORS = new Set(SWATCHES.map((s) => s.color));
+
+// The custom disc wears a ring of the colour wheel once a custom colour is active; otherwise
+// the same wheel art fills it, hinting that it opens the HSL picker. Both use the one wheel
+// image so the ring and the fill can't drift apart.
+const WHEEL = `url("${colorPickerUrl}") center / cover no-repeat`;
 
 export function ColorPalette({
   value,
   onChange,
+  onActivateCustom,
 }: {
   value: string;
   onChange: (color: string) => void;
+  /** Clicking the custom swatch opens the HSL picker rising from this button. */
+  onActivateCustom: (button: HTMLButtonElement) => void;
 }) {
+  const customActive = !PRESET_COLORS.has(value);
   return (
     <div className="grid grid-cols-3 gap-x-[14px] gap-y-[14px]">
-      {SWATCHES.map((s) => {
-        const isSelected = s.color === value;
-        return (
-          <button
-            key={s.id}
-            type="button"
-            aria-label={s.label}
-            aria-pressed={isSelected}
-            onClick={() => onChange(s.color)}
-            data-focus-ring
-            // Never scale the button itself — it shifts the hit area out from under
-            // the pointer and the click misfires. Press-scale lives on the visual layer.
-            className="group relative size-[43px] shrink-0 rounded-full"
-          >
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
-              style={{
-                background: "#fff",
-                boxShadow: `inset 0 0 0 3.57px ${s.ring}`,
-              }}
-            >
-              {/* Colour disc: fills when unselected; shrinks on select to reveal the ring. */}
-              <span
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: s.background ?? s.color,
-                  transformOrigin: "center",
-                  transform: isSelected ? "scale(0.703)" : "scale(1)",
-                  // Faster on select (ring pops in), slower on deselect (disc eases back).
-                  transition: isSelected
-                    ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
-                    : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
-                }}
-              />
-            </span>
-          </button>
-        );
-      })}
+      {SWATCHES.map((s) => (
+        <Disc
+          key={s.id}
+          label={s.label}
+          ring={s.ring}
+          fill={s.color}
+          selected={s.color === value}
+          onClick={() => onChange(s.color)}
+        />
+      ))}
+      <CustomDisc active={customActive} color={value} onClick={onActivateCustom} />
     </div>
+  );
+}
+
+// The custom-colour disc: a rainbow ring with the picked colour at its centre when active,
+// or the wheel art when not - so it reads as "open the colour picker".
+function CustomDisc({
+  active,
+  color,
+  onClick,
+}: {
+  active: boolean;
+  color: string;
+  onClick: (button: HTMLButtonElement) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="Custom colour"
+      aria-pressed={active}
+      onClick={(e) => onClick(e.currentTarget)}
+      data-focus-ring
+      className="group relative size-[43px] shrink-0 rounded-full"
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
+        // Rasterise the stacked circles as one layer so the press-scale doesn't shimmer their
+        // edges against each other (the preset discs dodge this with their simpler structure).
+        style={{ willChange: "transform", backfaceVisibility: "hidden" }}
+      >
+        {/* Rainbow ring + white gap, revealed as the centre scales down - the same select
+            reveal (and timing) as the preset discs. The centre carries the wheel art until a
+            custom colour is active, then the picked colour. */}
+        <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
+        <span className="absolute rounded-full bg-white" style={{ inset: "3.57px" }} />
+        <span
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: active ? color : WHEEL,
+            transform: active ? "scale(0.703)" : "scale(1)",
+            transition: active
+              ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
+              : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
+          }}
+        />
+      </span>
+    </button>
+  );
+}
+
+function Disc({
+  label,
+  ring,
+  fill,
+  selected,
+  onClick,
+}: {
+  label: string;
+  ring: string;
+  fill: string;
+  selected: boolean;
+  onClick: (button: HTMLButtonElement) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={selected}
+      onClick={(e) => onClick(e.currentTarget)}
+      data-focus-ring
+      // Never scale the button itself - it shifts the hit area out from under
+      // the pointer and the click misfires. Press-scale lives on the visual layer.
+      className="group relative size-[43px] shrink-0 rounded-full"
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
+        style={{ background: "#fff", boxShadow: `inset 0 0 0 3.57px ${ring}` }}
+      >
+        {/* Colour disc: fills when unselected; shrinks on select to reveal the ring. */}
+        <span
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: fill,
+            transformOrigin: "center",
+            transform: selected ? "scale(0.703)" : "scale(1)",
+            // Faster on select (ring pops in), slower on deselect (disc eases back).
+            transition: selected
+              ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
+              : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
+          }}
+        />
+      </span>
+    </button>
   );
 }

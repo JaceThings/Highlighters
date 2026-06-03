@@ -7,7 +7,7 @@
  *    intercepts input (R30);
  *  - `isolation: isolate`, so `mix-blend-mode: multiply` composites against the
  *    intended backdrop rather than leaking into ancestor stacking contexts (A4);
- *  - `mix-blend-mode: multiply` by default, the subtractive-ink optic (R14) —
+ *  - `mix-blend-mode: multiply` by default, the subtractive-ink optic (R14) -
  *    individual nodes may override it.
  *
  * Nodes are pooled by stable identity (the per-line seed), not array index, so a
@@ -25,8 +25,8 @@ const OVERLAY_FLAG = "data-highlighters-overlay";
 /**
  * Per-element cache of the last inline value written for each style property.
  *
- * Re-assigning a `mask-image: url(data:…)` or `filter: url(#…)` — even to the SAME
- * value — can force the engine to re-decode the mask or re-rasterize the filter,
+ * Re-assigning a `mask-image: url(data:…)` or `filter: url(#…)` - even to the SAME
+ * value - can force the engine to re-decode the mask or re-rasterize the filter,
  * flickering an in-flight draw-on. This lets the style helpers skip no-op writes so
  * a no-op reflow is free and visually inert. Keyed by the APPLIED string, not the
  * computed value, so CSSOM quote/format normalization can't cause a false miss.
@@ -175,7 +175,7 @@ export class NodePool<T extends Node> {
     }
   }
 
-  /** Remove and dispose every pooled node — on unmount, so no residue is left (R9). */
+  /** Remove and dispose every pooled node - on unmount, so no residue is left (R9). */
   clear(dispose: (node: T) => void): void {
     for (const node of this.nodes.values()) dispose(node);
     this.nodes.clear();

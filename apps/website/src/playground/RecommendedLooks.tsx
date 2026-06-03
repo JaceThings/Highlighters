@@ -1,7 +1,6 @@
-import { useCallback } from "react";
-import { SmoothCorners } from "@lisse/react";
-import { resolveOptions } from "@highlighters/core";
-import type { PresetName } from "@highlighters/core";
+import { useCallback, useMemo, type CSSProperties } from "react";
+import { buildMarkGeometry, resolveOptions } from "@highlighters/core";
+import type { LineRect, PresetName } from "@highlighters/core";
 import { Card } from "../components/Card.tsx";
 import { Section } from "../components/playground/Section.tsx";
 import { playClick } from "../lib/sounds.ts";
@@ -17,7 +16,7 @@ const RECIPES: ReadonlyArray<{
   {
     name: "classic-yellow",
     label: "Classic yellow",
-    blurb: "The archetypal saturated yellow marker — juicy, a touch of pooling.",
+    blurb: "The archetypal saturated yellow marker, juicy with a touch of pooling.",
   },
   {
     name: "mild",
@@ -42,29 +41,54 @@ const RECIPES: ReadonlyArray<{
   {
     name: "minimal",
     label: "Minimal",
-    blurb: "A restrained underline — thin, flat, straight, no animation.",
+    blurb: "A restrained underline, thin, flat, straight, no animation.",
   },
 ];
 
-// A static color chip per recipe, resolved from the preset's color + opacity.
-function RecipeSwatch({ name }: { name: PresetName }) {
-  const r = resolveOptions({ preset: name });
+const SWATCH_W = 44;
+const SWATCH_H = 22;
+
+// A real highlighter band per recipe, built from the geometry engine so each preset
+// shows its actual look - wet feathers soft, dry streaks and skips, minimal is a thin
+// underline - not just a flat colour chip. Same single-element technique as the dock's
+// marker preview: clip-path for the shape, the noise tile as a mask for the ink texture.
+function RecipeSwatch({ name, seed }: { name: PresetName; seed: number }) {
+  const style = useMemo<CSSProperties>(() => {
+    const r = resolveOptions({ preset: name });
+    const line: LineRect = {
+      left: 0, top: 0, width: SWATCH_W, height: SWATCH_H, seed, isFirst: true, isLast: true,
+    };
+    const geo = buildMarkGeometry(line, r, seed);
+    return {
+      position: "absolute",
+      left: geo.box.x,
+      top: geo.box.y,
+      width: geo.box.width,
+      height: geo.box.height,
+      clipPath: geo.clipPath,
+      WebkitClipPath: geo.clipPath,
+      backgroundColor: typeof r.color === "string" ? r.color : "#fff14d",
+      opacity: Math.max(0.4, r.opacity),
+      maskImage: `url("${geo.noiseTile.dataUrl}")`,
+      WebkitMaskImage: `url("${geo.noiseTile.dataUrl}")`,
+      maskRepeat: "repeat",
+      WebkitMaskRepeat: "repeat",
+      maskSize: `${geo.noiseTile.width}px ${geo.noiseTile.height}px`,
+      WebkitMaskSize: `${geo.noiseTile.width}px ${geo.noiseTile.height}px`,
+      maskPosition: `${geo.maskOffset.x}px ${geo.maskOffset.y}px`,
+      WebkitMaskPosition: `${geo.maskOffset.x}px ${geo.maskOffset.y}px`,
+      mixBlendMode: r.blendMode,
+    };
+  }, [name, seed]);
+
   return (
-    <SmoothCorners
-      asChild
-      autoEffects={false}
-      corners={{ radius: 6, smoothing: 0.6 }}
+    <span
+      aria-hidden
+      className="relative block flex-none overflow-hidden"
+      style={{ width: SWATCH_W, height: SWATCH_H }}
     >
-      <span
-        aria-hidden
-        className="block h-5 w-9 flex-none"
-        style={{
-          backgroundColor: r.color,
-          opacity: Math.max(0.35, r.opacity),
-          mixBlendMode: r.blendMode,
-        }}
-      />
-    </SmoothCorners>
+      <div style={style} />
+    </span>
   );
 }
 
@@ -82,10 +106,10 @@ export function RecommendedLooks() {
   return (
     <Section
       title="Recommended looks"
-      description="Starting points, not a menu — apply one and then make it your own. Each copies a coherent set of ink, edge, and color values into the controls below, where everything stays editable."
+      description="Starting points, not a menu. Apply one and then make it your own. Each copies a coherent set of ink, edge, and color values into the controls below, where everything stays editable."
     >
       <div className="grid w-full grid-cols-2 gap-3 max-[480px]:grid-cols-1">
-        {RECIPES.map((recipe) => (
+        {RECIPES.map((recipe, i) => (
           <button
             key={recipe.name}
             type="button"
@@ -96,7 +120,7 @@ export function RecommendedLooks() {
           >
             <Card>
               <div className="flex w-full items-center gap-3 bg-surface px-3.5 py-3">
-                <RecipeSwatch name={recipe.name} />
+                <RecipeSwatch name={recipe.name} seed={7 * (i + 1)} />
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="text-[14px] leading-none font-[550] tracking-[-0.25px] text-text-primary">
                     {recipe.label}

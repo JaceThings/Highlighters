@@ -4,12 +4,12 @@ import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { RecommendedLooks } from "./RecommendedLooks.tsx";
 import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
-import { buildQuoteSequence } from "./quotes.ts";
+import { buildCuratedQuotes } from "./quote-marks.ts";
 
 // One live demo per visual option, all writing one shared options object.
 // Lazy-loaded by Docs (pulls @highlighters/react + @lisse) to stay out of the home bundle.
 export function DocsPlayground() {
-  const quotes = useMemo(() => buildQuoteSequence(OPTION_DEMOS.length), []);
+  const quotes = useMemo(() => buildCuratedQuotes(OPTION_DEMOS.map((d) => d.title)), []);
 
   return (
     <PlaygroundOptionsProvider>

@@ -1,11 +1,11 @@
 /**
- * Tier C renderer — the CSS Custom Highlight API (`::highlight()`).
+ * Tier C renderer - the CSS Custom Highlight API (`::highlight()`).
  *
  * The maximally-safe tier (blueprint R26 / R29): registers the mark's `Range`s with
  * `CSS.highlights` and paints them via a generated `::highlight()` rule. Zero overlay
  * DOM, native multiline, find-in-page/selection unaffected, text nodes untouched.
- * The trade-off is fidelity — flat colour only, no edge organicness/texture/multiply
- * — but colour and coverage still match the other tiers (R28).
+ * The trade-off is fidelity - flat colour only, no edge organicness/texture/multiply
+ * - but colour and coverage still match the other tiers (R28).
  *
  * Each instance owns one named `Highlight` registration and one CSS rule in a
  * shared `<style>`. `unmount()` deregisters and removes its rule, leaving the

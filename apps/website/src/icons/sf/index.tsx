@@ -7,8 +7,8 @@ import type { SVGProps } from "react";
 
 type IconProps = Omit<SVGProps<SVGSVGElement>, "fill">;
 
-// These icons are decorative — the surrounding control supplies the accessible
-// name — so every icon renders aria-hidden and non-focusable.
+// These icons are decorative - the surrounding control supplies the accessible
+// name - so every icon renders aria-hidden and non-focusable.
 function withA11y(props: IconProps): SVGProps<SVGSVGElement> {
   return { "aria-hidden": true, focusable: false, ...props };
 }

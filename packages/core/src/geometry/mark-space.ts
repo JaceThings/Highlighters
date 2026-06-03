@@ -170,8 +170,8 @@ export function buildMarkGeometry(
   // Shared noise tile (never scaled): streakiness → lengthwise lanes, feathering
   // (+ absorbency) → soft blotches, dryout → transparent skip-holes (viscosity
   // raises dryout). Speed-aware texture (live drag only): a faster mean swipe lays
-  // a drier, streakier line. This is per-line — the tile is one sample window per
-  // line — so it tracks mean speed; the per-x dry-out lives in the pool gradient.
+  // a drier, streakier line. This is per-line - the tile is one sample window per
+  // line - so it tracks mean speed; the per-x dry-out lives in the pool gradient.
   // With no profile, the three values reduce to the original expressions.
   const sp = speedProfile;
   const m = sp ? sp.meanNorm : 0;

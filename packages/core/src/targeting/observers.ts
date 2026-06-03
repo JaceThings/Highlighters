@@ -1,14 +1,14 @@
 /**
  * Reflow and dynamic-DOM observation.
  *
- * `createReflowObserver` funnels every event that can move a mark — element/
- * container resize, window resize, web-font load — into a single rAF-batched
+ * `createReflowObserver` funnels every event that can move a mark - element/
+ * container resize, window resize, web-font load - into a single rAF-batched
  * callback, so reflow updates coalesce to one read-then-write pass per frame.
  * `createMutationWatcher` is the scoped, debounced `MutationObserver` for page/
  * declarative modes.
  *
  * Both return a `Disconnect` that tears down everything they wired, leaving no
- * active timers, rAF loops, or listeners — teardown is leak-free and idempotent.
+ * active timers, rAF loops, or listeners - teardown is leak-free and idempotent.
  */
 
 import type {

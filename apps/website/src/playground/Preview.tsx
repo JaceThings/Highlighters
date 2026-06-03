@@ -4,6 +4,7 @@ import type { HighlightOptions } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
 import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
 import type { Quote } from "./quotes.ts";
+import { planMarks, type MarkStrategy } from "./quote-marks.ts";
 
 /**
  * The live preview at the top of every docs paper card: a pre-highlighted quote
@@ -11,65 +12,71 @@ import type { Quote } from "./quotes.ts";
  * container so @highlighters scopes its overlay to that positioned ancestor and
  * can never paint as a floating band over unrelated chrome.
  *
- * The middle ~64% is marked, with an inner word painted twice so the Stack
- * control reads. The `snap` demo uses {@link SnapPreview} (a Range, not span marks).
+ * Which words are marked is chosen per-section by {@link planMarks} so the mark
+ * demonstrates the option (ends-of-quote for overshoot/caps, a central phrase
+ * otherwise). The `snap` demo uses {@link SnapPreview} (a Range, not span marks).
  */
 
 interface PreviewProps {
   quote: Quote;
+  strategy: MarkStrategy;
 }
 
-// No webfont installed — fall back to a system hand.
+// No webfont installed - fall back to a system hand.
 const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
 const QUOTE_INK = "#73574a";
 
-export function Preview({ quote }: PreviewProps) {
+export function Preview({ quote, strategy }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Plain text until the Stagger entrance finishes, then paint marks.
   const entered = useEntranceComplete();
+  const core = useMemo(() => toCoreOptions(previewOptions), [previewOptions]);
 
-  // The text is byte-identical in both branches and the mark is an overlay, so
-  // swapping has zero layout shift. The `seed` keys each run so overlapping marks
-  // don't collide.
-  const mark = (children: ReactNode, runOptions: HighlightOptions) =>
+  // The text is byte-identical entered/not, and the mark is an overlay, so the
+  // swap has zero layout shift. `seed` keys each run so overlapping marks don't collide.
+  const renderRun = (children: ReactNode, runOptions: HighlightOptions) =>
     entered ? (
       <Highlight as="span" options={runOptions} key={runOptions.seed}>
         {children}
       </Highlight>
     ) : (
-      <span>{children}</span>
+      <span key={runOptions.seed}>{children}</span>
     );
 
-  const core = useMemo(() => toCoreOptions(previewOptions), [previewOptions]);
-
-  // The inner word is ALWAYS painted by a second mark over the outer one, so
-  // toggling Stack only changes its OPACITY (an in-place update) rather than
-  // adding/removing a node — which would remeasure and replay the outer mark's
-  // draw-on. ON: live alpha, so the two passes darken the overlap; OFF: 0, flat.
+  // The stack-demo overlap word is ALWAYS painted by a second mark, so toggling
+  // Stack only changes its OPACITY (an in-place update) rather than adding/removing
+  // a node - which would remeasure and replay the outer draw-on. ON: live alpha so
+  // the two passes darken; OFF: 0, flat.
   const stacked = previewOptions.stack !== false;
   const liveOpacity = core.opacity ?? 0.5;
-
-  const overlapOuterRun = { ...core, seed: 303 };
-  const overlapInnerRun = { ...core, seed: 404, opacity: stacked ? liveOpacity : 0 };
+  const innerMark = (word: string) =>
+    renderRun(word, { ...core, seed: 404, opacity: stacked ? liveOpacity : 0 });
 
   const words = quote.text.split(" ");
-  const n = words.length;
-  const a = Math.min(n - 1, Math.floor(n * 0.18));
-  const b = Math.max(a + 1, Math.ceil(n * 0.82));
-  const lead = (s: string) => (s ? s + " " : "");
-  const trail = (s: string) => (s ? " " + s : "");
+  const plan = planMarks(words, strategy);
 
-  // The inner-overlap word that keeps the stack toggle legible.
-  const m = Math.min(b - 1, Math.floor((a + b) / 2));
-  const pre = lead(words.slice(0, a).join(" "));
-  const marked = (
-    <>
-      {lead(words.slice(a, m).join(" "))}
-      {mark(words[m], overlapInnerRun)}
-      {trail(words.slice(m + 1, b).join(" "))}
-    </>
-  );
-  const post = trail(words.slice(b).join(" "));
+  const pieces: ReactNode[] = [];
+  let i = 0;
+  plan.ranges.forEach(([s, e], ri) => {
+    if (i < s) pieces.push(words.slice(i, s).join(" "));
+    const seg = words.slice(s, e);
+    const ov = plan.overlap != null && plan.overlap >= s && plan.overlap < e ? plan.overlap - s : -1;
+    const body =
+      ov < 0 ? (
+        seg.join(" ")
+      ) : (
+        <>
+          {seg.slice(0, ov).join(" ")}
+          {ov > 0 ? " " : ""}
+          {innerMark(seg[ov])}
+          {ov < seg.length - 1 ? " " : ""}
+          {seg.slice(ov + 1).join(" ")}
+        </>
+      );
+    pieces.push(renderRun(body, { ...core, seed: 300 + ri }));
+    i = e;
+  });
+  if (i < words.length) pieces.push(words.slice(i).join(" "));
 
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
@@ -79,13 +86,11 @@ export function Preview({ quote }: PreviewProps) {
           style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line" }}
         >
           {"“"}
-          {pre}
-          {mark(marked, overlapOuterRun)}
-          {post}
+          {pieces.flatMap((p, idx) => (idx === 0 ? [p] : [" ", p]))}
           {"”"}
         </p>
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
-          {"— " + quote.author}
+          {"- " + quote.author}
         </p>
       </div>
     </div>
@@ -176,7 +181,7 @@ export function SnapPreview({ quote }: { quote: Quote }) {
           {full}
         </p>
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
-          {"— " + quote.author}
+          {"- " + quote.author}
         </p>
       </div>
     </div>

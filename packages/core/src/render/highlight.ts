@@ -82,7 +82,7 @@ function snapRanges(ranges: Range[], mode: SnapMode): Range[] {
   return ranges.map((r) => snapRangeToBounds(r, mode));
 }
 
-/** The host an overlay attaches to — the document body, where line boxes are anchored. */
+/** The host an overlay attaches to - the document body, where line boxes are anchored. */
 function hostFor(ranges: Range[]): HTMLElement | null {
   for (const range of ranges) {
     const node = range.commonAncestorContainer;
@@ -97,7 +97,7 @@ function hostFor(ranges: Range[]): HTMLElement | null {
 }
 
 /**
- * Compute per-line {@link MarkGeometry} for a set of ranges — the read-phase →
+ * Compute per-line {@link MarkGeometry} for a set of ranges - the read-phase →
  * geometry step shared by initial mount, `update()`, and reflow.
  */
 function buildLines(
@@ -110,7 +110,7 @@ function buildLines(
   if (ranges.length === 0) return [];
   // `getClientRects()` is viewport-relative; the container's rect encodes the
   // scroll offset. Measuring both the per-line SEED and POSITION from it keeps a
-  // line's seed tied to its document position alone — stable under scroll and
+  // line's seed tied to its document position alone - stable under scroll and
   // either drag direction (A14). Correct for `body` and any positioned host.
   const origin = container.getBoundingClientRect();
   const lineRects: LineRect[] = rangesToLineRects(
@@ -183,8 +183,8 @@ function mountMark(
   renderer.mount(initialContext);
 
   // Entrance animation, one-shot on mount. The draw-on finds each line's wrapper by
-  // stable seed via the renderer — never by index into the (possibly shared)
-  // container — so marks sharing a container don't animate each other's bands.
+  // stable seed via the renderer - never by index into the (possibly shared)
+  // container - so marks sharing a container don't animate each other's bands.
   const animDisconnect = applyDrawOn(
     container,
     (seed) => renderer.bandFor(seed),
@@ -226,13 +226,13 @@ function mountMark(
 }
 
 /**
- * Highlight a target — the primary entry point (R6a–R6c).
+ * Highlight a target - the primary entry point (R6a–R6c).
  *
  * @param target - Any {@link Target}: element, selector, `Range`, `Selection`,
  *   text query, or page target.
  * @param host - Optional positioned element to mount the overlay inside, instead
  *   of `document.body`. Use it to scope the overlay to a transformed, scrolling, or
- *   stacked container — the overlay then moves and z-orders with that container
+ *   stacked container - the overlay then moves and z-orders with that container
  *   rather than sitting in document coordinates. Promoted to `position: relative`
  *   if static. Defaults to the body (document-coordinate overlay).
  * @returns A {@link MarkHandle}; inert outside a DOM (R34).
@@ -341,7 +341,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   // On touch devices, native selection is the better UX (C5): no overlay.
   if (env.coarsePointer) return inertHandle();
 
-  // Accumulated across update() calls so options compose additively (A7) —
+  // Accumulated across update() calls so options compose additively (A7) -
   // re-spreading the construction-time options each update would revert prior ones.
   let userOptions: HighlightOptions = { snap: "word", ...options };
   let resolved = resolveOptions(userOptions);
@@ -360,7 +360,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   const tracker = env.prefersReducedMotion ? null : new SelectionVelocityTracker();
   let dragging = false;
   const onPointerDown = (e: PointerEvent): void => {
-    // Primary-button, fine-pointer only — matching the live-drag contract.
+    // Primary-button, fine-pointer only - matching the live-drag contract.
     if (e.button !== 0 || (e.pointerType !== "mouse" && e.pointerType !== "pen")) return;
     dragging = true;
     tracker?.reset();
@@ -373,7 +373,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     document.addEventListener("pointerup", endDrag, true);
     document.addEventListener("pointercancel", endDrag, true);
     // A pointer released OUTSIDE the window fires no pointerup, so blur clears the
-    // flag too — else it sticks `true` and a later non-drag selection paints with speed.
+    // flag too - else it sticks `true` and a later non-drag selection paints with speed.
     window.addEventListener("blur", endDrag);
   }
 

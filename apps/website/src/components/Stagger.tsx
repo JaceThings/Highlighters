@@ -17,7 +17,7 @@ export function useEntranceComplete(): boolean {
 }
 
 interface StaggerProps {
-  /** Stagger slot — child entrance is delayed by `index × STEP` seconds. */
+  /** Stagger slot - child entrance is delayed by `index × STEP` seconds. */
   index: number;
   children: ReactNode;
   /** Fired once this block's entrance has landed (or immediately if skipped on a
@@ -30,7 +30,7 @@ const ENTRANCE_BLUR_PX = 4;
 // Cascade timing anchor, captured once so later navigations skip the cascade.
 const APP_MOUNT_MS = performance.now();
 
-// Only skip after first paint — otherwise a slow bundle parse pushes `now` past the targets
+// Only skip after first paint - otherwise a slow bundle parse pushes `now` past the targets
 // and suppresses the cascade. Double-rAF = the frame after first paint.
 let hasFirstPainted = false;
 requestAnimationFrame(() => {
@@ -39,23 +39,23 @@ requestAnimationFrame(() => {
   });
 });
 
-// 0.35s pause, 0.08s steps, 0.7s per item — ~1.3s for 8 items, slow enough to read.
+// 0.35s pause, 0.08s steps, 0.7s per item - ~1.3s for 8 items, slow enough to read.
 const INITIAL_DELAY = 0.35;
 const STEP = 0.08;
 const DURATION = 0.7;
 const EASE: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 
 interface UseStaggerEntranceOptions {
-  /** Stagger slot — same semantics as `<Stagger index>`. */
+  /** Stagger slot - same semantics as `<Stagger index>`. */
   index: number;
-  /** Hold at the faded state until true — gates the cascade on async readiness so a
+  /** Hold at the faded state until true - gates the cascade on async readiness so a
    *  section doesn't fade in empty. Defaults to true. */
   ready?: boolean;
 }
 
 type EntranceMotionProps = Pick<MotionProps, "initial" | "animate" | "transition">;
 
-/** Motion props for a cascade entrance — a hook so a section can drive its own root
+/** Motion props for a cascade entrance - a hook so a section can drive its own root
  *  element and gate on `ready` rather than wrap in a `<div>`. */
 export function useStaggerEntrance({
   index,
@@ -89,7 +89,7 @@ export function useStaggerEntrance({
 
 export function Stagger({ index, children, onComplete }: StaggerProps) {
   const props = useStaggerEntrance({ index });
-  // A skipped entrance (initial === false) has no animation to complete — seed `done` true.
+  // A skipped entrance (initial === false) has no animation to complete - seed `done` true.
   const skipped = props.initial === false;
   const [done, setDone] = useState(skipped);
   // It also never fires onAnimationComplete, so report it once on mount.

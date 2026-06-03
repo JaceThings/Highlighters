@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useRouterState } from "@tanstack/react-router";
 import { CapsuleBackground } from "./CapsuleBackground.tsx";
 import { ColorPalette } from "./ColorPalette.tsx";
+import { ColorPickerPopover } from "./ColorPickerPopover.tsx";
 import { DockButton } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
 import { MarkerPopover } from "./MarkerPopover.tsx";
@@ -13,6 +14,9 @@ import { DOCK_H } from "./constants.ts";
 
 // Start the tray fully below the viewport so it rises in from the bottom.
 const ENTER_FROM = DOCK_H + 96;
+
+// Both popovers are this wide; used to keep them clamped inside the tray.
+const POPOVER_W = 320;
 
 const ENTRANCE = {
   hidden: { y: ENTER_FROM, scale: 0.98, opacity: 0, filter: "blur(4px)" },
@@ -27,29 +31,72 @@ export function Dock() {
   const { ready } = useDockEntrance();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  // `popoverX` = the active pen's centre relative to the tray (null = closed).
+  // `popover` = which control is open and its centre relative to the tray (null =
+  // closed). The marker popover rises from a pen; the colour picker from the swatch.
   const trayRef = useRef<HTMLDivElement>(null);
-  const [popoverX, setPopoverX] = useState<number | null>(null);
-  const open = popoverX !== null;
+  const [popover, setPopover] = useState<{ kind: "marker" | "color"; x: number } | null>(null);
+  const open = popover !== null;
+  // The last custom ink, so reopening the picker returns to it from a preset swatch.
+  const lastCustom = useRef("#a855f7");
 
-  const handleActivate = useCallback((button: HTMLButtonElement) => {
-    setPopoverX((prev) => {
-      if (prev !== null) return null;
-      const tray = trayRef.current;
-      if (!tray) return null;
-      const a = button.getBoundingClientRect();
-      const b = tray.getBoundingClientRect();
-      return a.left + a.width / 2 - b.left;
-    });
+  // Centre of `button` relative to the tray, clamped so the (centred) popover stays
+  // inside the tray - the rightmost swatch would otherwise overflow.
+  const centerX = useCallback((button: HTMLButtonElement) => {
+    const tray = trayRef.current;
+    if (!tray) return null;
+    const a = button.getBoundingClientRect();
+    const b = tray.getBoundingClientRect();
+    const raw = a.left + a.width / 2 - b.left;
+    const half = POPOVER_W / 2;
+    return Math.max(half, Math.min(b.width - half, raw));
   }, []);
+
+  const handleActivate = useCallback(
+    (button: HTMLButtonElement) => {
+      setPopover((prev) => {
+        if (prev?.kind === "marker") return null;
+        const x = centerX(button);
+        return x === null ? prev : { kind: "marker", x };
+      });
+    },
+    [centerX],
+  );
+
+  const handleActivateCustom = useCallback(
+    (button: HTMLButtonElement) => {
+      const x = centerX(button);
+      if (x === null) return;
+      setPopover((prev) => (prev?.kind === "color" ? null : { kind: "color", x }));
+      // Seed the picker from the remembered custom ink when leaving a preset.
+      if (style.color !== lastCustom.current) setColor(lastCustom.current);
+    },
+    [centerX, setColor, style.color],
+  );
+
+  const handleCustomColor = useCallback(
+    (hex: string) => {
+      lastCustom.current = hex;
+      setColor(hex);
+    },
+    [setColor],
+  );
 
   // Switching to a different pen closes the popover (it belongs to the prior pen).
   const handleSelectPen = useCallback(
     (pen: PenTip) => {
       setPen(pen);
-      setPopoverX(null);
+      setPopover(null);
     },
     [setPen],
+  );
+
+  // A preset swatch closes the picker - it replaces the custom ink.
+  const handleSelectColor = useCallback(
+    (color: string) => {
+      setColor(color);
+      setPopover((prev) => (prev?.kind === "color" ? null : prev));
+    },
+    [setColor],
   );
 
   // Close on Escape or a press outside the tray. The popover is a DOM child of the
@@ -57,10 +104,10 @@ export function Dock() {
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (!trayRef.current?.contains(e.target as Node)) setPopoverX(null);
+      if (!trayRef.current?.contains(e.target as Node)) setPopover(null);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPopoverX(null);
+      if (e.key === "Escape") setPopover(null);
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
@@ -113,7 +160,11 @@ export function Dock() {
                 onActivate={handleActivate}
               />
             </div>
-            <ColorPalette value={style.color} onChange={setColor} />
+            <ColorPalette
+              value={style.color}
+              onChange={handleSelectColor}
+              onActivateCustom={handleActivateCustom}
+            />
           </div>
 
           <div className="flex items-center gap-[12px] pr-[32px]">
@@ -135,10 +186,10 @@ export function Dock() {
         <AnimatePresence>
           {open && (
             <motion.div
-              key="marker-popover"
+              key={popover.kind === "color" ? "color-popover" : "marker-popover"}
               className="absolute"
               style={{
-                left: popoverX ?? 0,
+                left: popover.x,
                 bottom: "calc(100% + 14px)",
                 transformOrigin: "bottom center",
               }}
@@ -147,14 +198,18 @@ export function Dock() {
               exit={{ opacity: 0, scale: 0.97, y: 4, x: "-50%" }}
               transition={{ type: "spring", duration: 0.3, bounce: 0 }}
             >
-              <MarkerPopover
-                inkColor={style.color}
-                pen={style.pen}
-                opacity={style.opacity}
-                markType={style.markType}
-                onOpacity={setOpacity}
-                onMarkType={setMarkType}
-              />
+              {popover.kind === "color" ? (
+                <ColorPickerPopover color={style.color} onChange={handleCustomColor} />
+              ) : (
+                <MarkerPopover
+                  inkColor={style.color}
+                  pen={style.pen}
+                  opacity={style.opacity}
+                  markType={style.markType}
+                  onOpacity={setOpacity}
+                  onMarkType={setMarkType}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

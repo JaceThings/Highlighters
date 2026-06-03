@@ -45,7 +45,7 @@ export function pointsUpTo(pts: [number, number][], f: number): [number, number]
 }
 
 // SVG `d` for a smooth stroke (caller strokes it, no fill). A Catmull-Rom spline as cubic
-// Béziers — passes THROUGH every tooth tip so it keeps full amplitude, unlike midpoint
+// Béziers - passes THROUGH every tooth tip so it keeps full amplitude, unlike midpoint
 // corner-cutting which would halve the height.
 export function smoothStrokePath(pts: [number, number][]): string {
   const n = pts.length;

@@ -4,15 +4,15 @@ import type { SnapMode } from "../types.js";
  * Snap a range's start/end to the nearest text boundary, so a stroke stops
  * precisely at line ends with no overshoot into surrounding whitespace.
  *
- * The only geometry module that reads the DOM, and it reads only — it returns a
+ * The only geometry module that reads the DOM, and it reads only - it returns a
  * cloned, adjusted `Range` and never mutates the document or the input. Import-safe
  * in a non-DOM environment (returns the range unchanged when nothing to measure).
  *
- *  - `none`  — returns the range unchanged.
- *  - `word`  — trims surrounding whitespace, then expands each end outward to the
+ *  - `none`  - returns the range unchanged.
+ *  - `word`  - trims surrounding whitespace, then expands each end outward to the
  *    enclosing word boundary so a mid-word selection covers the whole word.
- *  - `glyph` — trims surrounding whitespace only.
- *  - `line`  — trims like `glyph`; the per-visual-line clamping is enforced
+ *  - `glyph` - trims surrounding whitespace only.
+ *  - `line`  - trims like `glyph`; the per-visual-line clamping is enforced
  *    downstream when rects are measured.
  *
  * Returns the same reference for `none`; every other mode returns a clone.

@@ -1,12 +1,12 @@
 /**
  * Capability detection and renderer-tier selection (blueprint R27 / A3).
  *
- * Three tiers sit behind one API and degrade is fidelity-only — a lower tier never
+ * Three tiers sit behind one API and degrade is fidelity-only - a lower tier never
  * moves or recolours a mark, only simplifies edge organicness and texture (A3 / R28).
  *
- *  - {@link detectEnvironment} — runtime support + accessibility/data preferences.
+ *  - {@link detectEnvironment} - runtime support + accessibility/data preferences.
  *    SSR-guarded: touches no DOM at import, returns conservative defaults off-browser.
- *  - {@link selectTier} — given a request, the environment, and the live mark count,
+ *  - {@link selectTier} - given a request, the environment, and the live mark count,
  *    pick a concrete tier. A pinned request is honoured if supported (else steps
  *    down to the nearest supported); `"auto"` applies the degrade precedence.
  */
@@ -127,7 +127,7 @@ function tierSupported(tier: RendererTier, env: RenderEnvironment): boolean {
 
 /**
  * First supported tier at or below `start`, else any supported tier, else `css`
- * (the floor) — so the selector always yields a concrete tier (C1: below the floor
+ * (the floor) - so the selector always yields a concrete tier (C1: below the floor
  * the renderer itself fails safe by drawing nothing).
  */
 function firstSupportedFrom(
@@ -151,14 +151,14 @@ function firstSupportedFrom(
  *
  * - Pinned (`!== "auto"`): honour the request when supported (no auto-degrade,
  *   R27), else step down to the nearest supported tier so a pin still renders.
- * - `"auto"`: apply the degrade precedence —
+ * - `"auto"`: apply the degrade precedence -
  *     1. reduced-motion / reduced-data step SVG down to the CSS band;
  *     2. `markCount` above the threshold steps Tier A down to Tier B (R31);
  *     3. an unsupported tier falls through to the next supported.
  *   Tier B is the floor of auto-degrade; Tier C is chosen only when highest
  *   supported or explicitly pinned.
  *
- * Pure given its inputs — all capability reads happen in {@link detectEnvironment}.
+ * Pure given its inputs - all capability reads happen in {@link detectEnvironment}.
  *
  * @param markCount - Number of simultaneously visible marks (for the threshold).
  */

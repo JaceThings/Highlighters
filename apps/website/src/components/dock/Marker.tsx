@@ -39,7 +39,7 @@ function OpacityReadout({ pct }: { pct: number }) {
   );
 }
 
-// Crossfade inks rather than interpolate — complementary inks can't morph without a
+// Crossfade inks rather than interpolate - complementary inks can't morph without a
 // false green or a grey dip (gamut geometry).
 const INK_FADE_MS = 180;
 
@@ -54,7 +54,7 @@ const PENS: PenDef[] = [
   { id: "flat", label: "Flat marker" },
 ];
 
-// Pen wants an oklch() string — its tip shading reads OKLCH lightness.
+// Pen wants an oklch() string - its tip shading reads OKLCH lightness.
 const toPen = (hex: string) => oklchToCss(hexToOklch(hex));
 
 export function MarkerRow({

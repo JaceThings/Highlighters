@@ -14,7 +14,7 @@ import type { Box, EdgeCap, EdgeVertex, ResolvedTip } from "../types.js";
  *
  * Every coordinate is a pure function of the box, slant, radius, and grid-indexed
  * vertices, so identical inputs yield a byte-identical string and growing the mark
- * only appends `L` commands — the covered-region prefix is unchanged (R22d).
+ * only appends `L` commands - the covered-region prefix is unchanged (R22d).
  */
 
 export interface ClipPathOptions {
@@ -46,7 +46,7 @@ function fy(value: number): string {
 }
 
 /**
- * The chisel slant in absolute px — how far the top edge leads (shifts right of)
+ * The chisel slant in absolute px - how far the top edge leads (shifts right of)
  * the bottom edge. Grows linearly with `tip.angle` over 0–90°, capped at half the
  * width so it can never invert the parallelogram on a short mark. Exported so the
  * draw-on wipe can angle its reveal front to the same slant, computed in one place.
@@ -92,7 +92,7 @@ function resolveSlantAndRadius(
 }
 
 /**
- * The smallest visible front (local px) for a tip — the touchdown width where the
+ * The smallest visible front (local px) for a tip - the touchdown width where the
  * leading cap's two corner arcs just meet over the slant (`slant + 2·radius`).
  * Below this the parallelogram inverts, so {@link buildClipPath} clamps smaller
  * fronts up to it. The draw-on uses it as the START of its travel (progress `0→1`
@@ -116,7 +116,7 @@ interface Pt {
 }
 
 /**
- * Collect the wave vertices strictly inside the corner-arc inset `(minX, maxX)` —
+ * Collect the wave vertices strictly inside the corner-arc inset `(minX, maxX)` -
  * vertices on or past the inset are skipped so a wave point can't kink a corner
  * arc. `reverse` consumes the array right → left (the bottom edge).
  */
@@ -168,7 +168,7 @@ export function buildClipPath(opts: ClipPathOptions): string {
   const ow = box.width;
   const oh = box.height;
 
-  // Resolve slant/radius from the FULL box, never the current front — the cap
+  // Resolve slant/radius from the FULL box, never the current front - the cap
   // shape is planned once and only translated to the front as the band grows, so
   // the leading cap is identical from first frame to last (no shape/lean snap at
   // the end) and the whole future path is deterministic.

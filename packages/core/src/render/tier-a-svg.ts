@@ -1,21 +1,21 @@
 /**
- * Tier A renderer — the realistic SVG-filter band (blueprint R26 / A3 / R31).
+ * Tier A renderer - the realistic SVG-filter band (blueprint R26 / A3 / R31).
  *
  * The default tier. Each visual line gets a positioned WRAPPER `<div>`; inside it
  * at `inset: 0` sit the ink node (pool gradient, clipped to the chisel/bullet/fine
  * geometry via `clip-path`, textured by the offset-sampled noise tile via
  * `mask-image`, run through a shared SVG filter) and an optional glow node. The
- * wrapper carries NO geometry clip-path — only the box position — so the draw-on can
+ * wrapper carries NO geometry clip-path - only the box position - so the draw-on can
  * wipe it open with `clip-path: inset(...)` instead of a `scaleX()` that would
  * stretch the texture/wave (each element clips its own subtree, so the insets compose).
  *
  * One shared `<svg>`/`<defs>` filter block (turbulence + displacement + morphology
- * + blur) is reused by every mark (R31). Filters are referenced, never animated —
+ * + blur) is reused by every mark (R31). Filters are referenced, never animated -
  * computed once per geometry and reused until reflow (R32), so scrolling never re-filters.
  *
  * An optional additive fluorescence layer (R16) is a second node in `screen` blend
  * over the multiply ink, so an enabled mark reads brighter than its background
- * (Stokes shift) — never merely a darker tint, never reducing legibility.
+ * (Stokes shift) - never merely a darker tint, never reducing legibility.
  *
  * Nodes are pooled by stable line identity (A14 §6 / R22d); `unmount()` leaves the
  * DOM pristine (R9).
@@ -79,7 +79,7 @@ interface EdgeFilterParams {
 }
 
 /**
- * Resolve + quantize the per-mark edge-filter params — the source of truth for both
+ * Resolve + quantize the per-mark edge-filter params - the source of truth for both
  * the filter's id (equal params intern to one filter) and its built primitives.
  * Returns `null` when nothing perturbs the edge, so the mark skips the filter.
  *
@@ -184,7 +184,7 @@ function buildEdgeFilter(
 /** Create a Tier A renderer (`tier: "svg"`). */
 export function createSvgRenderer(): Renderer {
   // Per line: a positioned WRAPPER (the draw-on wipe surface, no geometry clip)
-  // holding an ink node and, optionally, a glow node — all pooled by identity.
+  // holding an ink node and, optionally, a glow node - all pooled by identity.
   const wrapperPool = new NodePool<HTMLElement>();
   const inkPool = new NodePool<HTMLElement>();
   const glowPool = new NodePool<HTMLElement>();
@@ -213,13 +213,12 @@ export function createSvgRenderer(): Renderer {
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
 
-    // saturation multiplies deposited intensity; flow adds opacity, viscosity subtracts.
-    const saturationGain = 0.35 + 0.65 * clamp01(ink.saturation);
+    // flow adds opacity, viscosity subtracts; 0.805 is the baked former ink.saturation gain.
     const flowGain = 1 + 0.35 * (clamp01(ink.flow) - clamp01(ink.viscosity));
     // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
     // so a uniformly-fast swipe dims the layer instead of being normalized to full.
     const effectiveAlpha = clamp01(
-      options.opacity * saturationGain * flowGain * (line.pool.layerScale ?? 1),
+      options.opacity * 0.805 * flowGain * (line.pool.layerScale ?? 1),
     );
     s.opacity = String(round3(effectiveAlpha));
 
@@ -235,20 +234,20 @@ export function createSvgRenderer(): Renderer {
     setVendorPrefixed(el, "maskSize", `${line.noiseTile.width}px ${line.noiseTile.height}px`);
 
     // The filter is invariant across a mark's lines, so it's interned ONCE in
-    // render() and the URL passed in — no per-line lookup or recompute on the hot
+    // render() and the URL passed in - no per-line lookup or recompute on the hot
     // reflow path (R32: referenced, never animated).
     setStyleOnce(el, "filter", filterValue);
   }
 
   function styleGlow(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
-    const { glow, ink } = context.options;
+    const { glow } = context.options;
     const s = el.style;
     fillWrapper(el);
     s.pointerEvents = "none";
-    // Additive emission over the multiply ink (R16): screen blend + bloom so the
-    // mark can read brighter than its background. Rides the saturation knob too.
+    // Additive emission over the multiply ink: screen blend + bloom so the mark reads brighter
+    // than its background. 0.82 is the baked former ink.saturation contribution.
     s.mixBlendMode = "screen";
-    s.opacity = String(round3(clamp01(glow.intensity * (0.4 + 0.6 * clamp01(ink.saturation)))));
+    s.opacity = String(round3(clamp01(glow.intensity * 0.82)));
     s.backgroundColor = glow.color;
     setVendorPrefixed(el, "clipPath", line.clipPath);
     setStyleOnce(el, "filter", `blur(${glow.spread}px)`);
@@ -280,7 +279,7 @@ export function createSvgRenderer(): Renderer {
     for (const line of context.lines) {
       keep.add(line.seed);
 
-      // The wrapper carries ONLY the box position, never a geometry clip — its
+      // The wrapper carries ONLY the box position, never a geometry clip - its
       // clip-path is left untouched here so an in-flight/primed reveal is preserved
       // across reflow (R22: reflow never re-animates).
       let wrapper = wrapperPool.get(line.seed);

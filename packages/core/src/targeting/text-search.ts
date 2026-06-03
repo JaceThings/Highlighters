@@ -1,6 +1,6 @@
 /**
  * Text-query targeting: find every occurrence of a string or `RegExp` under a root
- * and return a `Range` per match — including matches that span inline element
+ * and return a `Range` per match - including matches that span inline element
  * boundaries (e.g. `foo<em>bar</em>baz`).
  *
  * The walk concatenates the root's text nodes into one flat string while recording,

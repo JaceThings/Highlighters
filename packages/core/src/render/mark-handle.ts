@@ -1,5 +1,5 @@
 /**
- * The mark handle (blueprint R9 / V4) — the object every targeting call returns.
+ * The mark handle (blueprint R9 / V4) - the object every targeting call returns.
  *
  * A handle owns a single mounted mark: its renderer, overlay container, reflow
  * observer, and any extra cleanup. `update(opts)` re-resolves options through the
@@ -103,7 +103,7 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
       removed = true;
       showing = false;
       // Order matters: stop incoming work first (reflow + cleanups), then unmount
-      // the renderer, then strip the container — leaving zero residue.
+      // the renderer, then strip the container - leaving zero residue.
       reflow();
       for (const dispose of cleanups) {
         try {

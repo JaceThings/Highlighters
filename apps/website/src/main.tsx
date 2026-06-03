@@ -8,6 +8,6 @@ import { App } from "./App.tsx";
 const rootEl = document.getElementById("root");
 if (!rootEl) throw new Error("Root element #root not found in index.html");
 
-// No StrictMode — its dev-only double-mount restarts the Stagger entrance
+// No StrictMode - its dev-only double-mount restarts the Stagger entrance
 // mid-flight, dropping the first few items' animation visibility.
 createRoot(rootEl).render(<App />);

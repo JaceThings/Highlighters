@@ -32,7 +32,7 @@ function finiteOr(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-/** A finite, strictly-positive number, else `fallback` — for durations. */
+/** A finite, strictly-positive number, else `fallback` - for durations. */
 function positiveOr(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -55,7 +55,7 @@ function mergeGroup(
 /**
  * Deep-merge two partial option objects: top-level scalars take `override`,
  * namespaced groups merge field-wise. The `shape`/`markType` synonyms collapse
- * onto a single canonical `markType`. Pure — neither input is mutated.
+ * onto a single canonical `markType`. Pure - neither input is mutated.
  */
 export function mergeOptions(
   base: HighlightOptions,
@@ -109,7 +109,7 @@ function resolveColor(
 /**
  * Resolve a (possibly partial) {@link HighlightOptions} into a fully-defaulted
  * {@link ResolvedOptions}, with precedence DEFAULT_OPTIONS → preset (default
- * `"mild"`) → explicit `input`. Pure — no DOM access.
+ * `"mild"`) → explicit `input`. Pure - no DOM access.
  */
 export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   const d = DEFAULT_OPTIONS;
@@ -131,7 +131,6 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   const ink: ResolvedInk = {
     flow: finiteOr(merged.ink?.flow, d.ink.flow),
     viscosity: finiteOr(merged.ink?.viscosity, d.ink.viscosity),
-    saturation: finiteOr(merged.ink?.saturation, d.ink.saturation),
     feathering: finiteOr(merged.ink?.feathering, d.ink.feathering),
     streakiness: finiteOr(merged.ink?.streakiness, d.ink.streakiness),
     dryout: finiteOr(merged.ink?.dryout, d.ink.dryout),
@@ -140,7 +139,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   };
 
   const sd = d.speed;
-  // Order the thresholds so fastSpeed >= slowSpeed even if a caller inverts them —
+  // Order the thresholds so fastSpeed >= slowSpeed even if a caller inverts them -
   // otherwise the velocity normalizer's denominator collapses and the deposit
   // curve degenerates into a near-instant step function.
   const rawSlow = Math.max(0, finiteOr(merged.speed?.slowSpeed, sd.slowSpeed));

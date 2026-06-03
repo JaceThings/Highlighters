@@ -2,16 +2,16 @@ import type { EdgeVertex } from "../types.js";
 import { hashJitter } from "./rng.js";
 
 /**
- * Wavy-edge vertex generation on a fixed spatial grid — the core of the
+ * Wavy-edge vertex generation on a fixed spatial grid - the core of the
  * anchored-grid method.
  *
  * A naïve highlighter interpolates vertices as a fraction of the current width
  * and seeds the jitter by the loop index; both depend on width, so widening the
- * mark slides every vertex AND re-shuffles every seed — the wobble visibly
+ * mark slides every vertex AND re-shuffles every seed - the wobble visibly
  * "swims" during a drag. Here vertices live at `x = gridIndex * segmentLength` on
  * a global px grid and the jitter is seeded by that grid index, so wavelength and
  * per-x phase are constant at any width, and growing the extent only appends
- * vertices at fresh grid x's — everything already emitted stays byte-identical.
+ * vertices at fresh grid x's - everything already emitted stays byte-identical.
  */
 
 /** Per-role seed offsets so independent jitter draws never move in lockstep. */

@@ -79,11 +79,11 @@ describe("mergeOptions", () => {
 
   it("merges namespaced groups field-wise rather than replacing them", () => {
     const merged = mergeOptions(
-      { ink: { flow: 0.5, saturation: 0.8 } },
-      { ink: { saturation: 0.2 } },
+      { ink: { flow: 0.5, feathering: 0.8 } },
+      { ink: { feathering: 0.2 } },
     );
-    // flow survives from base; saturation overridden.
-    expect(merged.ink).toEqual({ flow: 0.5, saturation: 0.2 });
+    // flow survives from base; feathering overridden.
+    expect(merged.ink).toEqual({ flow: 0.5, feathering: 0.2 });
   });
 
   it("reconciles the shape/markType synonyms onto markType", () => {
@@ -102,10 +102,10 @@ describe("mergeOptions", () => {
 
   it("is pure (does not mutate either argument)", () => {
     const base = { ink: { flow: 0.5 } };
-    const override = { ink: { saturation: 0.2 } };
+    const override = { ink: { feathering: 0.2 } };
     mergeOptions(base, override);
     expect(base).toEqual({ ink: { flow: 0.5 } });
-    expect(override).toEqual({ ink: { saturation: 0.2 } });
+    expect(override).toEqual({ ink: { feathering: 0.2 } });
   });
 });
 

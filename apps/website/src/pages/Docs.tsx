@@ -15,7 +15,7 @@ export function Docs() {
           <h1 className="m-0 text-[1rem] font-[550]">Docs</h1>
           <p className="m-0 text-text-secondary">
             Every setting, live. Pick a starting point, then toggle and drag the
-            controls — the sample text re-highlights as you go.
+            controls - the sample text re-highlights as you go.
           </p>
         </header>
       </Stagger>

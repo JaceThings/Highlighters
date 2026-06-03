@@ -54,7 +54,7 @@ export function FocusRingOverlay({
     const hh = Math.max(0, hv as number);
     if (ww === 0 || hh === 0) return "";
     // Cap radius against the rect's min dimension so small elements don't render as
-    // near-capsules — smoothing extends the curve past `radius` and would eat the
+    // near-capsules - smoothing extends the curve past `radius` and would eat the
     // straight edge entirely on the short axis.
     const r = Math.min(
       radius + Math.min(offsetX, offsetY),
@@ -125,7 +125,7 @@ export function FocusRingOverlay({
       }
       const dest = measure(t);
       if (fadingOut) {
-        // Coalesce — the in-flight onComplete will snap to the most recent.
+        // Coalesce - the in-flight onComplete will snap to the most recent.
         pendingTarget = dest;
         targetRef.current = t;
         return;
@@ -143,7 +143,7 @@ export function FocusRingOverlay({
         getSection(targetRef.current) !== getSection(t);
 
       if (crossingSections) {
-        // Fade out, snap while invisible, fade back in — no long-distance slide between groups.
+        // Fade out, snap while invisible, fade back in - no long-distance slide between groups.
         targetRef.current = t;
         fadingOut = true;
         pendingTarget = dest;
@@ -190,7 +190,7 @@ export function FocusRingOverlay({
     };
 
     // The focused link itself never fades, but a motion.span ancestor can (route exit).
-    // Any ancestor below opacity 1 means we're animating out — fade the ring instead of
+    // Any ancestor below opacity 1 means we're animating out - fade the ring instead of
     // tracking the moving target.
     const isMidExit = (el: HTMLElement): boolean => {
       let node: HTMLElement | null = el;
@@ -203,7 +203,7 @@ export function FocusRingOverlay({
     };
 
     // Targets can move externally (footer slides on route change); the poll re-feeds raw
-    // values so the springs follow. Bail on removed/mid-exit elements — getBoundingClientRect
+    // values so the springs follow. Bail on removed/mid-exit elements - getBoundingClientRect
     // on a detached node returns the zero-rect and the ring snaps to the viewport origin.
     let rafId = 0;
     const follow = () => {

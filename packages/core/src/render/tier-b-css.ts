@@ -1,9 +1,9 @@
 /**
- * Tier B renderer — a CSS `linear-gradient` band (blueprint R26 / A3).
+ * Tier B renderer - a CSS `linear-gradient` band (blueprint R26 / A3).
  *
  * The lightweight tier: a per-line WRAPPER `<div>` holding a band `<div>` at
  * `inset: 0` painted with the absolute-px end-pool gradient and composited with
- * `mix-blend-mode: multiply` (R14). Edges are straight — no wave, no texture — but
+ * `mix-blend-mode: multiply` (R14). Edges are straight - no wave, no texture - but
  * colour, opacity, blend, and band position are shared with Tier A, so degrading
  * here changes fidelity, not identity (R28). The wrapper carries only the box
  * position (no clip) so the draw-on wipes it open with `clip-path: inset(...)`,
@@ -55,7 +55,7 @@ export function poolGradientToCss(pool: PoolGradient): string {
     return parts.join(", ");
   }
 
-  // Legacy 4-stop gradient — absolute-px insets with min()/max() clamps keep the
+  // Legacy 4-stop gradient - absolute-px insets with min()/max() clamps keep the
   // cap-pool width constant.
   const startCore = `min(${pool.startCorePx}px, ${pool.startCorePct}%)`;
   const endCore = `max(calc(100% - ${pool.endCorePx}px), ${pool.endCorePct}%)`;

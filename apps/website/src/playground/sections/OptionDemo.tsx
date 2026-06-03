@@ -9,6 +9,7 @@ import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
 import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
 import { Preview, SnapPreview } from "../Preview.tsx";
+import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
 
@@ -77,7 +78,7 @@ interface Base {
   desc: string;
 }
 type Demo =
-  | (Base & { kind: "slider"; path: string; label: string; def: number; min: number; max: number; step: number; unit: Unit })
+  | (Base & { kind: "slider"; path: string; label: string; def: number; min: number; max: number; step: number; unit: Unit; floor?: number })
   | (Base & { kind: "pills"; path: string; aria: string; def: string; opts: ReadonlyArray<{ value: string; label: string }>; shape?: boolean })
   | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
   | (Base & { kind: "color" });
@@ -199,6 +200,7 @@ function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" 
         min={demo.min}
         max={demo.max}
         step={demo.step}
+        floor={demo.floor}
         format={FORMAT[demo.unit]}
         onChange={onNum}
         renderFill={(ctx) => <ScribbleFill seed={seed} {...ctx} />}
@@ -218,7 +220,7 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
             demo.kind === "pills" && demo.path === "snap" ? (
               <SnapPreview quote={quote} />
             ) : (
-              <Preview quote={quote} />
+              <Preview quote={quote} strategy={strategyFor(demo.title)} />
             )
           ) : (
             <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
@@ -238,27 +240,25 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
 
 // Every option, one demo each, in build order.
 export const OPTION_DEMOS: Demo[] = [
-  { kind: "pills", title: "markType", aria: "Mark kind", path: "markType", def: "highlight", shape: true, opts: [{ value: "highlight", label: "Highlight" }, { value: "underline", label: "Underline" }, { value: "overline", label: "Overline" }, { value: "strike-through", label: "Strike" }], desc: "The kind of mark — a highlight band, an under/overline, or a strike-through. (shape is a synonym.)" },
-  { kind: "color", title: "color", desc: "The ink hue. Pick a canonical highlighter swatch — a clean { palette, swatch } reference. Defaults to fluorescent yellow." },
+  { kind: "pills", title: "markType", aria: "Mark kind", path: "markType", def: "highlight", shape: true, opts: [{ value: "highlight", label: "Highlight" }, { value: "underline", label: "Underline" }, { value: "overline", label: "Overline" }, { value: "strike-through", label: "Strike" }], desc: "The kind of mark: a highlight band, an under/overline, or a strike-through. (shape is a synonym.)" },
+  { kind: "color", title: "color", desc: "The ink hue. Pick a canonical highlighter swatch, a clean { palette, swatch } reference. Defaults to fluorescent yellow." },
   { kind: "slider", title: "opacity", label: "Opacity", path: "opacity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Overall ink alpha. Lower lets more of the text read through the band." },
   { kind: "toggle", title: "blendMode (stack)", aria: "Stack", path: "stack", def: true, desc: "Overlap optics. On = multiply: two passes darken where they cross, like real translucent ink. Off = normal: same-colour overlaps merge flat." },
-  { kind: "pills", title: "tip.type", aria: "Nib", path: "tip.type", def: "chisel", opts: [{ value: "chisel", label: "Chisel" }, { value: "bullet", label: "Bullet" }, { value: "fine", label: "Fine" }], desc: "Nib shape — a broad slanted chisel, a rounded bullet, or a fine point." },
-  { kind: "slider", title: "tip.angle", label: "Angle", path: "tip.angle", def: 35, min: 0, max: 90, step: 1, unit: "deg", desc: "Chisel slant baked into each band." },
+  { kind: "pills", title: "tip.type", aria: "Nib", path: "tip.type", def: "chisel", opts: [{ value: "chisel", label: "Chisel" }, { value: "bullet", label: "Bullet" }, { value: "fine", label: "Fine" }], desc: "Nib shape: a broad slanted chisel, a rounded bullet, or a fine point." },
+  { kind: "slider", title: "tip.angle", label: "Angle", path: "tip.angle", def: 35, min: 0, max: 90, step: 1, unit: "deg", floor: 5, desc: "Chisel slant baked into each band, never quite flat." },
   { kind: "slider", title: "tip.overshoot", label: "Overshoot", path: "tip.overshoot", def: 2, min: -8, max: 12, step: 1, unit: "px", desc: "How far each end runs past the text. Positive overruns like a real swipe; negative stops short of the glyphs." },
   { kind: "slider", title: "tip.overshootJitter", label: "End randomness", path: "tip.overshootJitter", def: 1, min: 0, max: 8, step: 1, unit: "px", desc: "Per-end random variance of the overshoot, so the two ends never land on an identical inset." },
-  { kind: "slider", title: "ink.flow", label: "Flow", path: "ink.flow", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Juiciness — deposit amount. Raises the band width and softens the edges." },
-  { kind: "slider", title: "ink.viscosity", label: "Viscosity", path: "ink.viscosity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Inverse of flow — sharpens edges and raises skip frequency." },
-  { kind: "slider", title: "ink.saturation", label: "Saturation", path: "ink.saturation", def: 0.7, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Per-pass intensity of the deposited ink." },
+  { kind: "slider", title: "ink.flow", label: "Flow", path: "ink.flow", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Juiciness: the deposit amount. Raises the band width and softens the edges." },
+  { kind: "slider", title: "ink.viscosity", label: "Viscosity", path: "ink.viscosity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Inverse of flow: sharpens edges and raises skip frequency." },
   { kind: "slider", title: "ink.feathering", label: "Feathering", path: "ink.feathering", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Capillary lateral spread at the edges, the way ink wicks sideways into paper." },
-  { kind: "slider", title: "ink.streakiness", label: "Streakiness", path: "ink.streakiness", def: 0.35, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Lengthwise lighter/darker lanes within a stroke — the single biggest “real highlighter” tell." },
-  { kind: "slider", title: "ink.dryout", label: "Dryout", path: "ink.dryout", def: 0.15, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Probabilistic alpha gaps — the marker skipping as it runs dry." },
+  { kind: "slider", title: "ink.streakiness", label: "Streakiness", path: "ink.streakiness", def: 0.35, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Lengthwise lighter/darker lanes within a stroke, the single biggest “real highlighter” tell." },
+  { kind: "slider", title: "ink.dryout", label: "Dryout", path: "ink.dryout", def: 0.15, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Probabilistic alpha gaps: the marker skipping as it runs dry." },
   { kind: "slider", title: "ink.flowFade", label: "Flow fade", path: "ink.flowFade", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Directional dry-out: each line starts saturated where the nib lands and fades drier toward its end." },
   { kind: "slider", title: "edge.waviness", label: "Waviness", path: "edge.waviness", def: 1.5, min: 0, max: 4, step: 0.1, unit: "px", desc: "Peak displacement of the wavy edge. Zero gives a clean straight edge." },
-  { kind: "slider", title: "edge.frequency", label: "Frequency", path: "edge.frequency", def: 22, min: 8, max: 48, step: 1, unit: "px", desc: "Segment length between wave vertices — smaller is wavier. Width-independent." },
+  { kind: "slider", title: "edge.frequency", label: "Frequency", path: "edge.frequency", def: 22, min: 8, max: 48, step: 1, unit: "px", desc: "Segment length between wave vertices, smaller is wavier. Width-independent." },
   { kind: "slider", title: "edge.roughness", label: "Roughness", path: "edge.roughness", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "High-frequency micro-jitter on top of the base wave." },
   { kind: "pills", title: "edge.cap", aria: "Cap", path: "edge.cap", def: "round", opts: [{ value: "flat", label: "Flat" }, { value: "round", label: "Round" }, { value: "square", label: "Square" }], desc: "End-cap style for a band's leading and trailing edges." },
   { kind: "slider", title: "edge.radius", label: "Radius", path: "edge.radius", def: 4, min: 0, max: 12, step: 1, unit: "px", desc: "Corner radius, clamped against short marks." },
   { kind: "slider", title: "paper.absorbency", label: "Absorbency", path: "paper.absorbency", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "How thirsty the paper is. Higher wicks more ink, growing the feather and softening edges." },
   { kind: "pills", title: "snap", aria: "Snap", path: "snap", def: "word", opts: [{ value: "none", label: "None" }, { value: "word", label: "Word" }, { value: "line", label: "Line" }, { value: "glyph", label: "Glyph" }], desc: "Clamps each end to a text boundary before overshoot is applied, so a mark never starts or stops mid-whitespace." },
-  { kind: "pills", title: "animation.trigger", aria: "Trigger", path: "animation.trigger", def: "immediate", opts: [{ value: "immediate", label: "Immediate" }, { value: "in-view", label: "In view" }], desc: "When the entrance begins — on mount, or when the mark scrolls into view (an IntersectionObserver)." },
 ];
