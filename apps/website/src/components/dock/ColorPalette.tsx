@@ -18,9 +18,10 @@ const SWATCHES: Swatch[] = [
 
 const PRESET_COLORS = new Set(SWATCHES.map((s) => s.color));
 
-// The custom disc shows the picked colour once it's active; otherwise the wheel art
-// hints that it opens the HSL picker.
-const CUSTOM_RING = "#9a918a";
+// The custom disc wears a rainbow ring (the colour wheel) once a custom colour is active;
+// otherwise the wheel art fills it, hinting that it opens the HSL picker.
+const RAINBOW_RING =
+  "conic-gradient(from 90deg, hsl(0 90% 60%), hsl(60 90% 60%), hsl(120 90% 60%), hsl(180 90% 60%), hsl(240 90% 60%), hsl(300 90% 60%), hsl(360 90% 60%))";
 
 export function ColorPalette({
   value,
@@ -45,14 +46,56 @@ export function ColorPalette({
           onClick={() => onChange(s.color)}
         />
       ))}
-      <Disc
-        label="Custom colour"
-        ring={CUSTOM_RING}
-        fill={customActive ? value : `url("${colorPickerUrl}") center / cover no-repeat`}
-        selected={customActive}
-        onClick={(button) => onActivateCustom(button)}
-      />
+      <CustomDisc active={customActive} color={value} onClick={onActivateCustom} />
     </div>
+  );
+}
+
+// The custom-colour disc: a rainbow ring with the picked colour at its centre when active,
+// or the wheel art when not — so it reads as "open the colour picker".
+function CustomDisc({
+  active,
+  color,
+  onClick,
+}: {
+  active: boolean;
+  color: string;
+  onClick: (button: HTMLButtonElement) => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label="Custom colour"
+      aria-pressed={active}
+      onClick={(e) => onClick(e.currentTarget)}
+      data-focus-ring
+      className="group relative size-[43px] shrink-0 rounded-full"
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
+      >
+        {active ? (
+          <>
+            <span className="absolute inset-0 rounded-full" style={{ background: RAINBOW_RING }} />
+            <span className="absolute rounded-full bg-white" style={{ inset: 3.57 }} />
+            <span
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: color,
+                transform: "scale(0.62)",
+                transition: "transform 220ms cubic-bezier(0.2, 0, 0, 1)",
+              }}
+            />
+          </>
+        ) : (
+          <span
+            className="absolute inset-0 rounded-full"
+            style={{ background: `url("${colorPickerUrl}") center / cover no-repeat` }}
+          />
+        )}
+      </span>
+    </button>
   );
 }
 

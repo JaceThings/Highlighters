@@ -40,10 +40,14 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
   // Namespace the gradient/filter ids so multiple <Pen>s don't collide on shared defs.
   const id = useId();
   const ink = parseOklch(color);
+  // A pure-white ink would vanish against the panel — cap the displayed nib lightness so the
+  // marker stays visible even at full white.
+  const visibleInk = ink.L > 0.9 ? { L: 0.9, C: ink.C, H: ink.H } : ink;
+  const visibleColor = oklchToCss(visibleInk);
   // Lighter tip-gradient top, reused as the rim colour so the rim blends into the nib.
-  const tipTop = oklchToCss(lightenOklch(ink, 0.06));
+  const tipTop = oklchToCss(lightenOklch(visibleInk, 0.06));
   // Specular highlight opacity, scaled off lightness so light inks brighten.
-  const whiteAlpha = Math.max(0.07, Math.min(0.5, 0.07 + 0.7 * Math.max(0, ink.L - 0.5)));
+  const whiteAlpha = Math.max(0.07, Math.min(0.5, 0.07 + 0.7 * Math.max(0, visibleInk.L - 0.5)));
 
   return (
     <svg
@@ -71,7 +75,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
         </g>
       )}
       {/* Ink band — no shadow, so it crossfades cleanly over the static barrel. */}
-      <path d={BAND} style={{ fill: color }} />
+      <path d={BAND} style={{ fill: visibleColor }} />
       <path
         d={BAND}
         fill={`url(#${id}-paint2)`}
@@ -214,7 +218,7 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           {/* The JS tween drives these colours each frame — no CSS transition,
               which would fight the per-frame updates. */}
           <stop style={{ stopColor: tipTop }} />
-          <stop offset="1" style={{ stopColor: color }} />
+          <stop offset="1" style={{ stopColor: visibleColor }} />
         </linearGradient>
       </defs>
     </svg>
