@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Highlight, useHighlight } from "@highlighters/react";
 import type { HighlightOptions } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
@@ -25,6 +25,15 @@ interface PreviewProps {
 // No webfont installed - fall back to a system hand.
 const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
 const QUOTE_INK = "#73574a";
+const PREVIEW_INK_FADE_MS = 180;
+const QUOTE_STYLE: CSSProperties = {
+  fontFamily: QUOTE_FONT,
+  fontSize: 25,
+  lineHeight: "30px",
+  whiteSpace: "pre-line",
+  hyphens: "none",
+  WebkitHyphens: "none",
+};
 
 export function Preview({ quote, strategy }: PreviewProps) {
   const previewOptions = usePreviewOptions();
@@ -49,46 +58,76 @@ export function Preview({ quote, strategy }: PreviewProps) {
   // the two passes darken; OFF: 0, flat.
   const stacked = previewOptions.stack !== false;
   const liveOpacity = core.opacity ?? 0.5;
-  const innerMark = (word: string) =>
-    renderRun(word, { ...core, seed: 404, opacity: stacked ? liveOpacity : 0 });
-
   const words = quote.text.split(" ");
   const plan = planMarks(words, strategy);
 
-  const pieces: ReactNode[] = [];
-  let i = 0;
-  plan.ranges.forEach(([s, e], ri) => {
-    if (i < s) pieces.push(words.slice(i, s).join(" "));
-    const seg = words.slice(s, e);
-    const ov = plan.overlap != null && plan.overlap >= s && plan.overlap < e ? plan.overlap - s : -1;
-    const body =
-      ov < 0 ? (
-        seg.join(" ")
-      ) : (
-        <>
-          {seg.slice(0, ov).join(" ")}
-          {ov > 0 ? " " : ""}
-          {innerMark(seg[ov])}
-          {ov < seg.length - 1 ? " " : ""}
-          {seg.slice(ov + 1).join(" ")}
-        </>
-      );
-    pieces.push(renderRun(body, { ...core, seed: 300 + ri }));
-    i = e;
-  });
-  if (i < words.length) pieces.push(words.slice(i).join(" "));
+  // Build the marked quote for a given ink colour. Same ranges + seeds each call, so a base
+  // copy (new colour) and a fading overlay copy (old colour) align and crossfade.
+  const quoteBody = (color: HighlightOptions["color"]) => {
+    const opts: HighlightOptions = { ...core, color };
+    const innerMark = (word: string) =>
+      renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 });
+    const pieces: ReactNode[] = [];
+    let i = 0;
+    plan.ranges.forEach(([s, e], ri) => {
+      if (i < s) pieces.push(words.slice(i, s).join(" "));
+      const seg = words.slice(s, e);
+      const ov = plan.overlap != null && plan.overlap >= s && plan.overlap < e ? plan.overlap - s : -1;
+      const body =
+        ov < 0 ? (
+          seg.join(" ")
+        ) : (
+          <>
+            {seg.slice(0, ov).join(" ")}
+            {ov > 0 ? " " : ""}
+            {innerMark(seg[ov])}
+            {ov < seg.length - 1 ? " " : ""}
+            {seg.slice(ov + 1).join(" ")}
+          </>
+        );
+      pieces.push(renderRun(body, { ...opts, seed: 300 + ri }));
+      i = e;
+    });
+    if (i < words.length) pieces.push(words.slice(i).join(" "));
+    return pieces.flatMap((p, idx) => (idx === 0 ? [p] : [" ", p]));
+  };
+
+  // Crossfade the ink on a colour change: the base stays the new colour while an overlay copy
+  // of the old colour fades out over it.
+  const [fadeOut, setFadeOut] = useState<{ color: HighlightOptions["color"]; key: number } | null>(null);
+  const prevColorRef = useRef(core.color);
+  const fadeKeyRef = useRef(0);
+  useLayoutEffect(() => {
+    if (JSON.stringify(core.color) === JSON.stringify(prevColorRef.current)) return;
+    const prev = prevColorRef.current;
+    prevColorRef.current = core.color;
+    fadeKeyRef.current += 1;
+    const id = fadeKeyRef.current;
+    setFadeOut({ color: prev, key: id });
+    const t = setTimeout(() => setFadeOut((f) => (f && f.key === id ? null : f)), PREVIEW_INK_FADE_MS + 40);
+    return () => clearTimeout(t);
+  }, [core.color]);
 
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
       <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
-        <p
-          className="m-0 text-wrap-pretty"
-          style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line", hyphens: "none", WebkitHyphens: "none" }}
-        >
+        <p className="m-0 text-wrap-pretty" style={QUOTE_STYLE}>
           {"“"}
-          {pieces.flatMap((p, idx) => (idx === 0 ? [p] : [" ", p]))}
+          {quoteBody(core.color)}
           {"”"}
         </p>
+        {fadeOut && entered ? (
+          <p
+            key={fadeOut.key}
+            aria-hidden
+            className="m-0 text-wrap-pretty pointer-events-none absolute left-0 top-0 w-full"
+            style={{ ...QUOTE_STYLE, color: QUOTE_INK, animation: `preview-ink-fade ${PREVIEW_INK_FADE_MS}ms ease forwards` }}
+          >
+            {"“"}
+            {quoteBody(fadeOut.color)}
+            {"”"}
+          </p>
+        ) : null}
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
           {"- " + quote.author}
         </p>
