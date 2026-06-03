@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useId, useMemo, type CSSProperties, type ReactNode } from "react";
 import paperBg from "./paperBg.ts";
 
 // The paper sheet. The whole material — deckled edge, lift shadow, inner modelling, the
@@ -20,6 +20,11 @@ export function PaperCard({
   className?: string;
   style?: CSSProperties;
 }) {
+  // Namespace the SVG's filter/gradient ids per instance — otherwise multiple cards on one
+  // page share ids and every card's filters resolve to the first card's defs.
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const svg = useMemo(() => paperBg.replace(/2069_66/g, uid), [uid]);
+
   return (
     <div
       className={`relative isolate flex flex-col ${className ?? ""}`}
@@ -29,8 +34,8 @@ export function PaperCard({
         aria-hidden
         className="pointer-events-none absolute left-1/2 top-0 -z-10 -translate-x-1/2"
         style={{ width: "110%", maxWidth: "none" }}
-        // The SVG markup is our own build artifact (paperBg.svg), not user input.
-        dangerouslySetInnerHTML={{ __html: paperBg }}
+        // The SVG markup is our own build artifact (paperBg.ts), not user input.
+        dangerouslySetInnerHTML={{ __html: svg }}
       />
       <div className="relative z-[1] flex flex-1 flex-col">{children}</div>
     </div>

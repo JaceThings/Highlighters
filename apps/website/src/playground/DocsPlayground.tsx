@@ -1,9 +1,11 @@
+import { useMemo } from "react";
 import { Stagger } from "../components/Stagger.tsx";
 import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { RecommendedLooks } from "./RecommendedLooks.tsx";
 import { CopyConfig } from "./CopyConfig.tsx";
 import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
+import { buildQuoteSequence } from "./quotes.ts";
 
 // One live demo PER option: each renders the shared Preview (gated to on-screen so
 // the page stays smooth) plus that option's single control, all writing one shared
@@ -12,6 +14,15 @@ import { MoreSection } from "./sections/MoreSection.tsx";
 // Lazy-loaded by Docs (pulls @highlighters/react + @lisse) to stay out of the home
 // bundle.
 export function DocsPlayground() {
+  // Assign a quote to each paper (button) demo, in page order, once per load — so quotes
+  // never repeat and the same author stays ≥3 apart, reshuffling on every reload.
+  const quotes = useMemo(() => {
+    const isPaper = (kind: string) => kind === "pills" || kind === "toggle";
+    const seq = buildQuoteSequence(OPTION_DEMOS.filter((d) => isPaper(d.kind)).length);
+    let q = 0;
+    return OPTION_DEMOS.map((d) => (isPaper(d.kind) ? seq[q++] : undefined));
+  }, []);
+
   return (
     <PlaygroundOptionsProvider>
       <div className="flex w-full flex-col" style={{ gap: 48 }}>
@@ -20,7 +31,7 @@ export function DocsPlayground() {
         </Stagger>
         {OPTION_DEMOS.map((demo, i) => (
           <Stagger key={demo.title} index={2 + i}>
-            <OptionDemo demo={demo} />
+            <OptionDemo demo={demo} quote={quotes[i]} />
           </Stagger>
         ))}
         <Stagger index={2 + OPTION_DEMOS.length}>

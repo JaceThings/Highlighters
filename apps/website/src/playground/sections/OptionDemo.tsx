@@ -8,7 +8,10 @@ import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { ROW_DIVIDER, SLIDER_ROW } from "../../components/playground/styles.ts";
 import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
+import { PaperCard } from "../../components/docs/PaperCard.tsx";
+import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
 import { Preview } from "../Preview.tsx";
+import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
 
 const CANVAS_HEIGHT = 255;
@@ -242,8 +245,47 @@ function SwatchPicker() {
   );
 }
 
-export function OptionDemo({ demo }: { demo: Demo }) {
+// The discrete (button) controls render as a scribble-underline legend on the paper card.
+function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle" }> }) {
+  const { options, set, setShape } = usePlaygroundOptions();
+  if (demo.kind === "toggle") {
+    const on = getBool(options, demo.path, demo.def);
+    return (
+      <ScribbleLegend
+        ariaLabel={demo.aria}
+        options={TOGGLE_OPTS}
+        value={on ? "on" : "off"}
+        onChange={(v) => set(demo.path, v === "on")}
+      />
+    );
+  }
+  const value = getStr(options, demo.path, demo.def);
+  return (
+    <ScribbleLegend
+      ariaLabel={demo.aria}
+      options={demo.opts}
+      value={value}
+      onChange={demo.shape ? (v) => setShape(v as ShapeType) : (v) => set(demo.path, v)}
+    />
+  );
+}
+
+export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   const { ref, seen } = useSeen();
+  // Button demos get the paper card (live-highlighted quote on top, scribble-underline legend
+  // below); sliders/colour keep the white figure card.
+  if (demo.kind === "pills" || demo.kind === "toggle") {
+    return (
+      <div ref={ref}>
+        <Section title={demo.title} description={demo.desc}>
+          <PaperCard>
+            {seen && quote ? <Preview quote={quote} /> : <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />}
+            <LegendControl demo={demo} />
+          </PaperCard>
+        </Section>
+      </div>
+    );
+  }
   return (
     <div ref={ref}>
       <Section title={demo.title} description={demo.desc}>
