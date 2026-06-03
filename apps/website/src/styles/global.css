@@ -14,7 +14,7 @@ html {
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  /* Inter v4 ships an `opsz` axis; pair with the `standard` variant in main.tsx. */
+  /* Inter v4 ships an `opsz` axis; let the browser pick optical sizes from the variable font. */
   font-optical-sizing: auto;
 }
 
