@@ -71,6 +71,9 @@ importers:
       framer-motion:
         specifier: ^12.38.0
         version: 12.40.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      perfect-freehand:
+        specifier: ^1.2.3
+        version: 1.2.3
       react:
         specifier: ^19.2.5
         version: 19.2.6
@@ -2304,6 +2307,9 @@ packages:
   pathval@2.0.1:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
+
+  perfect-freehand@1.2.3:
+    resolution: {integrity: sha512-bHZSfqDHGNlPpgH2yxXgPHlQSPpEbo+qg7li0M78J9vNAi2yjwLeA4x79BEQhX44lEWpCLSFCeRZwpw0niiXPA==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -4745,6 +4751,8 @@ snapshots:
   pathe@2.0.3: {}
 
   pathval@2.0.1: {}
+
+  perfect-freehand@1.2.3: {}
 
   picocolors@1.1.1: {}
 

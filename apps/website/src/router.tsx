@@ -7,6 +7,7 @@ import {
 import { RootLayout } from "./RootLayout.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Docs } from "./pages/Docs.tsx";
+import { Squiggles } from "./pages/Squiggles.tsx";
 
 // Code-based routing: the root route renders RootLayout, whose <Outlet/> hosts the page.
 const rootRoute = createRootRoute({
@@ -25,6 +26,13 @@ const docsRoute = createRoute({
   component: Docs,
 });
 
+// Scratch route: preview the full marker-squiggle library.
+const squigglesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/squiggles",
+  component: Squiggles,
+});
+
 // Catch-all: unknown paths redirect home (beforeLoad throws, so no 404 flashes).
 const catchAllRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -37,6 +45,7 @@ const catchAllRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   docsRoute,
+  squigglesRoute,
   catchAllRoute,
 ]);
 

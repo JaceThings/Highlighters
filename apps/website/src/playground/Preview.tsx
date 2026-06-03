@@ -3,6 +3,7 @@ import { Highlight } from "@highlighters/react";
 import type { HighlightOptions } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
 import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
+import type { Quote } from "./quotes.ts";
 
 /**
  * The live preview EXHIBIT. Mirrors the Lisse Preview's framing — a centered
@@ -39,17 +40,25 @@ import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
  * become exactly what the core renderer consumes (`stack` → blend mode).
  */
 
-// Match the Lisse "Figure Content" frame height across every section.
-const CANVAS_HEIGHT = 255;
+// Match the Lisse "Figure Content" frame height across every section. Exported so the
+// figure-card demos can reserve the same height before the Preview mounts.
+export const CANVAS_HEIGHT = 255;
 
 interface PreviewProps {
   /** Bump to replay the draw-on animation: changing it remounts every
    *  `<Highlight>` mark (via its React `key`) so each stroke re-draws.
    *  Defaults to 0 — no replays. */
   replayNonce?: number;
+  /** Render the paper-card variant: this quote + author (live-highlighted) filling the
+   *  sheet above the legend, instead of the fixed-height exhibit. */
+  quote?: Quote;
 }
 
-export function Preview({ replayNonce = 0 }: PreviewProps) {
+// Handwriting face for the quote (no webfont installed — fall back to a system hand).
+const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
+const QUOTE_INK = "#73574a";
+
+export function Preview({ replayNonce = 0, quote }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Gate the marks on the Stagger entrance: before the text has fully faded
   // in, render the phrases as plain text; only paint marks once entered.
@@ -92,6 +101,45 @@ export function Preview({ replayNonce = 0 }: PreviewProps) {
   const overlapOuterRun = { ...core, seed: 303 };
   const overlapInnerRun = { ...core, seed: 404, opacity: stacked ? liveOpacity : 0 };
   const tailRun = { ...core, seed: 505 };
+
+  // Paper-card variant: a real quote with attribution, a middle phrase live-highlighted (with
+  // an inner word doubled so the stack toggle still reads). Fills the sheet above the legend.
+  if (quote) {
+    // Highlight the middle ~64% of the quote; `m` is the inner-overlap word for the stack toggle.
+    const words = quote.text.split(" ");
+    const n = words.length;
+    const a = Math.min(n - 1, Math.floor(n * 0.18));
+    const b = Math.max(a + 1, Math.ceil(n * 0.82));
+    const m = Math.min(b - 1, Math.floor((a + b) / 2));
+    const lead = (s: string) => (s ? s + " " : "");
+    const trail = (s: string) => (s ? " " + s : "");
+    return (
+      <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
+        <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
+          <p
+            className="m-0 text-wrap-pretty"
+            style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line" }}
+          >
+            {"“"}
+            {lead(words.slice(0, a).join(" "))}
+            {mark(
+              <>
+                {lead(words.slice(a, m).join(" "))}
+                {mark(words[m], overlapInnerRun)}
+                {trail(words.slice(m + 1, b).join(" "))}
+              </>,
+              overlapOuterRun,
+            )}
+            {trail(words.slice(b).join(" "))}
+            {"”"}
+          </p>
+          <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
+            {"— " + quote.author}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
