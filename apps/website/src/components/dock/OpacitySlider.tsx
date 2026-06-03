@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { hexToRgb } from "./oklch.ts";
 import maskUrl from "./slider-mask.svg";
 import checkerUrl from "./checker.svg";
@@ -10,6 +10,9 @@ const TRACK_H = 43;
 const KNOB = 39;
 const TRAVEL_MIN = TRACK_H / 2;
 const TRAVEL_MAX = TRACK_W - TRACK_H / 2;
+
+const GLIDE_MS = 280;
+const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
 
 // SVG checkerboard (crisp at any DPR, one rect per cell) avoids the diagonal seam a
 // gradient checker leaves.
@@ -44,25 +47,54 @@ export function OpacitySlider({
   onChange: (next: number) => void;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef(0);
+  const draggingRef = useRef(false);
+  const downXRef = useRef(0);
   const rgb = hexToRgb(inkColor);
   const pct = Math.round(value * 100);
   const knobCenter = TRAVEL_MIN + clamp01(value) * (TRAVEL_MAX - TRAVEL_MIN);
 
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
   // Map client x onto 0–1 across the knob's travel (not the raw track).
-  const setFromClientX = (clientX: number) => {
+  const valueFromClientX = (clientX: number) => {
     const track = trackRef.current;
-    if (!track) return;
+    if (!track) return value;
     const { left, width } = track.getBoundingClientRect();
     const x = ((clientX - left) / width) * TRACK_W;
-    onChange(clamp01((x - TRAVEL_MIN) / (TRAVEL_MAX - TRAVEL_MIN)));
+    return clamp01((x - TRAVEL_MIN) / (TRAVEL_MAX - TRAVEL_MIN));
+  };
+
+  // Tap glides the value (and the knob) to the target; a drag follows the pointer directly.
+  const glideTo = (target: number) => {
+    cancelAnimationFrame(rafRef.current);
+    const from = value;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      if (draggingRef.current) return;
+      const p = Math.min(1, (now - t0) / GLIDE_MS);
+      onChange(from + (target - from) * easeOut(p));
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
   };
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    setFromClientX(e.clientX);
+    draggingRef.current = false;
+    downXRef.current = e.clientX;
+    glideTo(valueFromClientX(e.clientX));
   };
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) setFromClientX(e.clientX);
+    if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+    // A few px of travel promotes the gesture from tap to drag: stop the glide, follow live.
+    if (!draggingRef.current && Math.abs(e.clientX - downXRef.current) < 4) return;
+    draggingRef.current = true;
+    cancelAnimationFrame(rafRef.current);
+    onChange(valueFromClientX(e.clientX));
+  };
+  const endDrag = () => {
+    draggingRef.current = false;
   };
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1
@@ -86,6 +118,8 @@ export function OpacitySlider({
       data-focus-ring
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onLostPointerCapture={endDrag}
       onKeyDown={onKeyDown}
       className="relative w-full shrink-0 cursor-pointer touch-none select-none"
       style={{ height: TRACK_H }}
