@@ -45,7 +45,11 @@ export function ScribbleLegend({
             role="tab"
             aria-selected={isActive}
             onClick={() => select(opt.value)}
-            onFocus={() => setFocused(opt.value)}
+            // Preview the underline only on keyboard focus, not a mouse click: :focus-visible
+            // is the browser's own pointer-vs-keyboard heuristic, so a click never flashes it.
+            onFocus={(e) => {
+              if (e.currentTarget.matches(":focus-visible")) setFocused(opt.value);
+            }}
             onBlur={() => setFocused((f) => (f === opt.value ? null : f))}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
