@@ -22,6 +22,7 @@ export function useMarkTypeFade(target: MarkType): { markType: MarkType; factor:
   const [factor, setFactor] = useState(1);
   const o = useMotionValue(1);
   const prev = useRef(target);
+  const active = useRef<ReturnType<typeof animate> | null>(null);
 
   useMotionValueEvent(o, "change", setFactor);
 
@@ -33,15 +34,19 @@ export function useMarkTypeFade(target: MarkType): { markType: MarkType; factor:
       setFactor(1);
       return;
     }
-    o.set(1);
+    active.current?.stop();
     const out = animate(o, 0, TWEEN);
+    active.current = out;
     out
       .then(() => {
         setDisplayed(target); // swap at the invisible dip
-        animate(o, 1, TWEEN);
+        active.current = animate(o, 1, TWEEN);
       })
       .catch(() => {});
-    return () => out.stop();
+    return () => {
+      active.current?.stop();
+      active.current = null;
+    };
   }, [target, o]);
 
   return { markType: displayed, factor };
