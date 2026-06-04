@@ -1,7 +1,7 @@
 import {
   createContext,
   useCallback,
-  useContext,
+  use,
   useMemo,
   useState,
   type ReactNode,
@@ -74,7 +74,7 @@ export function SelectionStyleProvider({ children }: { children: ReactNode }) {
 }
 
 export function useSelectionStyle(): SelectionStyleContextValue {
-  const ctx = useContext(SelectionStyleContext);
+  const ctx = use(SelectionStyleContext);
   if (!ctx) {
     throw new Error(
       "useSelectionStyle must be used within a SelectionStyleProvider",

@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 
 /** Coordinates the dock's entrance with the page text: the dock waits until the
  *  page signals its cascade has landed (a timer in RootLayout is the fallback). */
@@ -15,5 +15,5 @@ export const DockEntranceContext = createContext<DockEntrance>({
 });
 
 export function useDockEntrance(): DockEntrance {
-  return useContext(DockEntranceContext);
+  return use(DockEntranceContext);
 }

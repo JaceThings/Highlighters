@@ -1,7 +1,7 @@
 import {
   createContext,
   useCallback,
-  useContext,
+  use,
   useEffect,
   useMemo,
   useState,
@@ -338,7 +338,7 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
 }
 
 export function usePlaygroundOptions(): PlaygroundOptionsContextValue {
-  const ctx = useContext(PlaygroundOptionsContext);
+  const ctx = use(PlaygroundOptionsContext);
   if (!ctx) {
     throw new Error(
       "usePlaygroundOptions must be used within a <PlaygroundOptionsProvider>",
@@ -352,7 +352,7 @@ export function usePlaygroundOptions(): PlaygroundOptionsContextValue {
  * context so consuming this per-frame value doesn't re-render the control sections.
  */
 export function usePreviewOptions(): PlaygroundOptions {
-  const ctx = useContext(PlaygroundPreviewContext);
+  const ctx = use(PlaygroundPreviewContext);
   if (!ctx) {
     throw new Error(
       "usePreviewOptions must be used within a <PlaygroundOptionsProvider>",
