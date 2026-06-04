@@ -61,9 +61,9 @@ export interface PlaygroundOptions extends HighlightOptions {
   stack?: boolean;
 }
 
-export const STACK_DEFAULT = DEFAULT_OPTIONS.blendMode === "multiply";
-export const TIP_OVERSHOOT_DEFAULT = 2;
-export const TIP_OVERSHOOT_JITTER_DEFAULT = 1;
+const STACK_DEFAULT = DEFAULT_OPTIONS.blendMode === "multiply";
+const TIP_OVERSHOOT_DEFAULT = 2;
+const TIP_OVERSHOOT_JITTER_DEFAULT = 1;
 
 /**
  * Lower the playground superset to core options: `stack: true` ⇒ `multiply`
@@ -115,9 +115,9 @@ function buildInitialOptions(): PlaygroundOptions {
 }
 
 /** A dotted path into the options, one or two levels deep (e.g. `"opacity"`, `"ink.flow"`). */
-export type OptionPath = string;
+type OptionPath = string;
 
-export interface PlaygroundOptionsContextValue {
+interface PlaygroundOptionsContextValue {
   /** The live options. Lower with {@link toCoreOptions} before passing to the renderer. */
   options: PlaygroundOptions;
 

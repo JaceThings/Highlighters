@@ -31,20 +31,12 @@
 @theme {
   /* Surface + text */
   --color-bg: #fbfbf9;
-  --color-surface: #fbfbf9;
   --color-text-primary: #73574a;
   /* RGB triplet of `--color-text-primary` for `rgba(var(--primary-rgb), α)`
      compositing, read by the selection highlight overlay. */
   --primary-rgb: 115, 87, 74;
   --color-text-secondary: rgba(154, 145, 138, 0.75);
   --color-text-input: #7e756c;
-
-  /* Smoothing-toggle accent */
-  --color-accent-green: #5b793f;
-
-  /* Hairline gradient stops */
-  --color-divider-from: rgba(115, 87, 74, 0.08);
-  --color-divider-to: rgba(115, 87, 74, 0);
 
   /* Type */
   --font-sans: "Inter Variable", system-ui, -apple-system, BlinkMacSystemFont,

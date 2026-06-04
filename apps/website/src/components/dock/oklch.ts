@@ -2,11 +2,17 @@
 
 export type Oklch = { L: number; C: number; H: number };
 
+const HEX_RE = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i;
+
+// Parse "#rrggbb" (or "rrggbb") to [r, g, b] in 0-255; [0, 0, 0] on a malformed string.
+function hexToRgb255(hex: string): [number, number, number] {
+  const m = HEX_RE.exec(hex.trim());
+  if (!m) return [0, 0, 0];
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
 export function hexToOklch(hex: string): Oklch {
-  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
-  const [r0, g0, b0] = m
-    ? [m[1], m[2], m[3]].map((h) => parseInt(h, 16) / 255)
-    : [0, 0, 0];
+  const [r0, g0, b0] = hexToRgb255(hex).map((c) => c / 255);
 
   const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const r = lin(r0);
@@ -32,19 +38,14 @@ export function hexToOklch(hex: string): Oklch {
 
 // #rrggbb -> "r, g, b" (0–255), for `rgba(<this>, α)` strings.
 export function hexToRgb(hex: string): string {
-  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
-  if (!m) return "0, 0, 0";
-  return [m[1], m[2], m[3]].map((h) => parseInt(h, 16)).join(", ");
+  return hexToRgb255(hex).join(", ");
 }
 
 export type Hsl = { h: number; s: number; l: number };
 
 // HSL with H in 0–360, S/L in 0–100, matching the picker sliders.
 export function hexToHsl(hex: string): Hsl {
-  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
-  const [r, g, b] = (m ? [m[1], m[2], m[3]] : ["00", "00", "00"]).map(
-    (h) => parseInt(h, 16) / 255,
-  );
+  const [r, g, b] = hexToRgb255(hex).map((c) => c / 255);
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const d = max - min;

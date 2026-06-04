@@ -34,6 +34,8 @@ const QUOTE_STYLE: CSSProperties = {
   WebkitHyphens: "none",
 };
 
+const ATTRIBUTION_STYLE: CSSProperties = { fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 };
+
 export function Preview({ quote, strategy }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Plain text until the Stagger entrance finishes, then paint marks.
@@ -100,7 +102,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
           {quoteBody(core.color)}
           {"”"}
         </p>
-        <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
+        <p className="m-0" style={ATTRIBUTION_STYLE}>
           {"- " + quote.author}
         </p>
       </div>
@@ -187,7 +189,7 @@ export function SnapPreview({ quote }: { quote: Quote }) {
         <p ref={pRef} className="m-0 text-wrap-pretty" style={QUOTE_STYLE}>
           {full}
         </p>
-        <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
+        <p className="m-0" style={ATTRIBUTION_STYLE}>
           {"- " + quote.author}
         </p>
       </div>

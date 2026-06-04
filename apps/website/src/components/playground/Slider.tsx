@@ -14,6 +14,7 @@ import {
   PROP_CHANGE_EASE,
   READOUT_TRANSITION,
   clamp,
+  lowerBound,
   prefersReducedMotion,
   reservedChars,
   snap,
@@ -90,7 +91,7 @@ export function Slider({
 
   const safeRange = max - min === 0 ? 1 : max - min;
   // Enforced lower bound: the track still spans min→max, but committed values clamp to `lo`.
-  const lo = floor != null ? Math.max(min, floor) : min;
+  const lo = lowerBound(min, floor);
   // Memoised so `reservedChars` (which calls `format()`) doesn't rerun on every drag tick.
   const readoutMinWidth = useMemo(
     () => `${reservedChars(min, max, step, format, formatSamples)}ch`,

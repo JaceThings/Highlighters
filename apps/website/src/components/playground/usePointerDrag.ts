@@ -7,6 +7,7 @@ import {
   STEP_SNAP_DURATION,
   STEP_SNAP_EASE,
   clamp,
+  lowerBound,
   prefersReducedMotion,
   snap,
 } from "./slider-utils.ts";
@@ -39,7 +40,7 @@ export function usePointerDrag({
   reported,
   stopPropAnim,
 }: UsePointerDragOptions) {
-  const lo = floor != null ? Math.max(min, floor) : min;
+  const lo = lowerBound(min, floor);
   const pointerIdRef = useRef<number | null>(null);
   const draggingRef = useRef(false);
   // Separate from the parent's prop-change tween ref: that effect's cleanup fires when

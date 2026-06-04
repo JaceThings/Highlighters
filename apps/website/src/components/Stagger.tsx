@@ -55,9 +55,9 @@ interface UseStaggerEntranceOptions {
 
 type EntranceMotionProps = Pick<MotionProps, "initial" | "animate" | "transition">;
 
-/** Motion props for a cascade entrance - a hook so a section can drive its own root
- *  element and gate on `ready` rather than wrap in a `<div>`. */
-export function useStaggerEntrance({
+/** Motion props for a cascade entrance - lets a component drive its own root element
+ *  and gate on `ready` rather than wrap in a `<div>`. */
+function useStaggerEntrance({
   index,
   ready = true,
 }: UseStaggerEntranceOptions): EntranceMotionProps {
