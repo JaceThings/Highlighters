@@ -51,21 +51,21 @@ export function RootLayout() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <LazyMotion features={loadMotionFeatures}>
-      {/* Dock + live marker share one selection style, so picking a swatch or pen
-          restyles the selection in real time. */}
-      <SelectionStyleProvider>
-        <DockEntranceContext.Provider value={dockEntrance}>
-          <Layout>
-            <PageFade />
-          </Layout>
-          <FocusRingOverlay />
-          <SelectionMarker />
-          <Dock />
-          <DevAgentation />
-          <DevOutlineDials />
-        </DockEntranceContext.Provider>
-      </SelectionStyleProvider>
+      <LazyMotion features={loadMotionFeatures} strict>
+        {/* Dock + live marker share one selection style, so picking a swatch or pen
+            restyles the selection in real time. */}
+        <SelectionStyleProvider>
+          <DockEntranceContext.Provider value={dockEntrance}>
+            <Layout>
+              <PageFade />
+            </Layout>
+            <FocusRingOverlay />
+            <SelectionMarker />
+            <Dock />
+            <DevAgentation />
+            <DevOutlineDials />
+          </DockEntranceContext.Provider>
+        </SelectionStyleProvider>
       </LazyMotion>
     </MotionConfig>
   );
