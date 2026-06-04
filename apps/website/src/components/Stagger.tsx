@@ -39,10 +39,10 @@ requestAnimationFrame(() => {
   });
 });
 
-// 0.35s pause, 0.08s steps, 0.7s per item - ~1.3s for 8 items, slow enough to read.
-const INITIAL_DELAY = 0.35;
+// 0.15s pause, 0.08s steps, 0.5s per item - a quick cascade that still reads as one.
+const INITIAL_DELAY = 0.15;
 const STEP = 0.08;
-const DURATION = 0.7;
+const DURATION = 0.5;
 const EASE: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 
 interface UseStaggerEntranceOptions {

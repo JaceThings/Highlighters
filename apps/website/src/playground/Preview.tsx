@@ -38,7 +38,7 @@ const ATTRIBUTION_STYLE: CSSProperties = { fontFamily: QUOTE_FONT, fontSize: 20,
 
 // Beat held after a card's text has faded in before its marks draw on, so the highlighter
 // reads as marking text that is already there rather than racing it.
-const MARK_ENTRANCE_DELAY_MS = 450;
+const MARK_ENTRANCE_DELAY_MS = 200;
 
 // True once the card's entrance has landed AND the post-text beat has elapsed - the gate
 // for painting marks, so they always follow the fully-arrived text.
@@ -60,13 +60,16 @@ export function Preview({ quote, strategy }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Plain text until the entrance lands and the post-text beat passes, then paint marks.
   const entered = useMarksReady();
+  // Scope marks to this card's positioned wrapper (set below) so they ride the page-exit
+  // fade with the content instead of lingering in the body overlay. Falls back to body if null.
+  const [host, setHost] = useState<HTMLElement | null>(null);
   const core = useMemo(() => toCoreOptions(previewOptions), [previewOptions]);
 
   // The text is byte-identical entered/not, and the mark is an overlay, so the
   // swap has zero layout shift. `seed` keys each run so overlapping marks don't collide.
   const renderRun = (children: ReactNode, runOptions: HighlightOptions) =>
     entered ? (
-      <Highlight as="span" options={runOptions} key={runOptions.seed}>
+      <Highlight as="span" options={runOptions} host={host} key={runOptions.seed}>
         {children}
       </Highlight>
     ) : (
@@ -116,7 +119,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
 
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
-      <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
+      <div ref={setHost} className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
         <p className="m-0 text-wrap-pretty" style={QUOTE_STYLE}>
           {"“"}
           {quoteBody(core.color)}
