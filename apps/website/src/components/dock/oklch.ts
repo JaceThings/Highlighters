@@ -116,6 +116,19 @@ export function lightenOklch(c: Oklch, dL: number): Oklch {
   return { L: Math.min(1, c.L + dL), C: c.C, H: c.H };
 }
 
+// The canonical way to interpolate between two colours. Mixing in OKLCH (not sRGB)
+// holds chroma up across the blend, so a swap glides through a saturated hue instead
+// of dipping toward grey; hue takes the shortest way round the wheel. For an animated
+// colour change reach for `useAnimatedColor`, which tweens `t` 0->1 through this.
+export function mixOklch(a: Oklch, b: Oklch, t: number): Oklch {
+  const dH = ((b.H - a.H + 540) % 360) - 180; // shortest signed hue delta
+  return {
+    L: a.L + (b.L - a.L) * t,
+    C: a.C + (b.C - a.C) * t,
+    H: a.H + dH * t,
+  };
+}
+
 export function parseOklch(str: string): Oklch {
   const m = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/i.exec(str);
   if (!m) return { L: 0, C: 0, H: 0 };

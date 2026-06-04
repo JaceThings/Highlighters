@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { DOCK_H } from "./constants.ts";
+import { DOCK_H, INK_FADE_MS } from "./constants.ts";
 import { Pen } from "./PenSvg.tsx";
 import { hexToOklch, oklchToCss } from "./oklch.ts";
 import type { PenTip } from "../../selection-style.tsx";
@@ -39,10 +39,9 @@ function OpacityReadout({ pct }: { pct: number }) {
   );
 }
 
-// Crossfade inks rather than interpolate - complementary inks can't morph without a
-// false green or a grey dip (gamut geometry).
-const INK_FADE_MS = 180;
-
+// The pen tips are opaque, so a dissolve between the old and new colour is clean - and
+// it sidesteps the false mid-hue an interpolation would cross. (Translucent marks can't
+// crossfade without double-darkening, so they morph in OKLCH; see useAnimatedColor.)
 interface PenDef {
   id: PenTip;
   label: string;

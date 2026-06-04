@@ -1,24 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
-import { hexToOklch, oklchToRgb, type Oklch } from "../components/dock/oklch.ts";
+import { hexToOklch, mixOklch, oklchToRgb, type Oklch } from "../components/dock/oklch.ts";
 import type { SpringNumberOptions } from "./useSpringNumber.ts";
 
 const prefersReducedMotion = (): boolean =>
   typeof window !== "undefined" &&
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
-function lerpOklch(a: Oklch, b: Oklch, t: number): Oklch {
-  // Shortest signed hue delta, so a morph never takes the long way round the wheel.
-  const dH = ((b.H - a.H + 540) % 360) - 180;
-  // Wide opposite-hue swaps cross a vivid "false" mid-hue (yellow->blue through green);
-  // dip chroma at the midpoint in proportion to the hue distance to soften it to a muted
-  // sweep. Narrow swaps barely dip, and the endpoints are exact (sin(0) = sin(pi) = 0).
-  const dip = 1 - 0.5 * (Math.abs(dH) / 180) * Math.sin(Math.PI * t);
-  return {
-    L: a.L + (b.L - a.L) * t,
-    C: (a.C + (b.C - a.C) * t) * dip,
-    H: a.H + dH * t,
-  };
+// The shared OKLCH mix, plus a transition-only easing of the vivid "false" mid-hue a wide
+// opposite-hue swap crosses (yellow->blue through green): dip chroma at the midpoint in
+// proportion to the hue distance. Narrow swaps barely dip; endpoints are exact (sin0=sinπ=0).
+// The dip lives here, not in mixOklch, so a one-off mix stays fully saturated.
+function morph(a: Oklch, b: Oklch, t: number): Oklch {
+  const c = mixOklch(a, b, t);
+  const dH = Math.abs(((b.H - a.H + 540) % 360) - 180);
+  c.C *= 1 - 0.5 * (dH / 180) * Math.sin(Math.PI * t);
+  return c;
 }
 
 /**
@@ -40,7 +37,7 @@ export function useAnimatedColor(
   const [value, setValue] = useState(() => oklchToRgb(target));
 
   useMotionValueEvent(t, "change", (p) =>
-    setValue(oklchToRgb(lerpOklch(fromRef.current, toRef.current, p))),
+    setValue(oklchToRgb(morph(fromRef.current, toRef.current, p))),
   );
 
   const fromDragRef = useRef(fromDrag);
@@ -56,7 +53,7 @@ export function useAnimatedColor(
       return;
     }
     // Restart from wherever the last tween had reached, toward the new target.
-    fromRef.current = lerpOklch(fromRef.current, toRef.current, t.get());
+    fromRef.current = morph(fromRef.current, toRef.current, t.get());
     toRef.current = target;
     if (fromDragRef.current || prefersReducedMotion()) {
       setValue(oklchToRgb(target));
