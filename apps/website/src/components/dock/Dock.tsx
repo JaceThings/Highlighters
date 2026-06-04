@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { useRouterState } from "@tanstack/react-router";
 import { CapsuleBackground } from "./CapsuleBackground.tsx";
 import { ColorPalette } from "./ColorPalette.tsx";
@@ -122,7 +122,7 @@ export function Dock() {
       className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex select-none justify-center"
       aria-label="Highlighter tray"
     >
-      <motion.div
+      <m.div
         ref={trayRef}
         className="pointer-events-auto relative max-w-[calc(100vw-32px)]"
         style={{ height: DOCK_H }}
@@ -185,7 +185,7 @@ export function Dock() {
 
         <AnimatePresence>
           {open && (
-            <motion.div
+            <m.div
               key={popover.kind === "color" ? "color-popover" : "marker-popover"}
               className="absolute"
               style={{
@@ -210,10 +210,10 @@ export function Dock() {
                   onMarkType={setMarkType}
                 />
               )}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </m.div>
     </div>
   );
 }

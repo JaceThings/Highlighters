@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   animate,
-  motion,
+  m,
   useMotionValue,
   useMotionValueEvent,
   useTransform,
@@ -255,7 +255,7 @@ export function Slider({
                   className="relative h-full w-full overflow-hidden bg-[rgba(126,117,108,0.12)]"
                   aria-hidden
                 >
-                  <motion.div
+                  <m.div
                     className="absolute top-0 h-full bg-[#7e756c]"
                     style={{ left: fillLeft, width: fillWidth }}
                   />

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
-import { MotionConfig } from "framer-motion";
+import { LazyMotion, MotionConfig } from "framer-motion";
+
+// Lazy-load the animation features so the initial bundle ships only the light `m`
+// components; the feature chunk (motion-features.ts) loads on demand.
+const loadMotionFeatures = () => import("./lib/motion-features.ts").then((m) => m.default);
 import { Dock } from "./components/dock/Dock.tsx";
 import { FocusRingOverlay } from "./components/FocusRingOverlay.tsx";
 import { Layout } from "./components/Layout.tsx";
@@ -47,6 +51,7 @@ export function RootLayout() {
 
   return (
     <MotionConfig reducedMotion="user">
+      <LazyMotion features={loadMotionFeatures}>
       {/* Dock + live marker share one selection style, so picking a swatch or pen
           restyles the selection in real time. */}
       <SelectionStyleProvider>
@@ -61,6 +66,7 @@ export function RootLayout() {
           <DevOutlineDials />
         </DockEntranceContext.Provider>
       </SelectionStyleProvider>
+      </LazyMotion>
     </MotionConfig>
   );
 }

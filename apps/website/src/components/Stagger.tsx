@@ -1,7 +1,7 @@
-import { motion, type MotionProps } from "framer-motion";
+import { m, type MotionProps } from "framer-motion";
 import {
   createContext,
-  useContext,
+  use,
   useEffect,
   useMemo,
   useRef,
@@ -13,7 +13,7 @@ import {
 export const EntranceCompleteContext = createContext(true);
 
 export function useEntranceComplete(): boolean {
-  return useContext(EntranceCompleteContext);
+  return use(EntranceCompleteContext);
 }
 
 interface StaggerProps {
@@ -97,7 +97,7 @@ export function Stagger({ index, children, onComplete }: StaggerProps) {
     if (skipped) onComplete?.();
   }, [skipped, onComplete]);
   return (
-    <motion.div
+    <m.div
       {...props}
       onAnimationComplete={() => {
         setDone(true);
@@ -107,6 +107,6 @@ export function Stagger({ index, children, onComplete }: StaggerProps) {
       <EntranceCompleteContext.Provider value={done}>
         {children}
       </EntranceCompleteContext.Provider>
-    </motion.div>
+    </m.div>
   );
 }

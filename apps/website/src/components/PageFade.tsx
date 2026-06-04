@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { AnimatePresence, m, type Variants } from "framer-motion";
 import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useRef, type ComponentType } from "react";
 import { Home } from "../pages/Home.tsx";
@@ -27,7 +27,7 @@ const FADE: Variants = {
 export function PageFade() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // Skip the wrapper fade on cold load so the page's Stagger cascade owns the
-  // entrance. `initial={false}` goes on the motion.div, NOT <AnimatePresence> -
+  // entrance. `initial={false}` goes on the m.div, NOT <AnimatePresence> -
   // there it propagates a PresenceContext that suppresses the nested cascade.
   const firstRef = useRef(true);
   const isFirst = firstRef.current;
@@ -37,7 +37,7 @@ export function PageFade() {
   if (!Page) return <Outlet />;
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      <m.div
         key={pathname}
         variants={FADE}
         initial={isFirst ? false : "initial"}
@@ -45,7 +45,7 @@ export function PageFade() {
         exit="exit"
       >
         <Page />
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 }
