@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PALETTES, resolveSwatch } from "@highlighters/core";
-import type { ColorValue, PaletteSwatch, ShapeType } from "@highlighters/core";
+import { PALETTES } from "@highlighters/core";
+import type { PaletteSwatch, ShapeType } from "@highlighters/core";
 import { SmoothCorners } from "@lisse/react";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
@@ -11,7 +11,7 @@ import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
 import { Preview, SnapPreview } from "../Preview.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
-import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
+import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
 
 // Defer each Preview until its section nears the viewport. One-way latch: once
 // painted it never unmounts, so its marks persist and update in place.
@@ -106,24 +106,12 @@ const SWATCH_CHIPS = SWATCH_REFS.map((ref) => ({
   hex: PALETTES[ref.palette].swatches[ref.swatch],
 }));
 
-function colorToHex(color: ColorValue | PaletteSwatch | undefined): string {
-  if (typeof color === "string") return color;
-  if (color && typeof color === "object" && "swatch" in color) {
-    try {
-      return resolveSwatch(color);
-    } catch {
-      return "#fff14d";
-    }
-  }
-  return "#fff14d";
-}
-
 function SwatchPicker() {
   const { options, set } = usePlaygroundOptions();
   const color = options.color;
   // The shared colour is a hex, so match swatches by resolved hex (a swatch picked here and
   // a hex picked in the dock both light the matching ring).
-  const activeHex = useMemo(() => colorToHex(color), [color]).toLowerCase();
+  const activeHex = useMemo(() => colorToHex(color, "#fff14d"), [color]).toLowerCase();
 
   return (
     <div

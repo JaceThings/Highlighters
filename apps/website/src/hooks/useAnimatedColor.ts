@@ -10,8 +10,7 @@ import { prefersReducedMotion, type SpringNumberOptions } from "./useSpringNumbe
 function morph(a: Oklch, b: Oklch, t: number): Oklch {
   const c = mixOklch(a, b, t);
   const dH = Math.abs(((b.H - a.H + 540) % 360) - 180);
-  c.C *= 1 - 0.5 * (dH / 180) * Math.sin(Math.PI * t);
-  return c;
+  return { ...c, C: c.C * (1 - 0.5 * (dH / 180) * Math.sin(Math.PI * t)) };
 }
 
 /**

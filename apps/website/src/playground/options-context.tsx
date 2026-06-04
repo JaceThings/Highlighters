@@ -39,16 +39,18 @@ function tipTypeToPen(type: TipType): PenTip {
   if (type === "fine") return "fine";
   return "slant"; // chisel
 }
-function colorToHex(color: PlaygroundOptions["color"]): string {
+// Resolve any colour value to a hex string; `fallback` is returned for an unresolvable
+// swatch or a missing colour. Shared by the playground and the swatch picker.
+export function colorToHex(color: PlaygroundOptions["color"], fallback = DEFAULT_INK): string {
   if (typeof color === "string") return color;
   if (color && typeof color === "object" && "swatch" in color) {
     try {
       return resolveSwatch(color);
     } catch {
-      return DEFAULT_INK;
+      return fallback;
     }
   }
-  return DEFAULT_INK;
+  return fallback;
 }
 
 /**
