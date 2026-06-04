@@ -100,6 +100,9 @@ export function useCapsuleDrag({
   };
 
   return {
+    // Glide the value (and knob) to a target over GLIDE_MS, e.g. for keyboard nudges so
+    // arrow/shift steps ease across instead of snapping.
+    glideTo,
     onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
       e.currentTarget.setPointerCapture(e.pointerId);
       draggingRef.current = false;
