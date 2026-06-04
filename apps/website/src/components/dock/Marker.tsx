@@ -44,11 +44,7 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
   const previewIdx = preview ? PENS.findIndex((p) => p.id === preview) : null;
   const activeIdx = previewIdx ?? idx;
   const lastIdx = useRef(0);
-  // Park at the last focused slot while fading out. A post-commit effect (not a
-  // render-phase ref write) keeps this concurrent-safe.
-  useEffect(() => {
-    if (activeIdx !== null) lastIdx.current = activeIdx;
-  });
+  // Park at the last focused slot while fading out.
   const slot = activeIdx ?? lastIdx.current;
   const focusedTip = PENS[slot].id;
   const risen = slot === selectedIdx;
@@ -59,7 +55,9 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
   const visible = activeIdx !== null;
   const prevVisible = useRef(false);
   const appearing = visible && !prevVisible.current;
+  // Stash both refs after commit (not during render) to stay concurrent-safe.
   useEffect(() => {
+    if (activeIdx !== null) lastIdx.current = activeIdx;
     prevVisible.current = visible;
   });
   return (
