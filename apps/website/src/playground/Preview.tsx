@@ -184,11 +184,7 @@ export function SnapPreview({ quote }: { quote: Quote }) {
         className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center"
         style={{ color: QUOTE_INK }}
       >
-        <p
-          ref={pRef}
-          className="m-0 text-wrap-pretty"
-          style={{ fontFamily: QUOTE_FONT, fontSize: 25, lineHeight: "30px", whiteSpace: "pre-line", hyphens: "none", WebkitHyphens: "none" }}
-        >
+        <p ref={pRef} className="m-0 text-wrap-pretty" style={QUOTE_STYLE}>
           {full}
         </p>
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
