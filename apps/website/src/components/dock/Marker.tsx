@@ -50,7 +50,7 @@ interface PenDef {
 const PENS: PenDef[] = [
   { id: "slant", label: "Chisel marker" },
   { id: "round", label: "Bullet marker" },
-  { id: "flat", label: "Flat marker" },
+  { id: "fine", label: "Fine marker" },
 ];
 
 // Pen wants an oklch() string - its tip shading reads OKLCH lightness.

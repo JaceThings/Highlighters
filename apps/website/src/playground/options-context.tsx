@@ -27,16 +27,17 @@ import { useSpringNumber } from "../hooks/useSpringNumber.ts";
 import { useAnimatedColor } from "../hooks/useAnimatedColor.ts";
 
 // The docs playground shares colour / opacity / markType / tip with the dock's live marker via
-// one SelectionStyle. The dock thinks in 3 pens (slant/round/flat = 2 nib types + a bullet);
-// the playground in tip.type (chisel/bullet/fine). slant & flat are both chisel; "fine" has no
-// pen, so the dock keeps its pen when the playground picks fine.
+// one SelectionStyle. Both speak the same three nibs: slant <-> chisel, round <-> bullet,
+// fine <-> fine, so the dock pen and the playground's tip.type stay in lockstep.
 function penToTipType(pen: PenTip): TipType {
-  return pen === "round" ? "bullet" : "chisel";
+  if (pen === "round") return "bullet";
+  if (pen === "fine") return "fine";
+  return "chisel"; // slant
 }
-function tipTypeToPen(type: TipType): PenTip | null {
+function tipTypeToPen(type: TipType): PenTip {
   if (type === "bullet") return "round";
-  if (type === "chisel") return "slant";
-  return null; // "fine"
+  if (type === "fine") return "fine";
+  return "slant"; // chisel
 }
 function colorToHex(color: PlaygroundOptions["color"]): string {
   if (typeof color === "string") return color;
@@ -276,8 +277,7 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
       if (path === "opacity") return sel.setOpacity(value as number);
       if (path === "markType") return sel.setMarkType(value as MarkType);
       if (path === "tip.type") {
-        const pen = tipTypeToPen(value as TipType);
-        if (pen) sel.setPen(pen);
+        sel.setPen(tipTypeToPen(value as TipType));
         setOptions((prev) => setAtPath(prev, "tip.type", value));
         return;
       }
