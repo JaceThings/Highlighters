@@ -212,6 +212,7 @@ function mountMark(
     reflow,
     cleanup: [animDisconnect, ...extraCleanup],
     replay: () => animDisconnect.replay(),
+    retarget: (lines) => animDisconnect.retarget(lines),
     rebuild: (opts) => {
       // Mutate `resolved` IN-PLACE so the reflow closure above (which closed over
       // this reference) picks up the new option values on its next build.
