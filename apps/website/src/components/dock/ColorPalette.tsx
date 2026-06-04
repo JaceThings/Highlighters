@@ -86,13 +86,20 @@ function CustomDisc({
         <span
           className="absolute inset-0 rounded-full"
           style={{
-            background: active ? color : WHEEL,
             transform: active ? "scale(0.703)" : "scale(1)",
             transition: active
               ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
               : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
           }}
-        />
+        >
+          {/* Wheel face when idle; the picked colour crossfades in over it on activation
+              (background can't transition, so fade a stacked colour layer's opacity). */}
+          <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
+          <span
+            className="absolute inset-0 rounded-full"
+            style={{ background: color, opacity: active ? 1 : 0, transition: "opacity 300ms ease" }}
+          />
+        </span>
       </span>
     </button>
   );

@@ -10,14 +10,12 @@ export function DockButton({
   children,
   label,
   active,
-  onClick,
   href,
   to,
 }: {
   children: ReactNode;
   label: string;
   active?: boolean;
-  onClick?: () => void;
   href?: string;
   to?: "/" | "/docs";
 }) {
@@ -51,7 +49,6 @@ export function DockButton({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={label}
-        onClick={onClick}
         data-focus-ring
         className={CLASSES}
       >
@@ -64,7 +61,6 @@ export function DockButton({
     <button
       type="button"
       aria-label={label}
-      onClick={onClick}
       data-focus-ring
       className={CLASSES}
     >

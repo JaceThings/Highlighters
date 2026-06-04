@@ -8,8 +8,8 @@ import {
 } from "react";
 import type { HighlightOptions, MarkType } from "@highlighters/core";
 
-// The dock's three pens, by nib geometry; shared with SelectionMarker.
-export type PenTip = "slant" | "round" | "flat";
+// The dock's three pens, one per core nib type; shared with SelectionMarker.
+export type PenTip = "slant" | "round" | "fine";
 
 // The live, user-chosen selection style the dock controls.
 export interface SelectionStyle {
@@ -29,7 +29,7 @@ export const DEFAULT_MARK_TYPE: MarkType = "highlight";
 const DEFAULT_OPACITY_BY_PEN: Record<PenTip, number> = {
   slant: DEFAULT_OPACITY,
   round: DEFAULT_OPACITY,
-  flat: DEFAULT_OPACITY,
+  fine: DEFAULT_OPACITY,
 };
 
 interface SelectionStyleContextValue {
@@ -89,14 +89,14 @@ const END_SWING = { overshoot: 8.5, overshootJitter: 1.5 } as const;
 // The broad nib every pen shares.
 const NIB = { width: 24, thickness: 16, ...END_SWING } as const;
 
-// Map a dock pen to its nib: slant = angled chisel (with per-line jitter), round =
-// bullet, flat = square chisel.
+// Map a dock pen to its nib, one per core tip type: slant = angled chisel (with per-line
+// jitter), round = bullet, fine = fine point.
 export function penToTip(pen: PenTip): Pick<HighlightOptions, "tip"> {
   switch (pen) {
     case "round":
       return { tip: { type: "bullet", angle: 0, ...NIB } };
-    case "flat":
-      return { tip: { type: "chisel", angle: 0, ...NIB } };
+    case "fine":
+      return { tip: { type: "fine", angle: 0, ...NIB } };
     case "slant":
     default:
       return { tip: { type: "chisel", angle: 8, angleJitter: 5, ...NIB } };

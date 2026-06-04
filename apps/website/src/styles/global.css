@@ -9,7 +9,7 @@ body {
 
 /* Animatable ink colour for the marker-popover previews. Registering it as a
    <color> lets `transition: --ink` crossfade the gradient ink on a palette swap in
-   a single element — no second mark to fade over the first. */
+   a single element, no second mark to fade over the first. */
 @property --ink {
   syntax: "<color>";
   inherits: false;
@@ -31,7 +31,7 @@ body {
   font-family: var(--font-sans);
   font-weight: 450;
   /* font-feature-settings replaces (not augments) the defaults, so re-list the
-   * always-on features plus cv05 — Inter's tailed lowercase l (official build only;
+   * always-on features plus cv05, Inter's tailed lowercase l (official build only;
    * see tokens.css). */
   font-feature-settings:
     "kern" 1,
@@ -66,7 +66,7 @@ html.selection-marker-ready ::-moz-selection {
 p {
   text-wrap: pretty;
   /* Justified body text relies on hyphenation to avoid huge word-spacing
-     gaps in narrow columns. Harmless on non-justified text — the browser
+     gaps in narrow columns. Harmless on non-justified text: the browser
      only inserts hyphens at line-break points where they would otherwise
      overflow. Monospace contexts (install commands) don't use <p>, so
      they're unaffected. */
@@ -80,7 +80,7 @@ h3 {
   text-wrap: balance;
 }
 
-/* The focus ring is rendered globally by <FocusRingOverlay> — it springs
+/* The focus ring is rendered globally by <FocusRingOverlay>: it springs
  * between any element marked with [data-focus-ring]. Suppress the browser's
  * default outline on those targets so it doesn't double up with the overlay. */
 [data-focus-ring]:focus,
@@ -124,7 +124,7 @@ h3 {
   transform: translateY(-24px);
 }
 
-/* sr-only content is for assistive tech only — exclude it from text
+/* sr-only content is for assistive tech only: exclude it from text
  * selection so Cmd+A + Cmd+C doesn't paste screen-reader headings,
  * pronunciation glosses, or live-region descriptions into user
  * clipboards. Screen readers still announce this content; they
@@ -134,7 +134,7 @@ h3 {
   -webkit-user-select: none;
 }
 
-/* The docs paper is a read-only demonstration: never selectable (Cmd+A, drag) — forced onto
+/* The docs paper is a read-only demonstration: never selectable (Cmd+A, drag), forced onto
  * descendants so the quote marks can't re-enable it. Controls stay tab-focusable (user-select
  * doesn't affect focus); inputs stay editable. */
 .demo-paper,
@@ -147,7 +147,7 @@ h3 {
  * styled track + fill div underneath the input (see Slider.tsx); the
  * input itself stays interactive (keyboard focus, drag, accessibility)
  * but its visuals are stripped so the layered div shows through. The
- * thumb is intentionally invisible — the fill bar's right edge is the
+ * thumb is intentionally invisible: the fill bar's right edge is the
  * value indicator, matching the Figma reference. */
 .playground-slider {
   -webkit-appearance: none;
@@ -169,7 +169,7 @@ h3 {
 /* iOS Safari paints the default thumb chrome even with appearance:none +
  * transparent background + opacity:0. The input has pointer-events:none
  * (the wrapper div handles drag), so the thumb doesn't need to be
- * hit-testable — collapse it to 0×0 and force every visual property off. */
+ * hit-testable: collapse it to 0×0 and force every visual property off. */
 .playground-slider::-webkit-slider-thumb {
   -webkit-appearance: none !important;
   appearance: none !important;
@@ -229,7 +229,7 @@ h3 {
   }
 }
 
-/* The agentation dev toolbar is chrome, not content — it must never be
+/* The agentation dev toolbar is chrome, not content: it must never be
  * selectable (and so never painted by the brown selection marker). Cascades to
  * the toolbar + settings panel; form fields inside stay typeable. */
 [data-agentation-root] {

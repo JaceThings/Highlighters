@@ -20,8 +20,7 @@ assert.equal(typeof core.resolveOptions, "function", "resolveOptions must be a f
 const resolved = core.resolveOptions();
 assert.ok(resolved && typeof resolved === "object", "resolveOptions() must return the resolved options object");
 
-// Core: named presets and palettes are shipped data.
-assert.ok(core.PRESETS && typeof core.PRESETS === "object", "PRESETS must be exported");
+// Core: the curated palettes are shipped data.
 assert.ok(core.PALETTES && typeof core.PALETTES === "object", "PALETTES must be exported");
 
 // Wrappers: each adapter package exposes at least one binding. We assert

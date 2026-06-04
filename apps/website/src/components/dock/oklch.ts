@@ -2,11 +2,17 @@
 
 export type Oklch = { L: number; C: number; H: number };
 
+const HEX_RE = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i;
+
+// Parse "#rrggbb" (or "rrggbb") to [r, g, b] in 0-255; [0, 0, 0] on a malformed string.
+function hexToRgb255(hex: string): [number, number, number] {
+  const m = HEX_RE.exec(hex.trim());
+  if (!m) return [0, 0, 0];
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
 export function hexToOklch(hex: string): Oklch {
-  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
-  const [r0, g0, b0] = m
-    ? [m[1], m[2], m[3]].map((h) => parseInt(h, 16) / 255)
-    : [0, 0, 0];
+  const [r0, g0, b0] = hexToRgb255(hex).map((c) => c / 255);
 
   const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const r = lin(r0);
@@ -32,19 +38,14 @@ export function hexToOklch(hex: string): Oklch {
 
 // #rrggbb -> "r, g, b" (0–255), for `rgba(<this>, α)` strings.
 export function hexToRgb(hex: string): string {
-  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
-  if (!m) return "0, 0, 0";
-  return [m[1], m[2], m[3]].map((h) => parseInt(h, 16)).join(", ");
+  return hexToRgb255(hex).join(", ");
 }
 
 export type Hsl = { h: number; s: number; l: number };
 
 // HSL with H in 0–360, S/L in 0–100, matching the picker sliders.
 export function hexToHsl(hex: string): Hsl {
-  const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
-  const [r, g, b] = (m ? [m[1], m[2], m[3]] : ["00", "00", "00"]).map(
-    (h) => parseInt(h, 16) / 255,
-  );
+  const [r, g, b] = hexToRgb255(hex).map((c) => c / 255);
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const d = max - min;
@@ -85,8 +86,48 @@ export function oklchToCss(c: Oklch): string {
   return `oklch(${c.L.toFixed(4)} ${c.C.toFixed(4)} ${c.H.toFixed(2)})`;
 }
 
+// OKLCH -> "rgb(r, g, b)" via the inverse Ottosson matrices, gamut-clipped to sRGB.
+// Output is a plain rgb() string so it drops into any colour context (gradients,
+// color-mix) without relying on oklch() parsing support.
+export function oklchToRgb({ L, C, H }: Oklch): string {
+  const hr = (H * Math.PI) / 180;
+  const a = C * Math.cos(hr);
+  const b = C * Math.sin(hr);
+
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+
+  const l = l_ ** 3;
+  const m = m_ ** 3;
+  const s = s_ ** 3;
+
+  const lr = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const lg = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const lb = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+
+  const enc = (v: number) => {
+    const g = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+    return Math.max(0, Math.min(255, Math.round(g * 255)));
+  };
+  return `rgb(${enc(lr)}, ${enc(lg)}, ${enc(lb)})`;
+}
+
 export function lightenOklch(c: Oklch, dL: number): Oklch {
   return { L: Math.min(1, c.L + dL), C: c.C, H: c.H };
+}
+
+// The canonical way to interpolate between two colours. Mixing in OKLCH (not sRGB)
+// holds chroma up across the blend, so a swap glides through a saturated hue instead
+// of dipping toward grey; hue takes the shortest way round the wheel. For an animated
+// colour change reach for `useAnimatedColor`, which tweens `t` 0->1 through this.
+export function mixOklch(a: Oklch, b: Oklch, t: number): Oklch {
+  const dH = ((b.H - a.H + 540) % 360) - 180; // shortest signed hue delta
+  return {
+    L: a.L + (b.L - a.L) * t,
+    C: a.C + (b.C - a.C) * t,
+    H: a.H + dH * t,
+  };
 }
 
 export function parseOklch(str: string): Oklch {

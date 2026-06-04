@@ -9,18 +9,23 @@ import {
 } from "framer-motion";
 import NumericText from "@numeric-text/react";
 import { SmoothCorners } from "@lisse/react";
-import { usePlaygroundTuning } from "./PlaygroundTuning.tsx";
 import {
   PROP_CHANGE_DURATION,
   PROP_CHANGE_EASE,
   READOUT_TRANSITION,
   clamp,
+  lowerBound,
   prefersReducedMotion,
   reservedChars,
   snap,
 } from "./slider-utils.ts";
 import { useEditableValue } from "./useEditableValue.ts";
 import { usePointerDrag } from "./usePointerDrag.ts";
+
+// Track geometry. (Formerly a PlaygroundTuning context whose provider was never mounted,
+// so these defaults were the only values it ever yielded.)
+const TRACK_HEIGHT = 14;
+const TRACK_SMOOTHING = 0.6;
 
 interface SliderProps {
   label: string;
@@ -77,8 +82,7 @@ export function Slider({
   renderFill,
 }: SliderProps) {
   const id = useId();
-  const tuning = usePlaygroundTuning();
-  const trackHeight = tuning.trackHeight;
+  const trackHeight = TRACK_HEIGHT;
   const trackRef = useRef<HTMLDivElement | null>(null);
   const propAnimRef = useRef<ReturnType<typeof animate> | null>(null);
   // Captured once on mount - double-click on the label reverts to this.
@@ -87,7 +91,7 @@ export function Slider({
 
   const safeRange = max - min === 0 ? 1 : max - min;
   // Enforced lower bound: the track still spans min→max, but committed values clamp to `lo`.
-  const lo = floor != null ? Math.max(min, floor) : min;
+  const lo = lowerBound(min, floor);
   // Memoised so `reservedChars` (which calls `format()`) doesn't rerun on every drag tick.
   const readoutMinWidth = useMemo(
     () => `${reservedChars(min, max, step, format, formatSamples)}ch`,
@@ -245,7 +249,7 @@ export function Slider({
               <SmoothCorners
                 asChild
                 autoEffects={false}
-                corners={{ radius: trackHeight / 2, smoothing: tuning.trackSmoothing }}
+                corners={{ radius: trackHeight / 2, smoothing: TRACK_SMOOTHING }}
               >
                 <div
                   className="relative h-full w-full overflow-hidden bg-[rgba(126,117,108,0.12)]"

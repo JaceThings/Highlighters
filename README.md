@@ -1,12 +1,10 @@
 <div align="center">
 
-<h1>highlighters</h1>
+<h1>Highlighters</h1>
 
 Realistic, deeply customizable highlighter-pen marks for web text.
-From a single word to a whole page with surgical exclusions — multiline, deterministic, SSR-safe.
+From a single word to a whole page with surgical exclusions - multiline, deterministic, SSR-safe.
 
-[![npm](https://img.shields.io/npm/v/%40highlighters%2Fcore?label=%40highlighters%2Fcore)](https://www.npmjs.com/package/@highlighters/core)
-[![bundle](https://deno.bundlejs.com/badge?q=%40highlighters%2Fcore&label=bundle)](https://bundlejs.com/?q=%40highlighters%2Fcore)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
 
@@ -18,13 +16,13 @@ From a single word to a whole page with surgical exclusions — multiline, deter
 
 A flat `<mark>` background looks like a CSS rectangle, not ink. Sketch-annotation libraries draw the wrong aesthetic. And rolling your own gets you a React-only, selection-only one-off with no blend optics.
 
-`highlighters` draws a **realistic highlighter-pen mark** over any web text — wet-ink colour, organic frayed edges, lengthwise streaking, and true multiplicative ink optics (`mix-blend-mode: multiply`, so overlapping marks darken and dark text stays legible). It scales from one word to an entire page with named exclusions, handles wrapped lines as one continuous swipe, repositions on reflow and web-font load, and never touches your text — so selection and find-in-page keep working.
+`highlighters` draws a **realistic highlighter-pen mark** over any web text - wet-ink colour, organic frayed edges, lengthwise streaking, and true multiplicative ink optics (`mix-blend-mode: multiply`, so overlapping marks darken and dark text stays legible). It scales from one word to an entire page with named exclusions, handles wrapped lines as one continuous swipe, repositions on reflow and web-font load, and never touches your text - so selection and find-in-page keep working.
 
 The mark is tuned in the **vocabulary of real highlighters**: tip type, ink flow ("juiciness"), viscosity, feathering/bleed, streaking, dry-out, end pooling, fluorescence, paper, and a single `colorant` dye↔pigment knob. Pick a one-word preset for the 90% case, or reach all the way down.
 
 ## Why it looks right (and never stretches)
 
-Everything is anchored to an **absolute pixel coordinate space**, never normalized to the mark's current size: the noise texture is a fixed-px stitched tile sampled by offset (not scaled), wavy-edge vertices live on a fixed grid seeded by index, and caps/radii are clamped px. Widening a mark adds more of the same — it doesn't stretch what's there — and a mark that's already down stays byte-identical as it grows. All randomness is deterministic from a seed (no `Math.random`), so marks are stable across scroll, reflow, reload, and server rendering. See [the anchored-grid method](./docs/the-anchored-grid-method.md).
+Everything is anchored to an **absolute pixel coordinate space**, never normalized to the mark's current size: the noise texture is a fixed-px stitched tile sampled by offset (not scaled), wavy-edge vertices live on a fixed grid seeded by index, and caps/radii are clamped px. Widening a mark adds more of the same - it doesn't stretch what's there - and a mark that's already down stays byte-identical as it grows. All randomness is deterministic from a seed (no `Math.random`), so marks are stable across scroll, reflow, reload, and server rendering. See [the anchored-grid method](./docs/the-anchored-grid-method.md).
 
 ## Quick start
 
@@ -76,7 +74,7 @@ For Vue, Svelte, or the framework-agnostic core, see the [packages](#packages) b
 
 ## Mark types
 
-All three share one band primitive and the full physics model — they differ only in vertical position and thickness.
+All three share one band primitive and the full physics model - they differ only in vertical position and thickness.
 
 | Type | Description |
 |---|---|
@@ -97,17 +95,17 @@ Box, circle/encircle, and bracket annotations are out of v1 scope.
 
 ## Features
 
-- **Target anything** — an element or selector, a `Range` or the live `Selection`, every match of a string/`RegExp`, or the whole page with named exclusions (exclusion always wins over inclusion).
-- **Real-highlighter parameter model** — `tip`, `ink` (flow/viscosity/saturation), `feathering`, `streakiness`, `dryout`, bidirectional `startEndBuildup` (pool *or* anti-pool guardrails), `paper`, plus a single `colorant` dye↔pigment master axis.
-- **Curated palettes** — harmonized `fluorescent`, `mild`, `vintage`/`neutral`, and `calm` families designed for legible colour-coding; default is fluorescent **yellow**.
-- **True ink optics** — `mix-blend-mode: multiply` by default; optional additive fluorescence/glow that reads brighter than the page.
-- **Multiline as one swipe** — one band per visual line, shared noise field and seed, wrap edges that overshoot to connect.
-- **Three renderer tiers behind one API** — SVG (realistic, default), CSS gradient (lightweight), and the native Custom Highlight API (flat, maximally safe), with principled auto-degrade and a pinnable tier.
-- **Snap-to-bounds** — clamp marks to `word`, `line`, or `glyph` so they never overshoot into whitespace.
-- **Animation** — draw-on swipe with per-line stagger, built-in `IntersectionObserver` scroll trigger, and automatic suppression under `prefers-reduced-motion`.
-- **Robust reflow** — repositions on element/container/window resize, web-font load, and zoom; scroll uses the compositor with zero JS, and idle cost is zero.
-- **Accessible by construction** — text is never altered; overlays are `aria-hidden` and non-interactive; selection and find-in-page keep working.
-- **SSR-safe & deterministic** — no DOM access at import; identical inputs produce byte-identical marks on server and client; a DOM-free `@highlighters/core/path` subpath ships the pure geometry.
+- **Target anything** - an element or selector, a `Range` or the live `Selection`, every match of a string/`RegExp`, or the whole page with named exclusions (exclusion always wins over inclusion).
+- **Real-highlighter parameter model** - `tip`, `ink` (flow/viscosity/saturation), `feathering`, `streakiness`, `dryout`, bidirectional `startEndBuildup` (pool *or* anti-pool guardrails), `paper`, plus a single `colorant` dye↔pigment master axis.
+- **Curated palettes** - harmonized `fluorescent`, `mild`, `vintage`/`neutral`, and `calm` families designed for legible colour-coding; default is fluorescent **yellow**.
+- **True ink optics** - `mix-blend-mode: multiply` by default; optional additive fluorescence/glow that reads brighter than the page.
+- **Multiline as one swipe** - one band per visual line, shared noise field and seed, wrap edges that overshoot to connect.
+- **Three renderer tiers behind one API** - SVG (realistic, default), CSS gradient (lightweight), and the native Custom Highlight API (flat, maximally safe), with principled auto-degrade and a pinnable tier.
+- **Snap-to-bounds** - clamp marks to `word`, `line`, or `glyph` so they never overshoot into whitespace.
+- **Animation** - draw-on swipe with per-line stagger, built-in `IntersectionObserver` scroll trigger, and automatic suppression under `prefers-reduced-motion`.
+- **Robust reflow** - repositions on element/container/window resize, web-font load, and zoom; scroll uses the compositor with zero JS, and idle cost is zero.
+- **Accessible by construction** - text is never altered; overlays are `aria-hidden` and non-interactive; selection and find-in-page keep working.
+- **SSR-safe & deterministic** - no DOM access at import; identical inputs produce byte-identical marks on server and client; a DOM-free `@highlighters/core/path` subpath ships the pure geometry.
 - **Zero runtime dependencies**, ESM + CJS dual export, tree-shakeable.
 
 ## Documentation

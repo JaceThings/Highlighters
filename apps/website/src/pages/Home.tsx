@@ -23,7 +23,6 @@ const PACKAGES = [
 
 export function Home() {
   const [excerpt] = useState(pickNextExcerpt);
-  // The last block's arrival cues the dock to fly in.
   const { signalReady } = useDockEntrance();
 
   return (

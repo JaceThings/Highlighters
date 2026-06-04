@@ -15,7 +15,7 @@
   unicode-range: U+0020-007E, U+00A0-00FF, U+2000-206F;
 }
 
-/* Official rsms Inter v4.1, self-hosted — not the Google Fonts repackage, which
+/* Official rsms Inter v4.1, self-hosted, not the Google Fonts repackage, which
  * ships none of the cv/ss features (we need cv05, the tailed l). Subset to
  * latin+latin-ext, all layout features + wght/opsz axes kept. Upright only. */
 @font-face {
@@ -31,20 +31,12 @@
 @theme {
   /* Surface + text */
   --color-bg: #fbfbf9;
-  --color-surface: #fbfbf9;
   --color-text-primary: #73574a;
   /* RGB triplet of `--color-text-primary` for `rgba(var(--primary-rgb), α)`
-     compositing — read by the selection highlight overlay. */
+     compositing, read by the selection highlight overlay. */
   --primary-rgb: 115, 87, 74;
   --color-text-secondary: rgba(154, 145, 138, 0.75);
   --color-text-input: #7e756c;
-
-  /* Smoothing-toggle accent */
-  --color-accent-green: #5b793f;
-
-  /* Hairline gradient stops */
-  --color-divider-from: rgba(115, 87, 74, 0.08);
-  --color-divider-to: rgba(115, 87, 74, 0);
 
   /* Type */
   --font-sans: "Inter Variable", system-ui, -apple-system, BlinkMacSystemFont,
@@ -54,7 +46,7 @@
 
   /* Shared easing for every short UI transition on the page (toggle pill
      width/colour, icon-row colour, demo back-overlay opacity, demo front
-     fill, demo scale). Quint ease-out — slow finish, no overshoot.
+     fill, demo scale). Quint ease-out, slow finish, no overshoot.
      Tailwind v4 maps `--ease-*` to `ease-*` utilities, so this is also
      reachable as `ease-out-quint` on a className. */
   --ease-out-quint: cubic-bezier(0.2, 0, 0, 1);

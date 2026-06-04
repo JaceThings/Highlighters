@@ -39,10 +39,10 @@ requestAnimationFrame(() => {
   });
 });
 
-// 0.35s pause, 0.08s steps, 0.7s per item - ~1.3s for 8 items, slow enough to read.
-const INITIAL_DELAY = 0.35;
+// 0.15s pause, 0.08s steps, 0.5s per item - a quick cascade that still reads as one.
+const INITIAL_DELAY = 0.15;
 const STEP = 0.08;
-const DURATION = 0.7;
+const DURATION = 0.5;
 const EASE: [number, number, number, number] = [0.22, 0.61, 0.36, 1];
 
 interface UseStaggerEntranceOptions {
@@ -55,9 +55,9 @@ interface UseStaggerEntranceOptions {
 
 type EntranceMotionProps = Pick<MotionProps, "initial" | "animate" | "transition">;
 
-/** Motion props for a cascade entrance - a hook so a section can drive its own root
- *  element and gate on `ready` rather than wrap in a `<div>`. */
-export function useStaggerEntrance({
+/** Motion props for a cascade entrance - lets a component drive its own root element
+ *  and gate on `ready` rather than wrap in a `<div>`. */
+function useStaggerEntrance({
   index,
   ready = true,
 }: UseStaggerEntranceOptions): EntranceMotionProps {

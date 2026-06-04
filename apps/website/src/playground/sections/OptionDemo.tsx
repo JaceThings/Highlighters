@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PALETTES, resolveSwatch } from "@highlighters/core";
-import type { ColorValue, PaletteSwatch, ShapeType } from "@highlighters/core";
+import { PALETTES } from "@highlighters/core";
+import type { PaletteSwatch, ShapeType } from "@highlighters/core";
 import { SmoothCorners } from "@lisse/react";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
@@ -11,7 +11,7 @@ import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
 import { Preview, SnapPreview } from "../Preview.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
-import { usePlaygroundOptions, type PlaygroundOptions } from "../options-context.tsx";
+import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
 
 // Defer each Preview until its section nears the viewport. One-way latch: once
 // painted it never unmounts, so its marks persist and update in place.
@@ -74,7 +74,10 @@ const TOGGLE_OPTS = [
 ] as const;
 
 interface Base {
+  /** Stable key: the option code, also shown in the heading and keying the quote logic. */
   title: string;
+  /** Plain-English heading shown before the code, e.g. "Slant angle". */
+  name: string;
   desc: string;
 }
 type Demo =
@@ -103,23 +106,12 @@ const SWATCH_CHIPS = SWATCH_REFS.map((ref) => ({
   hex: PALETTES[ref.palette].swatches[ref.swatch],
 }));
 
-function colorToHex(color: ColorValue | PaletteSwatch | undefined): string {
-  if (typeof color === "string") return color;
-  if (color && typeof color === "object" && "swatch" in color) {
-    try {
-      return resolveSwatch(color);
-    } catch {
-      return "#fff14d";
-    }
-  }
-  return "#fff14d";
-}
-
 function SwatchPicker() {
   const { options, set } = usePlaygroundOptions();
   const color = options.color;
-  const activeHex = useMemo(() => colorToHex(color), [color]).toLowerCase();
-  const isRef = !!color && typeof color === "object" && "swatch" in color;
+  // The shared colour is a hex, so match swatches by resolved hex (a swatch picked here and
+  // a hex picked in the dock both light the matching ring).
+  const activeHex = useMemo(() => colorToHex(color, "#fff14d"), [color]).toLowerCase();
 
   return (
     <div
@@ -128,7 +120,7 @@ function SwatchPicker() {
       className="flex w-full flex-wrap content-center items-center justify-center gap-3 px-4 py-5"
     >
       {SWATCH_CHIPS.map(({ ref, key, hex }) => {
-          const selected = isRef && hex.toLowerCase() === activeHex;
+          const selected = hex.toLowerCase() === activeHex;
           return (
             <button
               key={key}
@@ -214,13 +206,27 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   // The `snap` demo swaps in a Range-based preview so the boundary clamp shows.
   return (
     <div ref={ref}>
-      <Section title={demo.title} description={demo.desc}>
+      <Section
+        title={
+          <>
+            {demo.name}{" "}
+            <span className="font-mono text-[0.8em] font-normal tracking-normal text-text-secondary">
+              ({demo.title})
+            </span>
+          </>
+        }
+        description={demo.desc}
+      >
         <PaperCard>
           {seen && quote ? (
             demo.kind === "pills" && demo.path === "snap" ? (
               <SnapPreview quote={quote} />
             ) : (
-              <Preview quote={quote} strategy={strategyFor(demo.title)} />
+              <Preview
+                quote={quote}
+                strategy={strategyFor(demo.title)}
+                lockTipType={demo.kind === "slider" && demo.path === "tip.angle" ? "chisel" : undefined}
+              />
             )
           ) : (
             <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
@@ -240,25 +246,25 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
 
 // Every option, one demo each, in build order.
 export const OPTION_DEMOS: Demo[] = [
-  { kind: "pills", title: "markType", aria: "Mark kind", path: "markType", def: "highlight", shape: true, opts: [{ value: "highlight", label: "Highlight" }, { value: "underline", label: "Underline" }, { value: "overline", label: "Overline" }, { value: "strike-through", label: "Strike" }], desc: "The kind of mark: a highlight band, an under/overline, or a strike-through. (shape is a synonym.)" },
-  { kind: "color", title: "color", desc: "The ink hue. Pick a canonical highlighter swatch, a clean { palette, swatch } reference. Defaults to fluorescent yellow." },
-  { kind: "slider", title: "opacity", label: "Opacity", path: "opacity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Overall ink alpha. Lower lets more of the text read through the band." },
-  { kind: "toggle", title: "blendMode (stack)", aria: "Stack", path: "stack", def: true, desc: "Overlap optics. On = multiply: two passes darken where they cross, like real translucent ink. Off = normal: same-colour overlaps merge flat." },
-  { kind: "pills", title: "tip.type", aria: "Nib", path: "tip.type", def: "chisel", opts: [{ value: "chisel", label: "Chisel" }, { value: "bullet", label: "Bullet" }, { value: "fine", label: "Fine" }], desc: "Nib shape: a broad slanted chisel, a rounded bullet, or a fine point." },
-  { kind: "slider", title: "tip.angle", label: "Angle", path: "tip.angle", def: 35, min: 0, max: 90, step: 1, unit: "deg", floor: 5, desc: "Chisel slant baked into each band, never quite flat." },
-  { kind: "slider", title: "tip.overshoot", label: "Overshoot", path: "tip.overshoot", def: 2, min: -8, max: 12, step: 1, unit: "px", desc: "How far each end runs past the text. Positive overruns like a real swipe; negative stops short of the glyphs." },
-  { kind: "slider", title: "tip.overshootJitter", label: "End randomness", path: "tip.overshootJitter", def: 1, min: 0, max: 8, step: 1, unit: "px", desc: "Per-end random variance of the overshoot, so the two ends never land on an identical inset." },
-  { kind: "slider", title: "ink.flow", label: "Flow", path: "ink.flow", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Juiciness: the deposit amount. Raises the band width and softens the edges." },
-  { kind: "slider", title: "ink.viscosity", label: "Viscosity", path: "ink.viscosity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Inverse of flow: sharpens edges and raises skip frequency." },
-  { kind: "slider", title: "ink.feathering", label: "Feathering", path: "ink.feathering", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Capillary lateral spread at the edges, the way ink wicks sideways into paper." },
-  { kind: "slider", title: "ink.streakiness", label: "Streakiness", path: "ink.streakiness", def: 0.35, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Lengthwise lighter/darker lanes within a stroke, the single biggest “real highlighter” tell." },
-  { kind: "slider", title: "ink.dryout", label: "Dryout", path: "ink.dryout", def: 0.15, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Probabilistic alpha gaps: the marker skipping as it runs dry." },
-  { kind: "slider", title: "ink.flowFade", label: "Flow fade", path: "ink.flowFade", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Directional dry-out: each line starts saturated where the nib lands and fades drier toward its end." },
-  { kind: "slider", title: "edge.waviness", label: "Waviness", path: "edge.waviness", def: 1.5, min: 0, max: 4, step: 0.1, unit: "px", desc: "Peak displacement of the wavy edge. Zero gives a clean straight edge." },
-  { kind: "slider", title: "edge.frequency", label: "Frequency", path: "edge.frequency", def: 22, min: 8, max: 48, step: 1, unit: "px", desc: "Segment length between wave vertices, smaller is wavier. Width-independent." },
-  { kind: "slider", title: "edge.roughness", label: "Roughness", path: "edge.roughness", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "High-frequency micro-jitter on top of the base wave." },
-  { kind: "pills", title: "edge.cap", aria: "Cap", path: "edge.cap", def: "round", opts: [{ value: "flat", label: "Flat" }, { value: "round", label: "Round" }, { value: "square", label: "Square" }], desc: "End-cap style for a band's leading and trailing edges." },
-  { kind: "slider", title: "edge.radius", label: "Radius", path: "edge.radius", def: 4, min: 0, max: 12, step: 1, unit: "px", desc: "Corner radius, clamped against short marks." },
-  { kind: "slider", title: "paper.absorbency", label: "Absorbency", path: "paper.absorbency", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "How thirsty the paper is. Higher wicks more ink, growing the feather and softening edges." },
-  { kind: "pills", title: "snap", aria: "Snap", path: "snap", def: "word", opts: [{ value: "none", label: "None" }, { value: "word", label: "Word" }, { value: "line", label: "Line" }, { value: "glyph", label: "Glyph" }], desc: "Clamps each end to a text boundary before overshoot is applied, so a mark never starts or stops mid-whitespace." },
+  { kind: "pills", title: "markType", name: "Mark type", aria: "Mark kind", path: "markType", def: "highlight", shape: true, opts: [{ value: "highlight", label: "Highlight" }, { value: "underline", label: "Underline" }, { value: "overline", label: "Overline" }, { value: "strike-through", label: "Strike" }], desc: "The kind of mark: a highlight band, an under or overline, or a strikethrough. (shape is a synonym.)" },
+  { kind: "color", title: "color", name: "Colour", desc: "The ink hue. Pick a canonical highlighter swatch, a clean { palette, swatch } reference. Defaults to fluorescent yellow." },
+  { kind: "slider", title: "opacity", name: "Opacity", label: "Opacity", path: "opacity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Overall ink alpha. Lower lets more of the text read through the band." },
+  { kind: "toggle", title: "blendMode", name: "Overlap optics", aria: "Stack", path: "stack", def: true, desc: "How overlaps composite. On = multiply: two passes darken where they cross, like real translucent ink. Off = normal: same colour overlaps merge flat." },
+  { kind: "pills", title: "tip.type", name: "Nib shape", aria: "Nib", path: "tip.type", def: "chisel", opts: [{ value: "chisel", label: "Chisel" }, { value: "bullet", label: "Bullet" }, { value: "fine", label: "Fine" }], desc: "Nib shape: a broad slanted chisel, a rounded bullet, or a fine point." },
+  { kind: "slider", title: "tip.angle", name: "Slant angle", label: "Angle", path: "tip.angle", def: 8, min: 0, max: 90, step: 1, unit: "deg", floor: 5, desc: "Chisel slant baked into each band, never quite flat. Only the chisel slants; the bullet and the fine nib do not (fine is the same shape, just with no slant)." },
+  { kind: "slider", title: "tip.overshoot", name: "Overshoot", label: "Overshoot", path: "tip.overshoot", def: 2, min: -8, max: 12, step: 1, unit: "px", desc: "How far each end runs past the text. Positive overruns like a real swipe; negative stops short of the glyphs." },
+  { kind: "slider", title: "tip.overshootJitter", name: "End randomness", label: "End randomness", path: "tip.overshootJitter", def: 1, min: 0, max: 8, step: 1, unit: "px", desc: "Random variance per end, so the two ends never land on an identical inset." },
+  { kind: "slider", title: "ink.flow", name: "Ink flow", label: "Flow", path: "ink.flow", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Juiciness: the deposit amount. Raises the band width and softens the edges." },
+  { kind: "slider", title: "ink.viscosity", name: "Viscosity", label: "Viscosity", path: "ink.viscosity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Inverse of flow: sharpens edges and raises skip frequency." },
+  { kind: "slider", title: "ink.feathering", name: "Feathering", label: "Feathering", path: "ink.feathering", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Capillary lateral spread at the edges, the way ink wicks sideways into paper." },
+  { kind: "slider", title: "ink.streakiness", name: "Streakiness", label: "Streakiness", path: "ink.streakiness", def: 0.35, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Lengthwise lighter or darker lanes within a stroke, the single biggest “real highlighter” tell." },
+  { kind: "slider", title: "ink.dryout", name: "Dryout", label: "Dryout", path: "ink.dryout", def: 0.15, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Probabilistic alpha gaps: the marker skipping as it runs dry." },
+  { kind: "slider", title: "ink.flowFade", name: "Flow fade", label: "Flow fade", path: "ink.flowFade", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Directional dryout: each line starts saturated where the nib lands and fades drier toward its end." },
+  { kind: "slider", title: "edge.waviness", name: "Waviness", label: "Waviness", path: "edge.waviness", def: 1.5, min: 0, max: 4, step: 0.1, unit: "px", desc: "Peak displacement of the wavy edge. Zero gives a clean straight edge." },
+  { kind: "slider", title: "edge.frequency", name: "Wave frequency", label: "Frequency", path: "edge.frequency", def: 22, min: 8, max: 48, step: 1, unit: "px", desc: "Segment length between wave vertices, smaller is wavier. Independent of width." },
+  { kind: "slider", title: "edge.roughness", name: "Roughness", label: "Roughness", path: "edge.roughness", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Rapid micro jitter layered on top of the base wave." },
+  { kind: "pills", title: "edge.cap", name: "Cap style", aria: "Cap", path: "edge.cap", def: "round", opts: [{ value: "flat", label: "Flat" }, { value: "round", label: "Round" }, { value: "square", label: "Square" }], desc: "Cap style for a band's leading and trailing edges." },
+  { kind: "slider", title: "edge.radius", name: "Corner radius", label: "Radius", path: "edge.radius", def: 4, min: 0, max: 12, step: 1, unit: "px", desc: "Corner radius, clamped against short marks." },
+  { kind: "slider", title: "paper.absorbency", name: "Paper absorbency", label: "Absorbency", path: "paper.absorbency", def: 0.3, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "How thirsty the paper is. Higher wicks more ink, growing the feather and softening edges." },
+  { kind: "pills", title: "snap", name: "Snap", aria: "Snap", path: "snap", def: "word", opts: [{ value: "none", label: "None" }, { value: "word", label: "Word" }, { value: "line", label: "Line" }, { value: "glyph", label: "Glyph" }], desc: "Clamps each end to a text boundary before overshoot is applied, so a mark never starts or stops inside whitespace." },
 ];

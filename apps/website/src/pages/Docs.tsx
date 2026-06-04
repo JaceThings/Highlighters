@@ -11,7 +11,7 @@ export function Docs() {
   return (
     <div className="flex w-full flex-col" style={{ gap: 48 }}>
       <Stagger index={0}>
-        <header className="flex flex-col gap-2 leading-6">
+        <header className="flex flex-col leading-6">
           <h1 className="m-0 text-[1rem] font-[550]">Docs</h1>
           <p className="m-0 text-text-secondary">
             Every setting, live. Pick a starting point, then toggle and drag the

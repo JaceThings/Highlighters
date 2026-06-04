@@ -9,7 +9,6 @@ export type {
   Target,
   TextTarget,
   PageTarget,
-  PresetName,
   PaletteName,
   PaletteSwatch,
   Palette,

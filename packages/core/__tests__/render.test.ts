@@ -182,12 +182,21 @@ describe("createOverlayContainer", () => {
     expect(host.querySelectorAll(":scope > [data-highlighters-overlay]").length).toBe(1);
   });
 
-  it("teardown removes the container and all children", () => {
+  it("teardown removes an emptied container but spares one still holding marks", () => {
+    // The container is shared by every mark on a host; each mark's renderer.unmount
+    // removes its OWN nodes before teardown. An emptied container is stripped so the
+    // last mark out leaves the DOM pristine (R9)...
     const container = createOverlayContainer(host);
-    container.appendChild(document.createElement("span"));
     teardownContainer(container);
     expect(host.querySelector("[data-highlighters-overlay]")).toBeNull();
-    expect(container.childNodes.length).toBe(0);
+
+    // ...but a container still holding another mark's nodes is left intact, so
+    // removing one mark never tears down its neighbours.
+    const shared = createOverlayContainer(host);
+    shared.appendChild(document.createElement("span"));
+    teardownContainer(shared);
+    expect(host.querySelector("[data-highlighters-overlay]")).toBe(shared);
+    expect(shared.childNodes.length).toBe(1);
   });
 });
 
@@ -860,6 +869,61 @@ describe("highlight", () => {
       const clipsB = Array.from(overlay2.children).map((w) => (w as HTMLElement).style.clipPath);
       expect(clipsB).toEqual(clipsA);
       handle2.remove();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("removing one mark spares a sibling sharing the body container (R9)", () => {
+    // Two marks on different targets both resolve their host to <body>, so they share
+    // one overlay container (createOverlayContainer reuses it). Removing the first must
+    // not tear the container - and the second's mark - down with it.
+    const other = document.createElement("p");
+    other.textContent = "A second highlighted line.";
+    document.body.appendChild(other);
+    const oneLine = domRectList([dr(10, 100, 200, 18)]);
+    const spy = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(oneLine);
+    try {
+      const h1 = highlight(target, { renderer: "css", animation: { draw: false } });
+      const h2 = highlight(other, { renderer: "css", animation: { draw: false } });
+      const overlay = document.body.querySelector("[data-highlighters-overlay]")!;
+      expect(overlay.children.length).toBe(2); // one wrapper from each mark
+
+      h1.remove();
+      // The shared container and h2's mark survive; only h1's wrapper is gone.
+      expect(document.body.querySelector("[data-highlighters-overlay]")).toBe(overlay);
+      expect(overlay.children.length).toBe(1);
+
+      h2.remove();
+      // Last mark out: the emptied container is stripped, leaving the DOM pristine.
+      expect(document.body.querySelector("[data-highlighters-overlay]")).toBeNull();
+    } finally {
+      spy.mockRestore();
+      other.remove();
+    }
+  });
+
+  it("update() reshaping the mark refreshes the draw-on wrapper clip (no stale crop)", () => {
+    // The draw-on clips the WRAPPER to the mark shape; the ink child carries the same
+    // geometry. An option change that reshapes the mark (a tip swap) must re-point the
+    // draw-on, else the wrapper keeps the OLD shape's clip and crops the new one.
+    const oneLine = domRectList([dr(10, 100, 200, 18)]);
+    const spy = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(oneLine);
+    try {
+      const handle = highlight(target, {
+        renderer: "css",
+        animation: { draw: false },
+        tip: { type: "chisel", angle: 16 },
+      });
+      const wrapper = document.body.querySelector("[data-highlighters-overlay]")!
+        .children[0] as HTMLElement;
+      const slantedClip = wrapper.style.clipPath;
+      expect(slantedClip).not.toBe(""); // the settled draw-on left a full clip on the wrapper
+
+      // Reshape in place: slanted chisel -> bullet. The wrapper clip must follow.
+      handle.update({ tip: { type: "bullet", angle: 0 } });
+      expect(wrapper.style.clipPath).not.toBe(slantedClip);
+      handle.remove();
     } finally {
       spy.mockRestore();
     }

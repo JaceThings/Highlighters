@@ -8,14 +8,13 @@ import {
   PALETTES,
   resolveSwatch,
 } from "../src/config/palettes.js";
-import { getPreset, PRESETS } from "../src/config/presets.js";
 
 describe("palettes", () => {
   it("ships the five curated families with yellow-first fluorescent", () => {
     expect(Object.keys(PALETTES).sort()).toEqual(
       ["calm", "fluorescent", "mild", "neutral", "vintage"].sort(),
     );
-    // Fluorescent yellow is the canonical default — least text-obscuring (R15).
+    // Fluorescent yellow is the canonical default - least text-obscuring (R15).
     expect(Object.keys(PALETTES.fluorescent.swatches)[0]).toBe("yellow");
   });
 
@@ -23,7 +22,7 @@ describe("palettes", () => {
     expect(resolveSwatch({ palette: "fluorescent", swatch: "yellow" })).toBe(
       PALETTES.fluorescent.swatches.yellow,
     );
-    // @ts-expect-error — deliberately invalid family name.
+    // @ts-expect-error - deliberately invalid family name.
     expect(() => getPalette("rainbow")).toThrow(/unknown palette/);
     expect(() =>
       resolveSwatch({ palette: "fluorescent", swatch: "chartreuse" }),
@@ -42,32 +41,14 @@ describe("DEFAULT_OPTIONS", () => {
   it("encodes the documented defaults and is frozen", () => {
     expect(DEFAULT_OPTIONS.markType).toBe("highlight");
     expect(DEFAULT_OPTIONS.blendMode).toBe("multiply");
-    expect(DEFAULT_OPTIONS.color).toBe(defaultSwatch("fluorescent"));
-    expect(DEFAULT_OPTIONS.snap).toBe("line");
+    expect(DEFAULT_OPTIONS.color).toBe(defaultSwatch("mild"));
+    expect(DEFAULT_OPTIONS.snap).toBe("word");
     expect(DEFAULT_OPTIONS.renderer).toBe("auto");
     expect(DEFAULT_OPTIONS.glow.enabled).toBe(false);
     expect(DEFAULT_OPTIONS.seed).toBeNull();
     expect(DEFAULT_OPTIONS.edge.cap).toBe("round");
     expect(Object.isFrozen(DEFAULT_OPTIONS)).toBe(true);
     expect(Object.isFrozen(DEFAULT_OPTIONS.ink)).toBe(true);
-  });
-});
-
-describe("getPreset", () => {
-  it("returns every shipped preset as a shallow clone", () => {
-    for (const name of Object.keys(PRESETS) as (keyof typeof PRESETS)[]) {
-      const clone = getPreset(name);
-      expect(clone).toEqual(PRESETS[name]);
-      expect(clone).not.toBe(PRESETS[name]);
-    }
-    // @ts-expect-error — deliberately invalid preset name.
-    expect(() => getPreset("neon")).toThrow(/unknown preset/);
-  });
-
-  it("mutating a clone does not corrupt the shared constant", () => {
-    const clone = getPreset("mild");
-    clone.opacity = 0;
-    expect(PRESETS.mild.opacity).not.toBe(0);
   });
 });
 
@@ -120,27 +101,22 @@ describe("resolveOptions", () => {
     expect(r.animation.duration).toBeTypeOf("number");
   });
 
-  it("defaults to the mild preset when none is given (R19)", () => {
+  it("resolves the documented default look when no options are given", () => {
     const r = resolveOptions();
-    // mild = muted palette + low opacity + multiply + word snap + soft edges.
+    // Muted yellow, low opacity, multiply, word snap.
     expect(r.color).toBe(PALETTES.mild.swatches.yellow);
-    expect(r.opacity).toBe(PRESETS.mild.opacity);
+    expect(r.opacity).toBe(0.55);
     expect(r.blendMode).toBe("multiply");
     expect(r.snap).toBe("word");
   });
 
-  it("applies the precedence defaults → preset → user", () => {
-    // User opacity beats the preset.
+  it("applies the precedence defaults → user (user wins)", () => {
+    // User opacity beats the default.
     expect(resolveOptions({ opacity: 0.33 }).opacity).toBe(0.33);
-
-    // Preset selection changes the resolved color.
-    expect(resolveOptions({ preset: "classic-yellow" }).color).toBe(
-      PALETTES.fluorescent.swatches.yellow,
-    );
-
-    // User ink still wins over the preset's ink.
-    const userWins = resolveOptions({ preset: "wet", ink: { streakiness: 0.01 } });
-    expect(userWins.ink.streakiness).toBe(0.01);
+    // User ink wins; unset ink fields keep their defaults.
+    const r = resolveOptions({ ink: { streakiness: 0.01 } });
+    expect(r.ink.streakiness).toBe(0.01);
+    expect(r.ink.flow).toBe(DEFAULT_OPTIONS.ink.flow);
   });
 
   it("resolves a palette swatch reference and a named palette default", () => {
@@ -148,7 +124,7 @@ describe("resolveOptions", () => {
       resolveOptions({ color: { palette: "calm", swatch: "mint" } }).color,
     ).toBe(PALETTES.calm.swatches.mint);
     // palette-only (no explicit color) → that family's default swatch.
-    expect(resolveOptions({ preset: "wet", palette: "vintage" }).color).toBe(
+    expect(resolveOptions({ palette: "vintage" }).color).toBe(
       defaultSwatch("vintage"),
     );
   });
@@ -161,13 +137,10 @@ describe("resolveOptions", () => {
 
   // --- input hardening (correctness audit) ---
 
-  it("a user palette wins over a preset's own color object (palette-only)", () => {
-    // The default `mild` preset ships a color object; a palette-only call must
-    // still draw the requested palette's default, not mild's yellow.
+  it("a user palette wins over the default color object (palette-only)", () => {
+    // The default ships a color object; a palette-only call must still draw the
+    // requested palette's default, not the default yellow.
     expect(resolveOptions({ palette: "calm" }).color).toBe(defaultSwatch("calm"));
-    expect(
-      resolveOptions({ preset: "classic-yellow", palette: "calm" }).color,
-    ).toBe(defaultSwatch("calm"));
     // An explicit color still wins over a palette.
     expect(resolveOptions({ color: "#abcabc", palette: "calm" }).color).toBe("#abcabc");
   });
@@ -217,8 +190,11 @@ describe("resolveOptions", () => {
     expect(resolveOptions({ speed: { sensitivity: NaN } }).speed.sensitivity).toBe(d.sensitivity);
   });
 
-  it("the minimal preset resolves truly flat", () => {
-    const r = resolveOptions({ preset: "minimal" });
+  it("flat ink and edges resolve truly flat", () => {
+    const r = resolveOptions({
+      ink: { feathering: 0, streakiness: 0, dryout: 0, startEndBuildup: 0 },
+      edge: { waviness: 0, roughness: 0 },
+    });
     expect(r.ink.feathering).toBe(0);
     expect(r.ink.streakiness).toBe(0);
     expect(r.ink.dryout).toBe(0);
@@ -235,13 +211,13 @@ describe("resolveOptions", () => {
     );
   });
 
-  it("the premium preset engages the anti-pool guardrail (negative build-up)", () => {
-    expect(resolveOptions({ preset: "premium" }).ink.startEndBuildup).toBeLessThan(0);
+  it("a negative startEndBuildup engages the anti-pool guardrail", () => {
+    expect(resolveOptions({ ink: { startEndBuildup: -0.3 } }).ink.startEndBuildup).toBeLessThan(0);
   });
 
   it("does not mutate DEFAULT_OPTIONS", () => {
     const before = JSON.stringify(DEFAULT_OPTIONS);
-    resolveOptions({ opacity: 0.1, ink: { flow: 0.9 }, preset: "wet" });
+    resolveOptions({ opacity: 0.1, ink: { flow: 0.9 } });
     expect(JSON.stringify(DEFAULT_OPTIONS)).toBe(before);
   });
 });

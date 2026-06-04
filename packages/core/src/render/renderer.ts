@@ -128,14 +128,15 @@ export function createOverlayContainer(host: HTMLElement): HTMLElement {
 }
 
 /**
- * Remove an overlay container and every child it holds, leaving the DOM pristine
- * (R9). Safe to call more than once or on a never-attached container.
+ * Tear down a mark's overlay container after its renderer has unmounted. The
+ * container is SHARED by every mark mounted on the same host (createOverlayContainer
+ * reuses it), so the caller removes its own renderer's nodes first and this only
+ * strips the container once no marks remain - removing one mark never tears down its
+ * neighbours, and the last one out leaves the DOM byte-for-byte as before (R9).
+ * Safe to call more than once or on a never-attached container.
  */
 export function teardownContainer(container: HTMLElement): void {
-  // Drop children explicitly so any references the renderer's pool still holds
-  // resolve to detached nodes, then remove the host itself.
-  while (container.firstChild) container.removeChild(container.firstChild);
-  container.remove();
+  if (!container.firstChild) container.remove();
 }
 
 /**

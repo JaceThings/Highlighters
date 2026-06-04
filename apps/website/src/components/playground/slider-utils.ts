@@ -21,6 +21,11 @@ export const clamp = (n: number, lo: number, hi: number) =>
 export const snap = (n: number, step: number) =>
   step > 0 ? Math.round(n / step) * step : n;
 
+// The committed-value floor: the track still spans min..max, but values clamp up to
+// `floor`. Shared so the display (Slider) and the drag (usePointerDrag) never disagree.
+export const lowerBound = (min: number, floor?: number) =>
+  floor != null ? Math.max(min, floor) : min;
+
 // Widest legal display, so the readout column reserves a stable width and a
 // digit-count change (99→100) doesn't tug the label sideways.
 export const reservedChars = (

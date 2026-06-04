@@ -35,6 +35,13 @@ export interface MarkHandleInit {
   /** Replay the draw-on entrance on an explicit `show()` (R24). No-op if none. */
   replay?: () => void;
   /**
+   * Re-point the draw-on at freshly-built geometry on `update()`. Without it, an
+   * option change that reshapes the mark (e.g. a tip swap) updates the ink's clip but
+   * leaves the previous shape's clip on the wrapper, which then crops the new one.
+   * No-op if none; never re-animates (R22).
+   */
+  retarget?: (lines: RenderContext["lines"]) => void;
+  /**
    * The user-facing options that produced {@link options}. `update()` accumulates
    * overrides on top so the merge chain stays correct across updates (A7).
    */
@@ -48,7 +55,7 @@ export interface MarkHandleInit {
 
 /** Build a {@link MarkHandle} over a mounted renderer. */
 export function createMarkHandle(init: MarkHandleInit): MarkHandle {
-  const { renderer, container, reflow, rebuild, replay } = init;
+  const { renderer, container, reflow, rebuild, replay, retarget } = init;
   const cleanups = init.cleanup ? [...init.cleanup] : [];
   // Accumulated across `update()` calls so the merge chain stays correct.
   let userOptions: HighlightOptions = init.userOptions ? { ...init.userOptions } : {};
@@ -59,7 +66,13 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
   /** Re-derive geometry and hand it to the renderer (the single render path). */
   function rerender(): void {
     if (removed) return;
-    renderer.update(rebuild(resolved));
+    const ctx = rebuild(resolved);
+    renderer.update(ctx);
+    // Keep the draw-on's wrapper clip in step with the new geometry; otherwise an
+    // option change that reshapes the mark (a tip swap) leaves the previous shape's
+    // clip on the wrapper, cropping the new one. Settled -> shows the new full clip;
+    // mid-draw -> the frame loop picks up the new geometry. Never re-animates (R22).
+    retarget?.(ctx.lines);
     container.style.visibility = showing ? "" : "hidden";
   }
 

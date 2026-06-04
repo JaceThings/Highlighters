@@ -4,7 +4,7 @@ import maskUrl from "./slider-mask.svg";
 // Shared primitives for the dock's capsule sliders (opacity + HSL channels). 1:1 with
 // slider-mask.svg's 284×43 viewBox; the knob centre travels between the two cap centres so
 // the round knob never clips a corner.
-export const TRACK_W = 284;
+const TRACK_W = 284;
 export const TRACK_H = 43;
 const KNOB = 39;
 const TRAVEL_MIN = TRACK_H / 2;
@@ -100,6 +100,9 @@ export function useCapsuleDrag({
   };
 
   return {
+    // Glide the value (and knob) to a target over GLIDE_MS, e.g. for keyboard nudges so
+    // arrow/shift steps ease across instead of snapping.
+    glideTo,
     onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
       e.currentTarget.setPointerCapture(e.pointerId);
       draggingRef.current = false;

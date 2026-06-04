@@ -14,13 +14,14 @@ const PAGES: Record<string, ComponentType> = {
   "/docs": Docs,
 };
 
-// Sequential fade (mode="wait"): out, a brief empty hold (the enter `delay`), then in.
+// Sequential fade (mode="wait"): out, a short empty hold (the enter `delay`), then in.
+// Kept brisk so navigation feels immediate rather than waiting on a long cross-fade.
 const EASE: [number, number, number, number] = [0.2, 0, 0, 1];
-const PAUSE_S = 0.15;
+const PAUSE_S = 0.05;
 const FADE: Variants = {
   initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { duration: 0.28, ease: EASE, delay: PAUSE_S } },
-  exit: { opacity: 0, transition: { duration: 0.2, ease: "easeIn" } },
+  animate: { opacity: 1, transition: { duration: 0.22, ease: EASE, delay: PAUSE_S } },
+  exit: { opacity: 0, transition: { duration: 0.16, ease: "easeIn" } },
 };
 
 export function PageFade() {

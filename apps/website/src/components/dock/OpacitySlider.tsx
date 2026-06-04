@@ -20,7 +20,8 @@ const checkerboard = {
 };
 
 /** Opacity slider: ink ramp over a transparency checker, clipped to the capsule. A tap
- *  glides to the value, a drag tracks the pointer, arrows nudge 5%. */
+ *  glides to the value, a drag tracks the pointer, arrows glide a nudge (5%, or 10% with
+ *  Shift held) to the target. */
 export function OpacitySlider({
   inkColor,
   value,
@@ -40,7 +41,9 @@ export function OpacitySlider({
       : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    onChange(clamp(value + dir * 0.05, 0, 1));
+    // Shift jumps by 10% (the coarse step), otherwise 5%; glide so the knob eases across.
+    const step = e.shiftKey ? 0.1 : 0.05;
+    drag.glideTo(clamp(value + dir * step, 0, 1));
   };
 
   return (

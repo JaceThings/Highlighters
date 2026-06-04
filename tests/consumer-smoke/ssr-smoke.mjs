@@ -14,11 +14,11 @@ const core = await import("@highlighters/core");
 const corePath = await import("@highlighters/core/path");
 
 // Resolving options is a pure, DOM-free operation and must work server-side.
-const resolved = core.resolveOptions({ preset: "mild" });
+const resolved = core.resolveOptions({ opacity: 0.7 });
 assert.ok(resolved && typeof resolved === "object", "resolveOptions() must return an object on the server");
 
 // Determinism: the same options resolve identically across both entry points.
-const fromPath = corePath.resolveOptions({ preset: "mild" });
+const fromPath = corePath.resolveOptions({ opacity: 0.7 });
 assert.deepEqual(
   fromPath,
   resolved,

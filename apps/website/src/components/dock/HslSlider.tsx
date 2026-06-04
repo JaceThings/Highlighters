@@ -10,7 +10,7 @@ import {
 
 /** One HSL channel: a gradient ramp clipped to the capsule with a draggable knob. A tap
  *  glides the value (and the knob) to the target; a drag follows the pointer directly; arrows
- *  nudge by `step`. The knob is filled with the current colour. */
+ *  glide a nudge of `step` (or 10x `step` with Shift). The knob is filled with the current colour. */
 export function HslSlider({
   label,
   value,
@@ -40,7 +40,9 @@ export function HslSlider({
       : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    onChange(clamp(value + dir * step, min, max));
+    // Shift jumps by 10x the step (the coarse stride); glide so the knob eases across.
+    const s = e.shiftKey ? step * 10 : step;
+    drag.glideTo(clamp(value + dir * s, min, max));
   };
 
   return (

@@ -4,6 +4,7 @@ import type { ShadowConfig } from "@lisse/core";
 import { buildMarkGeometry, resolveOptions } from "@highlighters/core";
 import type { LineRect, MarkType } from "@highlighters/core";
 import { BASE_SELECTION_OPTIONS, penToTip, type PenTip } from "../../selection-style.tsx";
+import { INK_FADE_MS } from "./constants.ts";
 import { OpacitySlider } from "./OpacitySlider.tsx";
 
 // Lisse ShadowConfig (not box-shadow) so the lift traces the squircle clip-path.
@@ -21,7 +22,6 @@ const MARK_OPTIONS: { type: MarkType; label: string }[] = [
 // The preview "line" the band is shaped against; the cell clips any overshoot.
 const LINE_W = 24;
 const LINE_H = 22;
-const INK_FADE_MS = 180; // matches the dock pens
 
 // Endpoint-pooled translucent ink, denser at both ends like a real marker. Built from
 // the animatable `--ink` via color-mix, so `transition: --ink` fades the whole gradient

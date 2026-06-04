@@ -11,10 +11,6 @@ interface RadioPillGroupProps<T extends string> {
   value: T;
   onChange: (next: T) => void;
   ariaLabel: string;
-  /** Tailwind class for min-width per pill - wider rows use `min-w-[110px]`. */
-  pillMinWidth?: string;
-  /** Tailwind class for basis per pill - use to force wrapping at a specific width, e.g. 2×2 on mobile. */
-  pillBasis?: string;
 }
 
 // `p-1.5 -m-1.5` adds 6px each side without changing layout, so the visible pill keeps
@@ -31,8 +27,6 @@ export function RadioPillGroup<T extends string>({
   value,
   onChange,
   ariaLabel,
-  pillMinWidth,
-  pillBasis,
 }: RadioPillGroupProps<T>) {
   return (
     <div
@@ -55,7 +49,7 @@ export function RadioPillGroup<T extends string>({
               playPillSelect();
               onChange(option.value);
             }}
-            className={`${PILL_HITAREA} flex flex-1 ${pillMinWidth ?? ""} ${pillBasis ?? ""}`}
+            className={`${PILL_HITAREA} flex flex-1`}
           >
             <SmoothCorners
               asChild
