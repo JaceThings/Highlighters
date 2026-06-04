@@ -25,7 +25,6 @@ interface PreviewProps {
 // No webfont installed - fall back to a system hand.
 const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
 const QUOTE_INK = "#73574a";
-const PREVIEW_INK_FADE_MS = 180;
 const QUOTE_STYLE: CSSProperties = {
   fontFamily: QUOTE_FONT,
   fontSize: 25,
@@ -35,29 +34,6 @@ const QUOTE_STYLE: CSSProperties = {
   WebkitHyphens: "none",
 };
 
-/**
- * The fading old-colour copy in the ink crossfade. It hosts its OWN marks (handing its
- * <p> to <Highlight> as the overlay host) so they render INSIDE the element the keyframe
- * fades. Scoping them here rather than to <body> is what lets the opacity animation
- * actually fade the old ink out over the new; otherwise the copy just stacks at full
- * alpha and pops. Children render only once the host node exists.
- */
-function FadeCopy({ children }: { children: (host: HTMLElement) => ReactNode }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  return (
-    <p
-      ref={setHost}
-      aria-hidden
-      className="m-0 text-wrap-pretty pointer-events-none absolute left-0 top-0 w-full"
-      style={{ ...QUOTE_STYLE, color: QUOTE_INK, animation: `preview-ink-fade ${PREVIEW_INK_FADE_MS}ms ease forwards` }}
-    >
-      {"“"}
-      {host ? children(host) : null}
-      {"”"}
-    </p>
-  );
-}
-
 export function Preview({ quote, strategy }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Plain text until the Stagger entrance finishes, then paint marks.
@@ -66,9 +42,9 @@ export function Preview({ quote, strategy }: PreviewProps) {
 
   // The text is byte-identical entered/not, and the mark is an overlay, so the
   // swap has zero layout shift. `seed` keys each run so overlapping marks don't collide.
-  const renderRun = (children: ReactNode, runOptions: HighlightOptions, host?: HTMLElement) =>
+  const renderRun = (children: ReactNode, runOptions: HighlightOptions) =>
     entered ? (
-      <Highlight as="span" options={runOptions} host={host} key={runOptions.seed}>
+      <Highlight as="span" options={runOptions} key={runOptions.seed}>
         {children}
       </Highlight>
     ) : (
@@ -84,20 +60,13 @@ export function Preview({ quote, strategy }: PreviewProps) {
   const words = quote.text.split(" ");
   const plan = planMarks(words, strategy);
 
-  // Build the marked quote for a given ink colour. Same ranges + seeds each call, so a base
-  // copy (new colour) and a fading overlay copy (old colour) align and crossfade. `host`
-  // scopes the overlay copy's marks INSIDE its fading <p> (see FadeCopy); the base passes
-  // none, so its marks default to the body overlay.
-  const quoteBody = (color: HighlightOptions["color"], animate = true, host?: HTMLElement) => {
-    // The fading overlay copy renders finished (no draw-on) so a colour change crossfades
-    // instead of replaying the stroke animation.
-    const opts: HighlightOptions = {
-      ...core,
-      color,
-      animation: animate ? core.animation : { ...core.animation, draw: false },
-    };
+  // Build the marked quote. Same ranges + stable seeds every render, so a colour change is
+  // an in-place restyle of the existing marks (Highlight -> handle.update), exactly like the
+  // dock's live marker: no second copy, no redraw, no flash.
+  const quoteBody = (color: HighlightOptions["color"]) => {
+    const opts: HighlightOptions = { ...core, color };
     const innerMark = (word: string) =>
-      renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 }, host);
+      renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 });
     const pieces: ReactNode[] = [];
     let i = 0;
     plan.ranges.forEach(([s, e], ri) => {
@@ -116,28 +85,12 @@ export function Preview({ quote, strategy }: PreviewProps) {
             {seg.slice(ov + 1).join(" ")}
           </>
         );
-      pieces.push(renderRun(body, { ...opts, seed: 300 + ri }, host));
+      pieces.push(renderRun(body, { ...opts, seed: 300 + ri }));
       i = e;
     });
     if (i < words.length) pieces.push(words.slice(i).join(" "));
     return pieces.flatMap((p, idx) => (idx === 0 ? [p] : [" ", p]));
   };
-
-  // Crossfade the ink on a colour change: the base stays the new colour while an overlay copy
-  // of the old colour fades out over it.
-  const [fadeOut, setFadeOut] = useState<{ color: HighlightOptions["color"]; key: number } | null>(null);
-  const prevColorRef = useRef(core.color);
-  const fadeKeyRef = useRef(0);
-  useLayoutEffect(() => {
-    if (JSON.stringify(core.color) === JSON.stringify(prevColorRef.current)) return;
-    const prev = prevColorRef.current;
-    prevColorRef.current = core.color;
-    fadeKeyRef.current += 1;
-    const id = fadeKeyRef.current;
-    setFadeOut({ color: prev, key: id });
-    const t = setTimeout(() => setFadeOut((f) => (f && f.key === id ? null : f)), PREVIEW_INK_FADE_MS + 40);
-    return () => clearTimeout(t);
-  }, [core.color]);
 
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
@@ -147,11 +100,6 @@ export function Preview({ quote, strategy }: PreviewProps) {
           {quoteBody(core.color)}
           {"”"}
         </p>
-        {fadeOut && entered ? (
-          <FadeCopy key={fadeOut.key}>
-            {(host) => quoteBody(fadeOut.color, false, host)}
-          </FadeCopy>
-        ) : null}
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
           {"- " + quote.author}
         </p>

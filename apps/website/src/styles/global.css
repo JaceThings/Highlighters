@@ -108,16 +108,6 @@ h3 {
   }
 }
 
-/* Docs Preview: the old ink colour fades out over the new one on a swatch change. */
-@keyframes preview-ink-fade {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
 /* Dock markers: the selected pen sits raised; unselected pens pop up slightly on
    hover. Driven here (not inline) so :hover can layer over the resting state.
    The selected rule comes last so a hovered selected pen stays at its raised
