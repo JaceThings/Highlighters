@@ -56,6 +56,7 @@ export function HslSlider({
       aria-valuenow={Math.round(value)}
       tabIndex={0}
       data-focus-ring
+      data-focus-radius="full"
       onPointerDown={drag.onPointerDown}
       onPointerMove={drag.onPointerMove}
       onPointerUp={drag.endDrag}

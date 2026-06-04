@@ -124,6 +124,12 @@ h3 {
   transform: translateY(-24px);
 }
 
+/* The marker's keyboard focus outline is a single traveling SVG (Marker.tsx), so drop
+   the browser default on the pens; the outline itself handles the keyboard-only reveal. */
+.dock-pen:focus {
+  outline: none;
+}
+
 /* sr-only content is for assistive tech only: exclude it from text
  * selection so Cmd+A + Cmd+C doesn't paste screen-reader headings,
  * pronunciation glosses, or live-region descriptions into user

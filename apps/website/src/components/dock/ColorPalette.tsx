@@ -69,6 +69,7 @@ function CustomDisc({
       aria-pressed={active}
       onClick={(e) => onClick(e.currentTarget)}
       data-focus-ring
+      data-focus-radius="full"
       className="group relative size-[43px] shrink-0 rounded-full"
     >
       <span
@@ -125,6 +126,7 @@ function Disc({
       aria-pressed={selected}
       onClick={(e) => onClick(e.currentTarget)}
       data-focus-ring
+      data-focus-radius="full"
       // Never scale the button itself - it shifts the hit area out from under
       // the pointer and the click misfires. Press-scale lives on the visual layer.
       className="group relative size-[43px] shrink-0 rounded-full"

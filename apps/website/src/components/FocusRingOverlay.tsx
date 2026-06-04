@@ -8,6 +8,7 @@ import {
   type AnimationPlaybackControls,
 } from "framer-motion";
 import { generatePath } from "@lisse/core";
+import { useNavModality } from "../hooks/useNavModality.ts";
 
 // Persistent squircle ring on the focused `[data-focus-ring]`. Within a
 // `[data-focus-section]` it springs between targets; across groups it cross-
@@ -19,11 +20,6 @@ const SECTION_SELECTOR = "[data-focus-section]";
 const SPRING = { stiffness: 1100, damping: 60, mass: 0.4 };
 const FADE_IN = { duration: 0.18, ease: [0.2, 0, 0, 1] as const };
 const FADE_OUT = { duration: 0.18, ease: [0.4, 0, 0.2, 1] as const };
-
-const NAV_KEYS = new Set([
-  "Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "Home", "End", "PageUp", "PageDown",
-]);
 
 export function FocusRingOverlay({
   radius = 14,
@@ -42,35 +38,35 @@ export function FocusRingOverlay({
   const y = useMotionValue(0);
   const w = useMotionValue(0);
   const h = useMotionValue(0);
+  const rad = useMotionValue(radius);
 
   const xS = useSpring(x, SPRING);
   const yS = useSpring(y, SPRING);
   const wS = useSpring(w, SPRING);
   const hS = useSpring(h, SPRING);
+  const radS = useSpring(rad, SPRING);
   const opacity = useMotionValue(0);
 
-  const d = useTransform([wS, hS], ([wv, hv]) => {
+  const d = useTransform([wS, hS, radS], ([wv, hv, rv]) => {
     const ww = Math.max(0, wv as number);
     const hh = Math.max(0, hv as number);
     if (ww === 0 || hh === 0) return "";
-    // Cap radius against the rect's min dimension so small elements don't render as
-    // near-capsules - smoothing extends the curve past `radius` and would eat the
-    // straight edge entirely on the short axis.
-    const r = Math.min(
-      radius + Math.min(offsetX, offsetY),
-      Math.min(ww, hh) / 2.5,
-    );
-    return generatePath(ww, hh, { radius: r, smoothing });
+    const r = Math.min(Math.max(0, rv as number), Math.min(ww, hh) / 2);
+    // At the box's max radius (a circle or capsule) there's no straight edge left for
+    // the squircle smoothing to bridge, so it would overrun and warp the arc - drop it
+    // there for clean curvature, and keep it for true squircles.
+    const sm = r >= Math.min(ww, hh) / 2 - 0.5 ? 0 : smoothing;
+    return generatePath(ww, hh, { radius: r, smoothing: sm });
   });
 
   const visible = useRef(false);
   const targetRef = useRef<HTMLElement | null>(null);
   const fadeRef = useRef<AnimationPlaybackControls | null>(null);
-  const lastModality = useRef<"keyboard" | "mouse">("mouse");
+  const navKeyboard = useNavModality();
 
   useEffect(() => {
     let fadingOut = false;
-    type Rect = { nx: number; ny: number; nw: number; nh: number };
+    type Rect = { nx: number; ny: number; nw: number; nh: number; nr: number };
     let pendingTarget: Rect | null = null;
 
     // Per-element outset via `data-focus-inset-x` / `-y` (px) lets text-only links
@@ -79,22 +75,39 @@ export function FocusRingOverlay({
       const r = el.getBoundingClientRect();
       const insetX = Number(el.dataset.focusInsetX) || offsetX;
       const insetY = Number(el.dataset.focusInsetY) || offsetY;
+      const nw = r.width + insetX * 2;
+      const nh = r.height + insetY * 2;
+      // Per-element corner radius via `data-focus-radius`: "full" tracks a circle or
+      // capsule (the computed border-radius can't be trusted - mask-clipped shapes and
+      // round visuals on square hit-areas both lie), a number overrides in px, and
+      // absent keeps the default squircle. Kept concentric by adding the inset and
+      // capped at the box's half so the ring never self-intersects.
+      const max = Math.min(nw, nh) / 2;
+      const inset = Math.min(insetX, insetY);
+      const hint = el.dataset.focusRadius;
+      const nr =
+        hint === "full"
+          ? max
+          : hint && !Number.isNaN(Number(hint))
+            ? Math.min(Number(hint) + inset, max)
+            : Math.min(radius + inset, Math.min(nw, nh) / 2.5);
       return {
         nx: r.left + window.scrollX - insetX,
         ny: r.top + window.scrollY - insetY,
-        nw: r.width + insetX * 2,
-        nh: r.height + insetY * 2,
+        nw,
+        nh,
+        nr,
       };
     };
 
     // Jump springs alongside raw values so they don't interpolate from the previous position.
-    const snap = ({ nx, ny, nw, nh }: Rect) => {
-      xS.jump(nx); yS.jump(ny); wS.jump(nw); hS.jump(nh);
-      x.set(nx); y.set(ny); w.set(nw); h.set(nh);
+    const snap = ({ nx, ny, nw, nh, nr }: Rect) => {
+      xS.jump(nx); yS.jump(ny); wS.jump(nw); hS.jump(nh); radS.jump(nr);
+      x.set(nx); y.set(ny); w.set(nw); h.set(nh); rad.set(nr);
     };
 
-    const slide = ({ nx, ny, nw, nh }: Rect) => {
-      x.set(nx); y.set(ny); w.set(nw); h.set(nh);
+    const slide = ({ nx, ny, nw, nh, nr }: Rect) => {
+      x.set(nx); y.set(ny); w.set(nw); h.set(nh); rad.set(nr);
     };
 
     const fadeTo = (to: number, opts: typeof FADE_IN | typeof FADE_OUT) => {
@@ -119,7 +132,7 @@ export function FocusRingOverlay({
       if (!t) return;
       // A click flips modality to mouse; the subsequent focusin must hide
       // the ring rather than stranding it at the previous keyboard position.
-      if (lastModality.current !== "keyboard") {
+      if (!navKeyboard.current) {
         hide();
         return;
       }
@@ -177,18 +190,6 @@ export function FocusRingOverlay({
       });
     };
 
-    // Only NAV_KEYS count as keyboard modality; activation keys (Enter/Space/Escape)
-    // would re-trigger the ring on the next programmatic .focus().
-    const onModalityKey = (e: KeyboardEvent) => {
-      if (!NAV_KEYS.has(e.key)) return;
-      // Modifier + arrow is a browser shortcut, not in-page navigation.
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      lastModality.current = "keyboard";
-    };
-    const onModalityPointer = () => {
-      lastModality.current = "mouse";
-    };
-
     // The focused link itself never fades, but a motion.span ancestor can (route exit).
     // Any ancestor below opacity 1 means we're animating out - fade the ring instead of
     // tracking the moving target.
@@ -221,17 +222,13 @@ export function FocusRingOverlay({
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
-    document.addEventListener("keydown", onModalityKey, true);
-    document.addEventListener("pointerdown", onModalityPointer, true);
     return () => {
       cancelAnimationFrame(rafId);
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
-      document.removeEventListener("keydown", onModalityKey, true);
-      document.removeEventListener("pointerdown", onModalityPointer, true);
       fadeRef.current?.stop();
     };
-  }, [x, y, w, h, xS, yS, wS, hS, opacity, offsetX, offsetY]);
+  }, [x, y, w, h, rad, xS, yS, wS, hS, radS, opacity, offsetX, offsetY, radius]);
 
   return (
     <motion.svg

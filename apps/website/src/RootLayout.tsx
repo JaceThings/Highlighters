@@ -20,6 +20,18 @@ function DevAgentation() {
   return Toolbar ? <Toolbar /> : null;
 }
 
+// DialKit panel for tuning the marker outlines, dev only (dynamic so dialkit never ships).
+function DevOutlineDials() {
+  const [Dials, setDials] = useState<ComponentType | null>(null);
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    import("./components/dock/OutlineDials.tsx")
+      .then((m) => setDials(() => m.OutlineDials))
+      .catch(() => {});
+  }, []);
+  return Dials ? <Dials /> : null;
+}
+
 // The persistent app shell. Overlays + dock sit outside PageFade so they never
 // re-animate between pages; MotionConfig respects prefers-reduced-motion.
 export function RootLayout() {
@@ -46,6 +58,7 @@ export function RootLayout() {
           <SelectionMarker />
           <Dock />
           <DevAgentation />
+          <DevOutlineDials />
         </DockEntranceContext.Provider>
       </SelectionStyleProvider>
     </MotionConfig>

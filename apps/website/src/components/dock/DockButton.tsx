@@ -35,6 +35,7 @@ export function DockButton({
         aria-label={label}
         aria-current={active ? "page" : undefined}
         data-focus-ring
+        data-focus-radius="full"
         className={CLASSES}
       >
         {glyph}
@@ -50,6 +51,7 @@ export function DockButton({
         rel="noopener noreferrer"
         aria-label={label}
         data-focus-ring
+        data-focus-radius="full"
         className={CLASSES}
       >
         {glyph}
@@ -62,6 +64,7 @@ export function DockButton({
       type="button"
       aria-label={label}
       data-focus-ring
+      data-focus-radius="full"
       className={CLASSES}
     >
       {glyph}
