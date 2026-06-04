@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Highlight, useHighlight } from "@highlighters/react";
-import type { HighlightOptions } from "@highlighters/core";
+import type { HighlightOptions, TipType } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
 import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
 import type { Quote } from "./quotes.ts";
@@ -20,6 +20,10 @@ import { planMarks, type MarkStrategy } from "./quote-marks.ts";
 interface PreviewProps {
   quote: Quote;
   strategy: MarkStrategy;
+  /** Pin the nib type for this preview regardless of the shared tip.type, so a demo that
+   *  only reads on one nib (the slant angle needs a chisel) keeps demonstrating when the
+   *  dock pen switches the global nib. */
+  lockTipType?: TipType;
 }
 
 // No webfont installed - fall back to a system hand.
@@ -56,14 +60,17 @@ function useMarksReady(): boolean {
   return ready;
 }
 
-export function Preview({ quote, strategy }: PreviewProps) {
+export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Plain text until the entrance lands and the post-text beat passes, then paint marks.
   const entered = useMarksReady();
   // Scope marks to this card's positioned wrapper (set below) so they ride the page-exit
   // fade with the content instead of lingering in the body overlay. Falls back to body if null.
   const [host, setHost] = useState<HTMLElement | null>(null);
-  const core = useMemo(() => toCoreOptions(previewOptions), [previewOptions]);
+  const core = useMemo(() => {
+    const c = toCoreOptions(previewOptions);
+    return lockTipType ? { ...c, tip: { ...c.tip, type: lockTipType } } : c;
+  }, [previewOptions, lockTipType]);
 
   // The text is byte-identical entered/not, and the mark is an overlay, so the
   // swap has zero layout shift. `seed` keys each run so overlapping marks don't collide.

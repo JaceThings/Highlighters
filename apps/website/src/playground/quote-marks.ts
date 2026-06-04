@@ -12,7 +12,7 @@ const STRATEGY: Record<string, MarkStrategy> = {
   "tip.overshootJitter": "ends",
   "edge.cap": "ends",
   "edge.radius": "ends",
-  "blendMode (stack)": "stack",
+  "blendMode": "stack",
 };
 
 export function strategyFor(title: string): MarkStrategy {
@@ -75,7 +75,7 @@ export const SECTION_QUOTES: Record<string, number[]> = {
   markType: [7, 15, 16, 23],
   color: [18, 22, 13, 14],
   opacity: [8, 24, 1, 11],
-  "blendMode (stack)": [12, 13, 18, 14],
+  "blendMode": [12, 13, 18, 14],
   "tip.type": [12, 15, 11, 0],
   "tip.angle": [5, 3, 13, 8],
   "tip.overshoot": [10, 2, 20, 21],

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 interface SectionProps {
-  title: string;
+  title: ReactNode;
   description: string;
   children: ReactNode;
 }

@@ -94,7 +94,9 @@ function buildInitialOptions(): PlaygroundOptions {
       type: "chisel",
       width: 16,
       thickness: 4,
-      angle: 35,
+      // Matches the live selection marker's chisel slant (penToTip "slant"), so the
+      // slant demo and the real tool agree.
+      angle: 8,
       overshoot: TIP_OVERSHOOT_DEFAULT,
       overshootJitter: TIP_OVERSHOOT_JITTER_DEFAULT,
     },
