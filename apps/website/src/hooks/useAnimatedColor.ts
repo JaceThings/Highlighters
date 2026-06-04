@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
 import { hexToOklch, mixOklch, oklchToRgb, type Oklch } from "../components/dock/oklch.ts";
-import type { SpringNumberOptions } from "./useSpringNumber.ts";
-
-const prefersReducedMotion = (): boolean =>
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+import { prefersReducedMotion, type SpringNumberOptions } from "./useSpringNumber.ts";
 
 // The shared OKLCH mix, plus a transition-only easing of the vivid "false" mid-hue a wide
 // opposite-hue swap crosses (yellow->blue through green): dip chroma at the midpoint in
