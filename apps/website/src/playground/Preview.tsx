@@ -36,10 +36,30 @@ const QUOTE_STYLE: CSSProperties = {
 
 const ATTRIBUTION_STYLE: CSSProperties = { fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 };
 
+// Beat held after a card's text has faded in before its marks draw on, so the highlighter
+// reads as marking text that is already there rather than racing it.
+const MARK_ENTRANCE_DELAY_MS = 450;
+
+// True once the card's entrance has landed AND the post-text beat has elapsed - the gate
+// for painting marks, so they always follow the fully-arrived text.
+function useMarksReady(): boolean {
+  const entered = useEntranceComplete();
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!entered) {
+      setReady(false);
+      return;
+    }
+    const id = setTimeout(() => setReady(true), MARK_ENTRANCE_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [entered]);
+  return ready;
+}
+
 export function Preview({ quote, strategy }: PreviewProps) {
   const previewOptions = usePreviewOptions();
-  // Plain text until the Stagger entrance finishes, then paint marks.
-  const entered = useEntranceComplete();
+  // Plain text until the entrance lands and the post-text beat passes, then paint marks.
+  const entered = useMarksReady();
   const core = useMemo(() => toCoreOptions(previewOptions), [previewOptions]);
 
   // The text is byte-identical entered/not, and the mark is an overlay, so the
@@ -146,7 +166,7 @@ function snapRangeOffsets(text: string): { start: number; end: number } {
  */
 export function SnapPreview({ quote }: { quote: Quote }) {
   const previewOptions = usePreviewOptions();
-  const entered = useEntranceComplete();
+  const entered = useMarksReady();
   const core = useMemo(() => toCoreOptions(previewOptions), [previewOptions]);
 
   const hostRef = useRef<HTMLDivElement | null>(null);
