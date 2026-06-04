@@ -32,6 +32,7 @@ const OUTLINE_LIFT = 4; // sit the outline a touch above the nib
 const OUTLINE_RISE = { duration: 0.24, ease: [0.2, 0, 0, 1] as const };
 const OUTLINE_TRAVEL = { type: "spring", stiffness: 700, damping: 42 } as const;
 const OUTLINE_FADE = { duration: 0.16 } as const;
+const INSTANT = { duration: 0 } as const;
 
 /** The single focus outline: a slot box clipped at the tray floor, sprung to the focused
  *  pen and lifted to its nib height, with the three designed nib silhouettes stacked and
@@ -51,21 +52,31 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
   const slot = activeIdx ?? lastIdx.current;
   const focusedTip = PENS[slot].id;
   const risen = slot === selectedIdx;
+  // The outline only travels/crossfades while it stays visible (pen to pen). When it
+  // reappears after being hidden, it would otherwise fly across from wherever it parked
+  // and morph from the stale tip - so snap position, rise, and tip on that first frame
+  // and just fade it in at the focused pen.
+  const visible = activeIdx !== null;
+  const prevVisible = useRef(false);
+  const appearing = visible && !prevVisible.current;
+  useEffect(() => {
+    prevVisible.current = visible;
+  });
   return (
     <m.div
       aria-hidden
       className="pointer-events-none absolute top-0 left-0 overflow-hidden"
       style={{ width: SVG_W, height: FRAME_H }}
       initial={false}
-      animate={{ x: slot * STEP, opacity: activeIdx === null ? 0 : 1 }}
-      transition={{ x: OUTLINE_TRAVEL, opacity: OUTLINE_FADE }}
+      animate={{ x: slot * STEP, opacity: visible ? 1 : 0 }}
+      transition={{ x: appearing ? INSTANT : OUTLINE_TRAVEL, opacity: OUTLINE_FADE }}
     >
       <m.div
         className="absolute"
         style={{ left: OUTLINE_LEFT, top: REST_TOP - OUTLINE_LIFT, width: OUTLINE_W }}
         initial={false}
         animate={{ y: risen ? -SELECTED_RISE : 0 }}
-        transition={OUTLINE_RISE}
+        transition={appearing ? INSTANT : OUTLINE_RISE}
       >
         {PENS.map((p) => {
           const o = PEN_OUTLINES[p.id];
@@ -79,7 +90,7 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
               style={{ overflow: "visible", x: t.dx, y: t.dy, scale: t.scale, transformOrigin: "top center" }}
               initial={false}
               animate={{ opacity: p.id === focusedTip ? 1 : 0 }}
-              transition={OUTLINE_FADE}
+              transition={appearing ? INSTANT : OUTLINE_FADE}
             >
               <path d={o.d} fillRule="evenodd" fill="var(--color-text-primary)" />
             </m.svg>
