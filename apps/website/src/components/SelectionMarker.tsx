@@ -6,6 +6,7 @@ import {
   penToTip,
   useSelectionStyle,
 } from "../selection-style.tsx";
+import { useAnimatedColor } from "../hooks/useAnimatedColor.ts";
 
 // Document-global live selection marker: paints selectable text with the marker instead
 // of the native blue band; the dock drives colour/pen/opacity/mark via update(). The
@@ -13,9 +14,15 @@ import {
 // survives if JS never loads.
 const READY_CLASS = "selection-marker-ready";
 
+// Glide the ink in OKLCH so a swatch swap morphs the live selection in place instead of
+// snapping, matching the docs preview (see useAnimatedColor). Same feel as the docs'
+// STATE_CHANGE_EASE; the renderer recolours each frame with no geometry reseed.
+const COLOR_TWEEN = { duration: 0.35, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] };
+
 export function SelectionMarker(): null {
   const { style } = useSelectionStyle();
   const handleRef = useRef<MarkHandle | null>(null);
+  const color = useAnimatedColor(style.color, COLOR_TWEEN);
 
   // Defaults match the dock so the first paint agrees.
   useEffect(() => {
@@ -35,12 +42,12 @@ export function SelectionMarker(): null {
 
   useEffect(() => {
     handleRef.current?.update({
-      color: style.color,
+      color,
       opacity: style.opacity,
       markType: style.markType,
       ...penToTip(style.pen),
     });
-  }, [style.color, style.pen, style.opacity, style.markType]);
+  }, [color, style.pen, style.opacity, style.markType]);
 
   return null;
 }
