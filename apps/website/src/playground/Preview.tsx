@@ -35,6 +35,29 @@ const QUOTE_STYLE: CSSProperties = {
   WebkitHyphens: "none",
 };
 
+/**
+ * The fading old-colour copy in the ink crossfade. It hosts its OWN marks (handing its
+ * <p> to <Highlight> as the overlay host) so they render INSIDE the element the keyframe
+ * fades. Scoping them here rather than to <body> is what lets the opacity animation
+ * actually fade the old ink out over the new; otherwise the copy just stacks at full
+ * alpha and pops. Children render only once the host node exists.
+ */
+function FadeCopy({ children }: { children: (host: HTMLElement) => ReactNode }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  return (
+    <p
+      ref={setHost}
+      aria-hidden
+      className="m-0 text-wrap-pretty pointer-events-none absolute left-0 top-0 w-full"
+      style={{ ...QUOTE_STYLE, color: QUOTE_INK, animation: `preview-ink-fade ${PREVIEW_INK_FADE_MS}ms ease forwards` }}
+    >
+      {"“"}
+      {host ? children(host) : null}
+      {"”"}
+    </p>
+  );
+}
+
 export function Preview({ quote, strategy }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   // Plain text until the Stagger entrance finishes, then paint marks.
@@ -43,9 +66,9 @@ export function Preview({ quote, strategy }: PreviewProps) {
 
   // The text is byte-identical entered/not, and the mark is an overlay, so the
   // swap has zero layout shift. `seed` keys each run so overlapping marks don't collide.
-  const renderRun = (children: ReactNode, runOptions: HighlightOptions) =>
+  const renderRun = (children: ReactNode, runOptions: HighlightOptions, host?: HTMLElement) =>
     entered ? (
-      <Highlight as="span" options={runOptions} key={runOptions.seed}>
+      <Highlight as="span" options={runOptions} host={host} key={runOptions.seed}>
         {children}
       </Highlight>
     ) : (
@@ -62,8 +85,10 @@ export function Preview({ quote, strategy }: PreviewProps) {
   const plan = planMarks(words, strategy);
 
   // Build the marked quote for a given ink colour. Same ranges + seeds each call, so a base
-  // copy (new colour) and a fading overlay copy (old colour) align and crossfade.
-  const quoteBody = (color: HighlightOptions["color"], animate = true) => {
+  // copy (new colour) and a fading overlay copy (old colour) align and crossfade. `host`
+  // scopes the overlay copy's marks INSIDE its fading <p> (see FadeCopy); the base passes
+  // none, so its marks default to the body overlay.
+  const quoteBody = (color: HighlightOptions["color"], animate = true, host?: HTMLElement) => {
     // The fading overlay copy renders finished (no draw-on) so a colour change crossfades
     // instead of replaying the stroke animation.
     const opts: HighlightOptions = {
@@ -72,7 +97,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
       animation: animate ? core.animation : { ...core.animation, draw: false },
     };
     const innerMark = (word: string) =>
-      renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 });
+      renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 }, host);
     const pieces: ReactNode[] = [];
     let i = 0;
     plan.ranges.forEach(([s, e], ri) => {
@@ -91,7 +116,7 @@ export function Preview({ quote, strategy }: PreviewProps) {
             {seg.slice(ov + 1).join(" ")}
           </>
         );
-      pieces.push(renderRun(body, { ...opts, seed: 300 + ri }));
+      pieces.push(renderRun(body, { ...opts, seed: 300 + ri }, host));
       i = e;
     });
     if (i < words.length) pieces.push(words.slice(i).join(" "));
@@ -123,16 +148,9 @@ export function Preview({ quote, strategy }: PreviewProps) {
           {"”"}
         </p>
         {fadeOut && entered ? (
-          <p
-            key={fadeOut.key}
-            aria-hidden
-            className="m-0 text-wrap-pretty pointer-events-none absolute left-0 top-0 w-full"
-            style={{ ...QUOTE_STYLE, color: QUOTE_INK, animation: `preview-ink-fade ${PREVIEW_INK_FADE_MS}ms ease forwards` }}
-          >
-            {"“"}
-            {quoteBody(fadeOut.color, false)}
-            {"”"}
-          </p>
+          <FadeCopy key={fadeOut.key}>
+            {(host) => quoteBody(fadeOut.color, false, host)}
+          </FadeCopy>
         ) : null}
         <p className="m-0" style={{ fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 }}>
           {"- " + quote.author}
