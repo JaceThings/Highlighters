@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   animate,
-  motion,
+  m,
   useMotionValue,
   useSpring,
   useTransform,
@@ -190,7 +190,7 @@ export function FocusRingOverlay({
       });
     };
 
-    // The focused link itself never fades, but a motion.span ancestor can (route exit).
+    // The focused link itself never fades, but a m.span ancestor can (route exit).
     // Any ancestor below opacity 1 means we're animating out - fade the ring instead of
     // tracking the moving target.
     const isMidExit = (el: HTMLElement): boolean => {
@@ -231,7 +231,7 @@ export function FocusRingOverlay({
   }, [x, y, w, h, rad, xS, yS, wS, hS, radS, opacity, offsetX, offsetY, radius]);
 
   return (
-    <motion.svg
+    <m.svg
       aria-hidden
       style={{
         position: "absolute",
@@ -247,12 +247,12 @@ export function FocusRingOverlay({
         overflow: "visible",
       }}
     >
-      <motion.path
+      <m.path
         d={d}
         fill="none"
         stroke="var(--color-text-primary)"
         strokeWidth={strokeWidth}
       />
-    </motion.svg>
+    </m.svg>
   );
 }

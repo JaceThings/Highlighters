@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m } from "framer-motion";
 import { MarkUnderline } from "./MarkUnderline.tsx";
 import { SQUIGGLES, nextSquiggle } from "./squiggles.ts";
 
@@ -75,7 +75,7 @@ export function ScribbleLegend({
             <div className="relative" style={{ height: UNDERLINE_H, width: UNDERLINE_W }}>
               <AnimatePresence>
                 {(isActive || isPreview) && (
-                  <motion.div
+                  <m.div
                     key={opt.value}
                     className="absolute inset-0"
                     initial={isActive ? false : { opacity: 0 }}
@@ -89,7 +89,7 @@ export function ScribbleLegend({
                       opacity={1}
                       animate={isActive}
                     />
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </div>

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { DOCK_H, INK_FADE_MS } from "./constants.ts";
 import { Pen } from "./PenSvg.tsx";
 import { PEN_OUTLINES } from "./pen-outlines.ts";
@@ -52,7 +52,7 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
   const focusedTip = PENS[slot].id;
   const risen = slot === selectedIdx;
   return (
-    <motion.div
+    <m.div
       aria-hidden
       className="pointer-events-none absolute top-0 left-0 overflow-hidden"
       style={{ width: SVG_W, height: FRAME_H }}
@@ -60,7 +60,7 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
       animate={{ x: slot * STEP, opacity: activeIdx === null ? 0 : 1 }}
       transition={{ x: OUTLINE_TRAVEL, opacity: OUTLINE_FADE }}
     >
-      <motion.div
+      <m.div
         className="absolute"
         style={{ left: OUTLINE_LEFT, top: REST_TOP - OUTLINE_LIFT, width: OUTLINE_W }}
         initial={false}
@@ -71,7 +71,7 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
           const o = PEN_OUTLINES[p.id];
           const t = tips[p.id];
           return (
-            <motion.svg
+            <m.svg
               key={p.id}
               className="absolute top-0 left-0"
               width={OUTLINE_W}
@@ -82,11 +82,11 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
               transition={OUTLINE_FADE}
             >
               <path d={o.d} fillRule="evenodd" fill="var(--color-text-primary)" />
-            </motion.svg>
+            </m.svg>
           );
         })}
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
