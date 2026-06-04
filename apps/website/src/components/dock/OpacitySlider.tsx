@@ -58,6 +58,7 @@ export function OpacitySlider({
       aria-valuetext={`${pct}%`}
       tabIndex={0}
       data-focus-ring
+      data-focus-radius="full"
       onPointerDown={drag.onPointerDown}
       onPointerMove={drag.onPointerMove}
       onPointerUp={drag.endDrag}

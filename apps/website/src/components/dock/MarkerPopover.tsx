@@ -99,6 +99,7 @@ function MarkOption({
       aria-pressed={selected}
       onClick={() => onSelect(type)}
       data-focus-ring
+      data-focus-radius="12"
       className={`group flex h-[44px] flex-1 items-center justify-center overflow-hidden rounded-[12px] transition-colors duration-200 ${selected ? "bg-[#efeeed]" : "bg-transparent"}`}
     >
       <span
