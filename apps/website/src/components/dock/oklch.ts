@@ -85,6 +85,33 @@ export function oklchToCss(c: Oklch): string {
   return `oklch(${c.L.toFixed(4)} ${c.C.toFixed(4)} ${c.H.toFixed(2)})`;
 }
 
+// OKLCH -> "rgb(r, g, b)" via the inverse Ottosson matrices, gamut-clipped to sRGB.
+// Output is a plain rgb() string so it drops into any colour context (gradients,
+// color-mix) without relying on oklch() parsing support.
+export function oklchToRgb({ L, C, H }: Oklch): string {
+  const hr = (H * Math.PI) / 180;
+  const a = C * Math.cos(hr);
+  const b = C * Math.sin(hr);
+
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+
+  const l = l_ ** 3;
+  const m = m_ ** 3;
+  const s = s_ ** 3;
+
+  const lr = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const lg = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const lb = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+
+  const enc = (v: number) => {
+    const g = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+    return Math.max(0, Math.min(255, Math.round(g * 255)));
+  };
+  return `rgb(${enc(lr)}, ${enc(lg)}, ${enc(lb)})`;
+}
+
 export function lightenOklch(c: Oklch, dL: number): Oklch {
   return { L: Math.min(1, c.L + dL), C: c.C, H: c.H };
 }

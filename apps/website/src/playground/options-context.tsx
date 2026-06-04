@@ -24,6 +24,7 @@ import {
 } from "../selection-style.tsx";
 import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
 import { useSpringNumber } from "../hooks/useSpringNumber.ts";
+import { useAnimatedColor } from "../hooks/useAnimatedColor.ts";
 
 // The docs playground shares colour / opacity / markType / tip with the dock's live marker via
 // one SelectionStyle. The dock thinks in 3 pens (slant/round/flat = 2 nib types + a bullet);
@@ -205,6 +206,11 @@ function useAnimatedOptions(
   fromDrag: boolean,
 ): PlaygroundOptions {
   const cfg = { duration: 0.35, ease: STATE_CHANGE_EASE, fromDrag };
+  // Ink colour glides in OKLCH (see useAnimatedColor) so a swatch swap morphs in place
+  // like the dock's tips instead of snapping. Non-string colours (swatch objects) pass
+  // through untouched; the merged options always hand us a resolved hex.
+  const animatedColor = useAnimatedColor(typeof o.color === "string" ? o.color : DEFAULT_INK, cfg);
+  const color = typeof o.color === "string" ? animatedColor : o.color;
   const opacity = useSpringNumber(o.opacity ?? 0.5, cfg);
   const angle = useSpringNumber(o.tip?.angle ?? 35, cfg);
   const overshoot = useSpringNumber(o.tip?.overshoot ?? 2, cfg);
@@ -226,6 +232,7 @@ function useAnimatedOptions(
   return useMemo<PlaygroundOptions>(
     () => ({
       ...o,
+      color,
       opacity,
       tip: { ...o.tip, angle, overshoot, overshootJitter },
       ink: {
@@ -241,7 +248,7 @@ function useAnimatedOptions(
       paper: { ...o.paper, absorbency },
       glow: { ...o.glow, intensity: glowIntensity, spread: glowSpread },
     }),
-    [o, opacity, angle, overshoot, overshootJitter, flow, viscosity, feathering, streakiness, dryout, startEndBuildup, waviness, frequency, roughness, radius, absorbency, glowIntensity, glowSpread],
+    [o, color, opacity, angle, overshoot, overshootJitter, flow, viscosity, feathering, streakiness, dryout, startEndBuildup, waviness, frequency, roughness, radius, absorbency, glowIntensity, glowSpread],
   );
 }
 
