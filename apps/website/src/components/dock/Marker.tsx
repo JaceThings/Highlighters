@@ -5,6 +5,7 @@ import { Pen } from "./PenSvg.tsx";
 import { PEN_OUTLINES } from "./pen-outlines.ts";
 import { useOutlineTuning } from "./outline-tuning.ts";
 import { hexToOklch, oklchToCss } from "./oklch.ts";
+import { useNavModality } from "../../hooks/useNavModality.ts";
 import type { PenTip } from "../../selection-style.tsx";
 
 // Render the SVG wider so the body (26.1475 of the 43-unit viewBox) lands at 27px.
@@ -42,7 +43,11 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
   const previewIdx = preview ? PENS.findIndex((p) => p.id === preview) : null;
   const activeIdx = previewIdx ?? idx;
   const lastIdx = useRef(0);
-  if (activeIdx !== null) lastIdx.current = activeIdx;
+  // Park at the last focused slot while fading out. A post-commit effect (not a
+  // render-phase ref write) keeps this concurrent-safe.
+  useEffect(() => {
+    if (activeIdx !== null) lastIdx.current = activeIdx;
+  });
   const slot = activeIdx ?? lastIdx.current;
   const focusedTip = PENS[slot].id;
   const risen = slot === selectedIdx;
@@ -166,24 +171,10 @@ export function MarkerRow({
   }, [color]);
 
   // Which pen the traveling outline points at (null = hidden). Tracked here rather than
-  // with :focus-visible because one shared outline animates between the pens; keyboard
-  // modality is gated the same way the global focus ring is (nav keys vs pointer).
+  // with :focus-visible because one shared outline animates between the pens; the same
+  // useNavModality the global focus ring uses gates keyboard vs pointer.
   const [focusIdx, setFocusIdx] = useState<number | null>(null);
-  const keyboard = useRef(false);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Tab" || e.key.startsWith("Arrow")) keyboard.current = true;
-    };
-    const onPointer = () => {
-      keyboard.current = false;
-    };
-    document.addEventListener("keydown", onKey, true);
-    document.addEventListener("pointerdown", onPointer, true);
-    return () => {
-      document.removeEventListener("keydown", onKey, true);
-      document.removeEventListener("pointerdown", onPointer, true);
-    };
-  }, []);
+  const keyboard = useNavModality();
 
   const selectedIdx = PENS.findIndex((p) => p.id === selected);
 

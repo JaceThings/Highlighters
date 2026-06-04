@@ -8,6 +8,7 @@ import {
   type AnimationPlaybackControls,
 } from "framer-motion";
 import { generatePath } from "@lisse/core";
+import { useNavModality } from "../hooks/useNavModality.ts";
 
 // Persistent squircle ring on the focused `[data-focus-ring]`. Within a
 // `[data-focus-section]` it springs between targets; across groups it cross-
@@ -19,11 +20,6 @@ const SECTION_SELECTOR = "[data-focus-section]";
 const SPRING = { stiffness: 1100, damping: 60, mass: 0.4 };
 const FADE_IN = { duration: 0.18, ease: [0.2, 0, 0, 1] as const };
 const FADE_OUT = { duration: 0.18, ease: [0.4, 0, 0.2, 1] as const };
-
-const NAV_KEYS = new Set([
-  "Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-  "Home", "End", "PageUp", "PageDown",
-]);
 
 export function FocusRingOverlay({
   radius = 14,
@@ -66,7 +62,7 @@ export function FocusRingOverlay({
   const visible = useRef(false);
   const targetRef = useRef<HTMLElement | null>(null);
   const fadeRef = useRef<AnimationPlaybackControls | null>(null);
-  const lastModality = useRef<"keyboard" | "mouse">("mouse");
+  const navKeyboard = useNavModality();
 
   useEffect(() => {
     let fadingOut = false;
@@ -92,7 +88,7 @@ export function FocusRingOverlay({
       const nr =
         hint === "full"
           ? max
-          : hint
+          : hint && !Number.isNaN(Number(hint))
             ? Math.min(Number(hint) + inset, max)
             : Math.min(radius + inset, Math.min(nw, nh) / 2.5);
       return {
@@ -136,7 +132,7 @@ export function FocusRingOverlay({
       if (!t) return;
       // A click flips modality to mouse; the subsequent focusin must hide
       // the ring rather than stranding it at the previous keyboard position.
-      if (lastModality.current !== "keyboard") {
+      if (!navKeyboard.current) {
         hide();
         return;
       }
@@ -194,18 +190,6 @@ export function FocusRingOverlay({
       });
     };
 
-    // Only NAV_KEYS count as keyboard modality; activation keys (Enter/Space/Escape)
-    // would re-trigger the ring on the next programmatic .focus().
-    const onModalityKey = (e: KeyboardEvent) => {
-      if (!NAV_KEYS.has(e.key)) return;
-      // Modifier + arrow is a browser shortcut, not in-page navigation.
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      lastModality.current = "keyboard";
-    };
-    const onModalityPointer = () => {
-      lastModality.current = "mouse";
-    };
-
     // The focused link itself never fades, but a motion.span ancestor can (route exit).
     // Any ancestor below opacity 1 means we're animating out - fade the ring instead of
     // tracking the moving target.
@@ -238,14 +222,10 @@ export function FocusRingOverlay({
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
-    document.addEventListener("keydown", onModalityKey, true);
-    document.addEventListener("pointerdown", onModalityPointer, true);
     return () => {
       cancelAnimationFrame(rafId);
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
-      document.removeEventListener("keydown", onModalityKey, true);
-      document.removeEventListener("pointerdown", onModalityPointer, true);
       fadeRef.current?.stop();
     };
   }, [x, y, w, h, rad, xS, yS, wS, hS, radS, opacity, offsetX, offsetY, radius]);
