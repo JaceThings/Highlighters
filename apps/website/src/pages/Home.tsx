@@ -2,6 +2,7 @@ import { useState } from "react";
 import { InstallCommands } from "../components/InstallCommands.tsx";
 import { Stagger } from "../components/Stagger.tsx";
 import { useDockEntrance } from "../dock-entrance.tsx";
+import { useDocsPrefetch } from "../hooks/useDocsPrefetch.ts";
 import { creditLine, pickNextExcerpt } from "./excerpts.ts";
 
 // The homepage IS the demo: ruled paper with real text - select any line to paint
@@ -24,6 +25,7 @@ const PACKAGES = [
 export function Home() {
   const [excerpt] = useState(pickNextExcerpt);
   const { signalReady } = useDockEntrance();
+  useDocsPrefetch();
 
   return (
     <div className="flex flex-col gap-6 leading-6">

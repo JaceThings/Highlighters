@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Highlight, useHighlight } from "@highlighters/react";
 import type { HighlightOptions, TipType } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
-import { useMarkTypeFade } from "../hooks/useMarkTypeFade.ts";
+import { useMarkTypeSwap } from "../hooks/useMarkTypeSwap.ts";
 import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
 import type { Quote } from "./quotes.ts";
 import { planMarks, type MarkStrategy } from "./quote-marks.ts";
+import { QuoteFrame, buildQuotePieces } from "./quote-render.tsx";
 
 /**
  * The live preview at the top of every docs paper card: a pre-highlighted quote
@@ -26,20 +27,6 @@ interface PreviewProps {
    *  dock pen switches the global nib. */
   lockTipType?: TipType;
 }
-
-// No webfont installed - fall back to a system hand.
-const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
-const QUOTE_INK = "#73574a";
-const QUOTE_STYLE: CSSProperties = {
-  fontFamily: QUOTE_FONT,
-  fontSize: 25,
-  lineHeight: "30px",
-  whiteSpace: "pre-line",
-  hyphens: "none",
-  WebkitHyphens: "none",
-};
-
-const ATTRIBUTION_STYLE: CSSProperties = { fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 };
 
 // Beat held after a card's text has faded in before its marks draw on, so the highlighter
 // reads as marking text that is already there rather than racing it.
@@ -72,74 +59,47 @@ export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
     const c = toCoreOptions(previewOptions);
     return lockTipType ? { ...c, tip: { ...c.tip, type: lockTipType } } : c;
   }, [previewOptions, lockTipType]);
-  // Mark-type changes can't morph smoothly, so cross-fade them (see useMarkTypeFade).
-  const fade = useMarkTypeFade(core.markType ?? "highlight");
+  // A mark-type change can't morph smoothly, so fade the old out and redraw the new (useMarkTypeSwap).
+  const swap = useMarkTypeSwap(core.markType ?? "highlight");
 
-  // The text is byte-identical entered/not, and the mark is an overlay, so the
-  // swap has zero layout shift. `seed` keys each run so overlapping marks don't collide.
-  const renderRun = (children: ReactNode, runOptions: HighlightOptions) =>
-    entered ? (
-      <Highlight as="span" options={runOptions} host={host} key={runOptions.seed}>
+  // Key = seed (so overlapping marks don't collide) + swap.drawKey, so a mark-type change remounts
+  // the run and replays its draw-on. The plain-text branch keeps marks off until the entrance lands.
+  const renderRun = (children: ReactNode, runOptions: HighlightOptions) => {
+    const key = `${runOptions.seed}-${swap.drawKey}`;
+    return entered ? (
+      <Highlight as="span" options={runOptions} host={host} key={key}>
         {children}
       </Highlight>
     ) : (
-      <span key={runOptions.seed}>{children}</span>
+      <span key={key}>{children}</span>
     );
+  };
 
-  // The stack-demo overlap word is ALWAYS painted by a second mark, so toggling
-  // Stack only changes its OPACITY (an in-place update) rather than adding/removing
-  // a node - which would remeasure and replay the outer draw-on. ON: live alpha so
-  // the two passes darken; OFF: 0, flat.
+  // Overlap doubles are always rendered, so the Stack toggle only changes their opacity (an in-place
+  // update) instead of adding/removing nodes and replaying the draw-on. ON: darken; OFF: 0, flat.
   const stacked = previewOptions.stack !== false;
-  const liveOpacity = (core.opacity ?? 0.5) * fade.factor;
+  const liveOpacity = (core.opacity ?? 0.5) * swap.factor;
   const words = quote.text.split(" ");
-  const plan = planMarks(words, strategy);
+  const plan = planMarks(quote, words, strategy);
 
-  // Build the marked quote. Same ranges + stable seeds every render, so a colour change is
-  // an in-place restyle of the existing marks (Highlight -> handle.update), exactly like the
-  // dock's live marker: no second copy, no redraw, no flash.
+  // Stable ranges + seeds every render, so a colour change restyles the existing marks in place
+  // (handle.update) with no redraw or flash, like the dock's live marker.
   const quoteBody = (color: HighlightOptions["color"]) => {
-    const opts: HighlightOptions = { ...core, markType: fade.markType, color, opacity: liveOpacity };
-    const innerMark = (word: string) =>
-      renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 });
-    const pieces: ReactNode[] = [];
-    let i = 0;
-    plan.ranges.forEach(([s, e], ri) => {
-      if (i < s) pieces.push(words.slice(i, s).join(" "));
-      const seg = words.slice(s, e);
-      const ov = plan.overlap != null && plan.overlap >= s && plan.overlap < e ? plan.overlap - s : -1;
-      const body =
-        ov < 0 ? (
-          seg.join(" ")
-        ) : (
-          <>
-            {seg.slice(0, ov).join(" ")}
-            {ov > 0 ? " " : ""}
-            {innerMark(seg[ov])}
-            {ov < seg.length - 1 ? " " : ""}
-            {seg.slice(ov + 1).join(" ")}
-          </>
-        );
-      pieces.push(renderRun(body, { ...opts, seed: 300 + ri }));
-      i = e;
-    });
-    if (i < words.length) pieces.push(words.slice(i).join(" "));
-    return pieces.flatMap((p, idx) => (idx === 0 ? [p] : [" ", p]));
+    const opts: HighlightOptions = { ...core, markType: swap.markType, color, opacity: liveOpacity };
+    return buildQuotePieces(
+      words,
+      plan,
+      (children, seed) => renderRun(children, { ...opts, seed }),
+      (children, seed) => renderRun(children, { ...opts, seed, opacity: stacked ? liveOpacity : 0 }),
+    );
   };
 
   return (
-    <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
-      <div ref={setHost} className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
-        <p className="m-0 text-wrap-pretty" style={QUOTE_STYLE}>
-          {"“"}
-          {quoteBody(core.color)}
-          {"”"}
-        </p>
-        <p className="m-0" style={ATTRIBUTION_STYLE}>
-          {"- " + quote.author}
-        </p>
-      </div>
-    </div>
+    <QuoteFrame hostRef={setHost} author={quote.author}>
+      {"“"}
+      {quoteBody(core.color)}
+      {"”"}
+    </QuoteFrame>
   );
 }
 
@@ -213,19 +173,8 @@ export function SnapPreview({ quote }: { quote: Quote }) {
   useHighlight(range, { ...core, seed: 707 }, host);
 
   return (
-    <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
-      <div
-        ref={hostRef}
-        className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center"
-        style={{ color: QUOTE_INK }}
-      >
-        <p ref={pRef} className="m-0 text-wrap-pretty" style={QUOTE_STYLE}>
-          {full}
-        </p>
-        <p className="m-0" style={ATTRIBUTION_STYLE}>
-          {"- " + quote.author}
-        </p>
-      </div>
-    </div>
+    <QuoteFrame hostRef={hostRef} pRef={pRef} author={quote.author}>
+      {full}
+    </QuoteFrame>
   );
 }

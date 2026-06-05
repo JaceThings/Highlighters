@@ -9,6 +9,7 @@ import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
 import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
 import { ScribbleSwatch, ScribbleLasso } from "../../components/docs/ScribbleSwatch.tsx";
 import { Preview, SnapPreview } from "../Preview.tsx";
+import { StaticQuote } from "../quote-render.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
@@ -224,18 +225,20 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
         description={demo.desc}
       >
         <PaperCard>
-          {seen && quote ? (
-            demo.kind === "pills" && demo.path === "snap" ? (
-              <SnapPreview quote={quote} />
-            ) : (
-              <Preview
-                quote={quote}
-                strategy={strategyFor(demo.title)}
-                lockTipType={demo.kind === "slider" && demo.path === "tip.angle" ? "chisel" : undefined}
-              />
-            )
-          ) : (
+          {/* StaticQuote reserves the marked Preview's exact height, so when the marks mount the
+              card never resizes (which would re-rasterize the paper/scribble SVGs). */}
+          {quote == null ? (
             <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
+          ) : !seen ? (
+            <StaticQuote quote={quote} />
+          ) : demo.kind === "pills" && demo.path === "snap" ? (
+            <SnapPreview quote={quote} />
+          ) : (
+            <Preview
+              quote={quote}
+              strategy={strategyFor(demo.title)}
+              lockTipType={demo.kind === "slider" && demo.path === "tip.angle" ? "chisel" : undefined}
+            />
           )}
           {demo.kind === "slider" ? (
             <ScribbleSliderControl demo={demo} />
