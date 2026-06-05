@@ -10,7 +10,7 @@ export function MobileDock() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
-    <div
+    <nav
       className="pointer-events-none fixed inset-x-0 z-50 flex select-none justify-center px-3"
       style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}
       aria-label="Navigation"
@@ -30,6 +30,6 @@ export function MobileDock() {
         <DockNav pathname={pathname} className="pl-[28px]" />
         <DockLinks className="pr-[28px]" />
       </m.div>
-    </div>
+    </nav>
   );
 }

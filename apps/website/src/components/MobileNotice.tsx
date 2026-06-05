@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SmoothCorners } from "@lisse/react";
 import { useIsTouchDevice } from "../hooks/useIsTouchDevice.ts";
@@ -83,6 +83,7 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const isTouch = useIsTouchDevice();
   const [mounted, setMounted] = useState(false); // present in the DOM (through enter/exit)
   const [open, setOpen] = useState(false); // animation target
+  const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (!isTouch || isNoticeDismissed()) return;
@@ -91,13 +92,14 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
     return () => cancelAnimationFrame(id);
   }, [isTouch]);
 
-  // Lock background scroll while the sheet is up.
+  // Lock background scroll while the sheet is up; clear a pending exit timer on unmount.
   useEffect(() => {
     if (!mounted) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
+      clearTimeout(exitTimer.current);
     };
   }, [mounted]);
 
@@ -110,7 +112,7 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const dismiss = () => {
     markNoticeDismissed();
     setOpen(false);
-    setTimeout(() => {
+    exitTimer.current = setTimeout(() => {
       setMounted(false);
       onDismissed?.(); // hand off to the mobile dock once the sheet has slid away
     }, EXIT_MS);
