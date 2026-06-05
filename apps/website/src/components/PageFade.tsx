@@ -3,6 +3,7 @@ import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useRef, type ComponentType } from "react";
 import { Home } from "../pages/Home.tsx";
 import { Docs } from "../pages/Docs.tsx";
+import { EntranceEpoch } from "./Stagger.tsx";
 
 // Cross-fades the page text on navigation; the shell stays mounted outside the fade.
 //
@@ -44,7 +45,10 @@ export function PageFade() {
         animate="animate"
         exit="exit"
       >
-        <Page />
+        {/* Fresh cascade anchor per navigation, so each page staggers in on arrival. */}
+        <EntranceEpoch>
+          <Page />
+        </EntranceEpoch>
       </m.div>
     </AnimatePresence>
   );

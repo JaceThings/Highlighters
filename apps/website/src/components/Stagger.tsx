@@ -27,8 +27,17 @@ interface StaggerProps {
 
 const ENTRANCE_BLUR_PX = 4;
 
-// Cascade timing anchor, captured once so later navigations skip the cascade.
+// Cascade timing anchor. The module-load default is the cold-load page; each page resets it via
+// <EntranceEpoch> on mount, so a page cascades when it is navigated to - not only on first load
+// (otherwise `now` is long past every target by the time you reach a later page, and all skip).
 const APP_MOUNT_MS = performance.now();
+export const EntranceEpochContext = createContext(APP_MOUNT_MS);
+
+/** Anchor the cascade for the subtree to this mount, so its Staggers play on (re)visit. */
+export function EntranceEpoch({ children }: { children: ReactNode }) {
+  const epoch = useRef(performance.now()).current;
+  return <EntranceEpochContext.Provider value={epoch}>{children}</EntranceEpochContext.Provider>;
+}
 
 // Only skip after first paint - otherwise a slow bundle parse pushes `now` past the targets
 // and suppresses the cascade. Double-rAF = the frame after first paint.
@@ -64,15 +73,16 @@ function useStaggerEntrance({
   // Lock readiness at mount so a late asset (false→true) still plays a fresh fade rather
   // than tripping the skip shortcut.
   const wasReadyAtMount = useRef(ready).current;
+  const epoch = use(EntranceEpochContext);
 
   const { skip, delay } = useMemo(() => {
-    const targetMs = APP_MOUNT_MS + (INITIAL_DELAY + index * STEP) * 1000;
+    const targetMs = epoch + (INITIAL_DELAY + index * STEP) * 1000;
     const now = performance.now();
     return {
       skip: hasFirstPainted && targetMs <= now && wasReadyAtMount,
       delay: Math.max(0, (targetMs - now) / 1000),
     };
-  }, [index, wasReadyAtMount, ready]);
+  }, [index, wasReadyAtMount, ready, epoch]);
 
   const initial = skip
     ? (false as const)
