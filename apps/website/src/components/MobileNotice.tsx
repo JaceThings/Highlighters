@@ -77,9 +77,8 @@ function MacScreen() {
   );
 }
 
-// A one-time, Apple-sheet-style heads-up on touch devices: the live demo (select-to-paint + the
-// pen dock) is built for a desktop pointer. The sheet's top corners follow the device's own screen
-// corner radius (see device-radius) so the curve language matches the hardware. Dismissal persists.
+// A one-time, dismissible Apple-sheet heads-up on touch devices: the live demo (select-to-paint and
+// the pen dock) needs a desktop pointer. Top corners follow the device screen radius (device-radius).
 export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const isTouch = useIsTouchDevice();
   const [mounted, setMounted] = useState(false); // present in the DOM (through enter/exit)
