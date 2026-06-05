@@ -26,6 +26,17 @@
   src: url("/fonts/InterVariable.woff2") format("woff2");
 }
 
+/* The handwriting face for the docs quotes. Self-hosted so it renders everywhere:
+ * Safari's anti-fingerprinting blocks locally-installed fonts referenced by name, so a
+ * bare font-family fell back to a system hand there. */
+@font-face {
+  font-family: "Letters Home";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/letters-home.woff2") format("woff2");
+}
+
 /* Tokens lifted from Figma file f6JlgIPQFMFIJSpiJbviOG. */
 
 @theme {
