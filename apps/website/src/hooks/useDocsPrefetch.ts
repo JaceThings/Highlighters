@@ -25,7 +25,10 @@ export function useDocsPrefetch(): void {
 }
 
 function prefetchImage(href: string): void {
-  if (document.head.querySelector(`link[rel="prefetch"][href="${href}"]`)) return;
+  // Dedupe by comparing resolved URLs rather than interpolating href into a selector.
+  const url = new URL(href, location.href).href;
+  const already = [...document.head.querySelectorAll<HTMLLinkElement>('link[rel="prefetch"]')];
+  if (already.some((l) => l.href === url)) return;
   const link = document.createElement("link");
   link.rel = "prefetch";
   link.as = "image";
