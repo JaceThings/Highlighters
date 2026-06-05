@@ -5,14 +5,23 @@ import { LazyMotion, MotionConfig } from "framer-motion";
 // components; the feature chunk (motion-features.ts) loads on demand.
 const loadMotionFeatures = () => import("./lib/motion-features.ts").then((m) => m.default);
 import { Dock } from "./components/dock/Dock.tsx";
+import { MobileDock } from "./components/dock/MobileDock.tsx";
 import { FocusRingOverlay } from "./components/FocusRingOverlay.tsx";
 import { Layout } from "./components/Layout.tsx";
-import { MobileNotice } from "./components/MobileNotice.tsx";
+import { MobileNotice, DISMISSED_KEY } from "./components/MobileNotice.tsx";
 import { PageFade } from "./components/PageFade.tsx";
 import { SelectionMarker } from "./components/SelectionMarker.tsx";
 import { SelectionStyleProvider } from "./selection-style.tsx";
 import { DockEntranceContext } from "./dock-entrance.tsx";
 import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
+
+function noticeAlreadyDismissed(): boolean {
+  try {
+    return localStorage.getItem(DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 // The agentation dev-feedback toolbar, dev only.
 function DevAgentation() {
@@ -46,6 +55,9 @@ export function RootLayout() {
   // The marker demo (the dock + select-to-paint) is pointer-driven, so the dock is dropped on
   // touch devices; the MobileNotice sheet explains why.
   const isTouch = useIsTouchDevice();
+  // On touch, the trimmed MobileDock replaces the pen dock; it appears once the MobileNotice
+  // sheet is dismissed (or immediately on a return visit where it already was).
+  const [mobileDockShown, setMobileDockShown] = useState(noticeAlreadyDismissed);
   // The dock holds its entrance until the page signals; the timer is the fallback
   // for routes with no cascade.
   const [dockReady, setDockReady] = useState(false);
@@ -69,7 +81,8 @@ export function RootLayout() {
             <FocusRingOverlay />
             <SelectionMarker />
             {!isTouch && <Dock />}
-            <MobileNotice />
+            <MobileNotice onDismissed={() => setMobileDockShown(true)} />
+            {isTouch && mobileDockShown && <MobileDock />}
             <DevAgentation />
             <DevOutlineDials />
           </DockEntranceContext.Provider>
