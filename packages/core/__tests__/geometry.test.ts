@@ -772,16 +772,21 @@ describe("buildMarkGeometry", () => {
     expect(g.clipPath.startsWith(mid.slice(0, 12))).toBe(true);
   });
 
-  it("samples the mask by per-seed offset (never scaled)", () => {
+  it("samples the mask by per-seed offset (never scaled), capped so the repeat seam clears the band", () => {
     const seed = 1729;
     const g = buildMarkGeometry(makeLineRect({ seed }), makeOptions(), seed);
-    const tileW = g.noiseTile.width;
-    const tileH = g.noiseTile.height;
-    expect(g.maskOffset.x).toBe(-(((seed * 37) % tileW + tileW) % tileW));
-    expect(g.maskOffset.y).toBe(-(((seed * 13) % tileH + tileH) % tileH));
-    // Offsets are within one tile (a slide of the window, not a scale).
-    expect(g.maskOffset.x).toBeGreaterThan(-tileW);
+    // Deterministic per seed (a slide of the window, not a scale), within one tile.
+    const again = buildMarkGeometry(makeLineRect({ seed }), makeOptions(), seed);
+    expect(g.maskOffset.x).toBe(again.maskOffset.x);
+    expect(g.maskOffset.y).toBe(again.maskOffset.y);
+    expect(g.maskOffset.x).toBeGreaterThan(-g.noiseTile.width);
     expect(g.maskOffset.x).toBeLessThanOrEqual(0);
+    expect(g.maskOffset.y).toBeGreaterThan(-g.noiseTile.height);
+    expect(g.maskOffset.y).toBeLessThanOrEqual(0);
+    // The offset is small relative to the (fixed, wide) tile, so the mask-repeat boundary
+    // (tileWidth - |offset|) lands well past any normal band - no in-band vertical seam in
+    // WebKit, which hairlines mask tile edges. Bands up to ~800px stay seam-free.
+    expect(g.noiseTile.width + g.maskOffset.x).toBeGreaterThan(800);
   });
 
   it("V9e — same logical mark at two widths shares wavelength, grain & pool px", () => {

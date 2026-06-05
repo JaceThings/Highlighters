@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PALETTES } from "@highlighters/core";
-import type { PaletteSwatch, ShapeType } from "@highlighters/core";
-import { SmoothCorners } from "@lisse/react";
+import type { ShapeType } from "@highlighters/core";
+import { AnimatePresence, m } from "framer-motion";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
 import { fmt2, fmtPx } from "../../components/playground/slider-utils.ts";
 import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
 import { ScribbleFill } from "../../components/docs/ScribbleFill.tsx";
+import { ScribbleSwatch, ScribbleLasso } from "../../components/docs/ScribbleSwatch.tsx";
 import { Preview, SnapPreview } from "../Preview.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
@@ -86,66 +86,72 @@ type Demo =
   | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
   | (Base & { kind: "color" });
 
-const SWATCH_REFS: ReadonlyArray<PaletteSwatch> = [
-  { palette: "fluorescent", swatch: "yellow" },
-  { palette: "fluorescent", swatch: "green" },
-  { palette: "fluorescent", swatch: "orange" },
-  { palette: "fluorescent", swatch: "pink" },
-  { palette: "fluorescent", swatch: "blue" },
-  { palette: "fluorescent", swatch: "purple" },
-  { palette: "mild", swatch: "yellow" },
-  { palette: "mild", swatch: "green" },
-  { palette: "mild", swatch: "blue" },
-  { palette: "mild", swatch: "pink" },
-  { palette: "mild", swatch: "orange" },
-  { palette: "mild", swatch: "purple" },
+// The designer's six highlighter inks (from Figma), ordered warm -> cool for the row.
+const SWATCH_COLORS = [
+  { id: "yellow", label: "Yellow", hex: "#f7d054" },
+  { id: "orange", label: "Orange", hex: "#f4b460" },
+  { id: "pink", label: "Pink", hex: "#ed78ab" },
+  { id: "blue", label: "Blue", hex: "#7dd4fb" },
+  { id: "green", label: "Green", hex: "#c6dfb6" },
+  { id: "slate", label: "Slate", hex: "#b2cede" },
 ];
-const SWATCH_CHIPS = SWATCH_REFS.map((ref) => ({
-  ref,
-  key: `${ref.palette}-${ref.swatch}`,
-  hex: PALETTES[ref.palette].swatches[ref.swatch],
+const SWATCH_CHIPS = SWATCH_COLORS.map((c) => ({
+  ...c,
+  // Stable per-swatch seed so each blob keeps its own hand-drawn scribble across renders.
+  seed: [...c.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7),
 }));
+
+const BLOB_PX = 33;
+const LASSO_PX = 64; // notably larger than the blob so the lasso rings it with a clear gap
 
 function SwatchPicker() {
   const { options, set } = usePlaygroundOptions();
   const color = options.color;
   // The shared colour is a hex, so match swatches by resolved hex (a swatch picked here and
-  // a hex picked in the dock both light the matching ring).
-  const activeHex = useMemo(() => colorToHex(color, "#fff14d"), [color]).toLowerCase();
+  // a hex picked in the dock both ring the matching swatch).
+  const activeHex = useMemo(() => colorToHex(color, "#f7d054"), [color]).toLowerCase();
+  // Bump on each pick so the lasso rings a freshly hand-drawn circle every selection. Seeded
+  // deterministically (not Math.random) so it's stable across strict-mode double-invokes.
+  const [lassoSeed, setLassoSeed] = useState(() => SWATCH_CHIPS[0].seed * 31);
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Color swatch"
-      className="flex w-full flex-wrap content-center items-center justify-center gap-3 px-4 py-5"
-    >
-      {SWATCH_CHIPS.map(({ ref, key, hex }) => {
-          const selected = hex.toLowerCase() === activeHex;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              aria-label={`${ref.palette} ${ref.swatch}`}
-              data-focus-ring
-              onClick={() => !selected && set("color", ref)}
-              className="cursor-pointer p-1.5 -m-1.5 select-none"
-            >
-              <SmoothCorners asChild autoEffects={false} corners={{ radius: 8, smoothing: 0.6 }}>
-                <span
-                  className="block h-7 w-7 transition-[box-shadow] duration-[350ms] [transition-timing-function:cubic-bezier(0.32,0.72,0,1)]"
-                  style={{
-                    backgroundColor: hex,
-                    boxShadow: selected
-                      ? "inset 0 0 0 1.5px rgba(126,117,108,0.55), 0 0 0 3px rgba(126,117,108,0.18)"
-                      : "inset 0 0 0 1px rgba(126,117,108,0.18)",
-                  }}
-                />
-              </SmoothCorners>
-            </button>
-          );
-        })}
+    <div role="radiogroup" aria-label="Color swatch" className="flex items-center gap-2 px-4 py-5">
+      {SWATCH_CHIPS.map(({ id, label, seed, hex }) => {
+        const selected = hex.toLowerCase() === activeHex;
+        return (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={label}
+            data-focus-ring
+            data-focus-radius="full"
+            onClick={() => {
+              if (selected) return;
+              set("color", hex);
+              setLassoSeed((s) => s + 1);
+            }}
+            className={`relative flex flex-1 select-none items-center justify-center ${selected ? "cursor-default" : "cursor-pointer"}`}
+          >
+            <span className="relative block" style={{ width: BLOB_PX, height: BLOB_PX }}>
+              <ScribbleSwatch hex={hex} seed={seed} size={BLOB_PX} />
+              <AnimatePresence>
+                {selected && (
+                  <m.span
+                    key={lassoSeed}
+                    className="pointer-events-none absolute top-1/2 left-1/2"
+                    style={{ width: LASSO_PX, height: LASSO_PX, x: "-50%", y: "-50%" }}
+                    exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                  >
+                    <ScribbleLasso seed={lassoSeed} size={LASSO_PX} />
+                  </m.span>
+                )}
+              </AnimatePresence>
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -205,7 +211,7 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   const { ref, seen } = useSeen();
   // The `snap` demo swaps in a Range-based preview so the boundary clamp shows.
   return (
-    <div ref={ref}>
+    <div ref={ref} className="cv-demo">
       <Section
         title={
           <>

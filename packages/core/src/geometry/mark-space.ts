@@ -39,6 +39,15 @@ const SEED_ANGLE = 400;
 
 const MASK_X_MULT = 37;
 const MASK_Y_MULT = 13;
+// A fixed (width-invariant) noise tile so a mark's grain never shimmers when it reflows to a
+// different width. It is wide enough that the per-line sample offset's mask-repeat seam clears
+// any normal band: WebKit draws a hairline at mask tile edges, and with the old 256px tile that
+// seam landed inside the band (the visible vertical lines). The offsets are taken modulo a small
+// headroom (<< the tile), so the wrap stays past the band's right/bottom edge.
+const NOISE_TILE_W = 1024;
+const NOISE_TILE_H = 64;
+const MASK_OFFSET_X = 96;
+const MASK_OFFSET_Y = 16;
 
 /** A non-negative modulo (JS `%` keeps the sign of the dividend). */
 function mod(n: number, m: number): number {
@@ -180,6 +189,8 @@ export function buildMarkGeometry(
   const baseStreak = ink.streakiness;
   const baseFeather = ink.feathering + paper.absorbency * 0.25;
   const noiseTile: NoiseTile = buildNoiseTile({
+    width: NOISE_TILE_W,
+    height: NOISE_TILE_H,
     seed,
     streakiness: sp
       ? clamp(baseStreak + speed.streakBoost * sens * m * Math.max(0, 1 - baseStreak), 0, 1)
@@ -189,9 +200,10 @@ export function buildMarkGeometry(
       ? clamp(baseDryout + speed.dryoutBoost * sens * m * Math.max(0, 1 - baseDryout), 0, 1)
       : baseDryout,
   });
+  // Offsets capped to the headroom so the wrap stays past the band's right/bottom edge.
   const maskOffset: MaskOffset = {
-    x: -mod(seed * MASK_X_MULT, noiseTile.width),
-    y: -mod(seed * MASK_Y_MULT, noiseTile.height),
+    x: -mod(seed * MASK_X_MULT, MASK_OFFSET_X),
+    y: -mod(seed * MASK_Y_MULT, MASK_OFFSET_Y),
   };
 
   const pool = buildPoolGradient({
