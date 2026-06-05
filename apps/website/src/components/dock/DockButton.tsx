@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.tsx";
+
+const GITHUB_URL = "https://github.com/JaceThings/highlighters";
+const FOLLOW_URL = "https://ja.mt";
 
 const CLASSES =
   "flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#efeeed] text-[#7e756c] transition-[background-color,transform] duration-200 ease-out-quint hover:bg-[#e6e4e1] active:scale-[0.96]";
 
 /** Tool-tray button: `to` renders a router Link, `href` an external anchor, else a
- *  plain button - all share one style. */
-export function DockButton({
+ *  plain button - all share one style. The dock groups below are the public surface. */
+function DockButton({
   children,
   label,
   active,
@@ -69,5 +73,33 @@ export function DockButton({
     >
       {glyph}
     </button>
+  );
+}
+
+/** The Home / Docs route buttons, shared by the desktop and mobile docks. */
+export function DockNav({ pathname, className }: { pathname: string; className?: string }) {
+  return (
+    <nav className={`flex items-center gap-[12px] ${className ?? ""}`}>
+      <DockButton to="/" label="Home" active={pathname === "/"}>
+        <HomeIcon />
+      </DockButton>
+      <DockButton to="/docs" label="Docs" active={pathname === "/docs"}>
+        <BookIcon />
+      </DockButton>
+    </nav>
+  );
+}
+
+/** The GitHub / follow external-link buttons, shared by the desktop and mobile docks. */
+export function DockLinks({ className }: { className?: string }) {
+  return (
+    <div className={`flex items-center gap-[12px] ${className ?? ""}`}>
+      <DockButton label="Star" href={GITHUB_URL}>
+        <StarIcon />
+      </DockButton>
+      <DockButton label="Follow" href={FOLLOW_URL}>
+        <PersonIcon />
+      </DockButton>
+    </div>
   );
 }

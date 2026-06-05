@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="icon" href="data:," />
+    <title>device-radius</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0c0e;
+        --panel: #15171b;
+        --panel-2: #1c1f24;
+        --line: #2a2e35;
+        --ink: #e7e9ec;
+        --muted: #8b929c;
+        --accent: #6ea8fe;
+        --green: #43d17a;
+        --yellow: #e6b450;
+        --red: #ef6f6f;
+        --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+        --spring: cubic-bezier(0.32, 0.72, 0, 1);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        padding: 40px 20px 120px;
+      }
+      .wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+      h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+      h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 14px; }
+      .sub { color: var(--muted); margin: 6px 0 0; font-size: 14px; max-width: 60ch; }
+      a { color: var(--accent); }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+      .grid { display: grid; gap: 20px; grid-template-columns: 1fr 1fr; }
+      @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+
+      /* Readout */
+      .readout { font-family: var(--mono); font-size: 13px; display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; }
+      .readout dt { color: var(--muted); }
+      .readout dd { margin: 0; color: var(--ink); }
+      .badge { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid; }
+      .badge.exact { color: var(--green); border-color: color-mix(in oklab, var(--green), transparent 65%); background: color-mix(in oklab, var(--green), transparent 90%); }
+      .badge.high { color: var(--green); border-color: color-mix(in oklab, var(--green), transparent 65%); background: color-mix(in oklab, var(--green), transparent 90%); }
+      .badge.low { color: var(--red); border-color: color-mix(in oklab, var(--red), transparent 60%); background: color-mix(in oklab, var(--red), transparent 90%); }
+      .note { color: var(--yellow); font-size: 12.5px; font-family: var(--mono); margin-top: 12px; line-height: 1.55; }
+
+      /* Sim buttons */
+      .sims { display: flex; flex-wrap: wrap; gap: 8px; }
+      button.sim, button.ghost {
+        font-family: var(--mono); font-size: 12px; cursor: pointer; color: var(--ink);
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 11px;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      button.sim:hover, button.ghost:hover { border-color: var(--accent); }
+      button.sim small { color: var(--muted); }
+
+      /* Component previews */
+      .stage { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; min-height: 150px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+      .toast { background: #23262c; border: 1px solid var(--line); color: var(--ink); padding: 12px 14px; font-size: 13px; display: flex; gap: 10px; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,0.35); border-radius: var(--device-radius-sm, 12px); }
+      .modal { background: #23262c; border: 1px solid var(--line); padding: 18px; width: 78%; box-shadow: 0 12px 40px rgba(0,0,0,0.4); border-radius: var(--device-radius-md, 18px); }
+      .modal h3 { margin: 0 0 6px; font-size: 14px; }
+      .modal p { margin: 0; color: var(--muted); font-size: 12.5px; }
+
+      /* Bottom drawer preview (inside a phone frame) */
+      .phone-stage { position: relative; height: 360px; display: flex; justify-content: center; }
+      .phone {
+        position: relative; width: 190px; height: 100%; background: #050608; overflow: hidden;
+        border: 6px solid #2a2e35; border-radius: 42px;
+      }
+      .phone .screen-rounding { position: absolute; inset: 0; pointer-events: none; }
+      .drawer {
+        position: absolute; left: 0; right: 0; bottom: 0; background: #23262c; border-top: 1px solid var(--line);
+        padding: 14px 16px calc(16px + 8px); transform: translateY(110%); transition: transform 0.5s var(--spring);
+        border-top-left-radius: var(--device-screen-radius, 24px); border-top-right-radius: var(--device-screen-radius, 24px);
+      }
+      .drawer.open { transform: translateY(0); }
+      .drawer .grab { width: 34px; height: 4px; border-radius: 3px; background: #4a505a; margin: 0 auto 12px; }
+      .drawer h3 { margin: 0 0 4px; font-size: 13px; }
+      .drawer p { margin: 0; font-size: 11.5px; color: var(--muted); }
+
+      /* Nested radius diagram */
+      .diagram { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+      .legend { font-family: var(--mono); font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; }
+      .legend b { color: var(--ink); }
+      .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+      pre { background: #0e0f12; border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow: auto; font-family: var(--mono); font-size: 12px; color: #cdd2da; margin: 0; }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>device-radius</h1>
+        <p class="sub">
+          Apple strips the model from the iPhone UA and never exposes the screen corner radius to the
+          web. This infers it from viewport + DPR + iOS version, returns a value in CSS px (= pt on
+          iOS), and flags how sure it is. Use it to round drawers, toasts, and sheets to match the
+          hardware.
+        </p>
+      </header>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Detected device</h2>
+          <dl class="readout" id="readout"></dl>
+          <p class="note" id="note"></p>
+        </section>
+
+        <section class="panel">
+          <h2>Simulate a device</h2>
+          <p class="sub" style="margin-bottom: 14px">
+            Override detection in this desktop browser. Each button sets <code>window.__simulatedViewport</code>.
+          </p>
+          <div class="sims" id="sims"></div>
+        </section>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Toast &middot; --device-radius-sm</h2>
+          <div class="stage">
+            <div class="toast"><span style="color: var(--green)">&#10003;</span> Saved to your library</div>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Modal &middot; --device-radius-md</h2>
+          <div class="stage">
+            <div class="modal"><h3>Delete project?</h3><p>This can't be undone. Everything inside it goes too.</p></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2>Bottom drawer &middot; --device-screen-radius (top corners), 0 (bottom)</h2>
+        <div class="row" style="margin-bottom: 16px">
+          <p class="sub" style="margin: 0">A sheet flush with the screen bottom; top corners follow the device radius.</p>
+          <button class="ghost" id="drawerToggle">Toggle drawer</button>
+        </div>
+        <div class="phone-stage">
+          <div class="phone">
+            <div class="drawer" id="drawer">
+              <div class="grab"></div>
+              <h3>Bottom sheet</h3>
+              <p>Top corners use the live screen radius. Slide spring matches iOS.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Nested radius</h2>
+        <p class="sub" style="margin-bottom: 18px">
+          A UI element inset from the screen edge should round to
+          <code>innerRadius(screen, inset) = max(0, screen &minus; inset)</code> so its curve stays concentric.
+        </p>
+        <div class="diagram">
+          <svg id="diagram" width="200" height="300" viewBox="0 0 200 300" aria-label="Phone with nested drawer radius"></svg>
+          <div class="legend" id="legend"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="row">
+          <h2 style="margin: 0">Raw result</h2>
+          <button class="ghost" id="jsonToggle">Show JSON</button>
+        </div>
+        <pre id="json" hidden></pre>
+      </section>
+    </div>
+
+    <script type="module">
+      import { detectDeviceRadius, innerRadius, applyRadiusTokens } from "./deviceRadius.js";
+
+      const SIMS = [
+        { label: "Real device", reset: true },
+        { label: "SE", sub: "375×667 @2", w: 375, h: 667, dpr: 2, ios: 16 },
+        { label: "11 Pro", sub: "375×812 @3 · iOS 13", w: 375, h: 812, dpr: 3, ios: 13 },
+        { label: "13 mini", sub: "375×812 @3 · iOS 16", w: 375, h: 812, dpr: 3, ios: 16 },
+        { label: "14", sub: "390×844 @3 · iOS 16", w: 390, h: 844, dpr: 3, ios: 16 },
+        { label: "15 / 16 (ambiguous)", sub: "390×844 @3 · iOS 18", w: 390, h: 844, dpr: 3, ios: 18 },
+        { label: "15 Pro", sub: "393×852 @3", w: 393, h: 852, dpr: 3, ios: 18 },
+        { label: "13 Pro Max", sub: "428×926 @3", w: 428, h: 926, dpr: 3, ios: 17 },
+        { label: "16 Pro", sub: "402×874 @3", w: 402, h: 874, dpr: 3, ios: 18 },
+        { label: "17 Pro Max", sub: "440×956 @3", w: 440, h: 956, dpr: 3, ios: 19 },
+      ];
+
+      const readout = document.getElementById("readout");
+      const noteEl = document.getElementById("note");
+      const jsonEl = document.getElementById("json");
+      const legendEl = document.getElementById("legend");
+      const diagram = document.getElementById("diagram");
+
+      function render() {
+        applyRadiusTokens();
+        const r = detectDeviceRadius();
+        const badgeWhy =
+          r.confidence === "low"
+            ? `title="${(r.note || "Several models share this viewport.").replace(/"/g, "'")}"`
+            : "";
+        readout.innerHTML = `
+          <dt>iPhone</dt><dd>${r.isIphone}</dd>
+          <dt>viewport</dt><dd>${r.viewport.w} × ${r.viewport.h}</dd>
+          <dt>dpr</dt><dd>${r.viewport.dpr}</dd>
+          <dt>iOS</dt><dd>${r.iosVersion ?? "—"}</dd>
+          <dt>tier</dt><dd>${r.tier}</dd>
+          <dt>radius</dt><dd><b>${r.screenCornerRadius}px</b></dd>
+          <dt>confidence</dt><dd><span class="badge ${r.confidence}" ${badgeWhy}>${r.confidence}</span></dd>
+        `;
+        noteEl.textContent = r.note || "";
+        noteEl.style.display = r.note ? "block" : "none";
+        jsonEl.textContent = JSON.stringify(r, null, 2);
+
+        const inset = 16;
+        const inner = innerRadius(r.screenCornerRadius, inset);
+        legendEl.innerHTML = `
+          <div><span class="swatch" style="background:#6ea8fe"></span><b>screen</b> ${r.screenCornerRadius}px</div>
+          <div><span class="swatch" style="background:#43d17a"></span><b>inset</b> ${inset}px</div>
+          <div><span class="swatch" style="background:#e6b450"></span><b>inner</b> ${inner}px <small>= max(0, ${r.screenCornerRadius} − ${inset})</small></div>
+        `;
+        drawDiagram(r.screenCornerRadius, inset, inner, r.viewport.w || 393);
+      }
+
+      // Geometric diagram: phone at the device's true proportions, radius to scale.
+      function drawDiagram(screenR, inset, innerR, deviceW) {
+        const W = 180, H = 280, x = 10, y = 10;
+        const k = W / deviceW; // px-per-pt in the diagram
+        const rx = Math.min(W / 2, screenR * k);
+        const pad = inset * k;
+        const ix = x + pad, iy = y + 150, iw = W - pad * 2, ih = H - 150 - pad;
+        const irx = Math.min(iw / 2, innerR * k);
+        diagram.innerHTML = `
+          <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="${rx}" ry="${rx}" fill="#0e0f12" stroke="#6ea8fe" stroke-width="2"/>
+          <rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="${irx}" ry="${irx}" fill="#1c1f24" stroke="#e6b450" stroke-width="1.5"/>
+          <text x="${x + W / 2}" y="${y + 26}" fill="#6ea8fe" font-size="11" font-family="monospace" text-anchor="middle">screen ${screenR}px</text>
+          <text x="${x + W / 2}" y="${iy + 22}" fill="#e6b450" font-size="11" font-family="monospace" text-anchor="middle">inner ${innerR}px</text>
+        `;
+      }
+
+      // Simulate buttons
+      const simsEl = document.getElementById("sims");
+      for (const s of SIMS) {
+        const b = document.createElement("button");
+        b.className = "sim";
+        b.innerHTML = s.sub ? `${s.label}<br><small>${s.sub}</small>` : s.label;
+        b.addEventListener("click", () => {
+          if (s.reset) delete window.__simulatedViewport;
+          else window.__simulatedViewport = { w: s.w, h: s.h, dpr: s.dpr, ios: s.ios };
+          render();
+        });
+        simsEl.appendChild(b);
+      }
+
+      // Drawer toggle
+      const drawer = document.getElementById("drawer");
+      document.getElementById("drawerToggle").addEventListener("click", () => drawer.classList.toggle("open"));
+      setTimeout(() => drawer.classList.add("open"), 350);
+
+      // JSON toggle
+      const jsonBtn = document.getElementById("jsonToggle");
+      jsonBtn.addEventListener("click", () => {
+        const hidden = jsonEl.hasAttribute("hidden");
+        if (hidden) jsonEl.removeAttribute("hidden");
+        else jsonEl.setAttribute("hidden", "");
+        jsonBtn.textContent = hidden ? "Hide JSON" : "Show JSON";
+      });
+
+      render();
+    </script>
+  </body>
+</html>

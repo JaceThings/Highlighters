@@ -4,10 +4,9 @@ import { useRouterState } from "@tanstack/react-router";
 import { CapsuleBackground } from "./CapsuleBackground.tsx";
 import { ColorPalette } from "./ColorPalette.tsx";
 import { ColorPickerPopover } from "./ColorPickerPopover.tsx";
-import { DockButton } from "./DockButton.tsx";
+import { DockNav, DockLinks } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
 import { MarkerPopover } from "./MarkerPopover.tsx";
-import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.tsx";
 import { useSelectionStyle, type PenTip } from "../../selection-style.tsx";
 import { useDockEntrance } from "../../dock-entrance.tsx";
 import { DOCK_H } from "./constants.ts";
@@ -141,14 +140,7 @@ export function Dock() {
         <CapsuleBackground />
 
         <div className="relative flex h-full items-center gap-[32px]">
-          <nav className="flex items-center gap-[12px] pr-[25px] pl-[32px]">
-            <DockButton to="/" label="Home" active={pathname === "/"}>
-              <HomeIcon />
-            </DockButton>
-            <DockButton to="/docs" label="Docs" active={pathname === "/docs"}>
-              <BookIcon />
-            </DockButton>
-          </nav>
+          <DockNav pathname={pathname} className="pr-[25px] pl-[32px]" />
 
           <div className="flex h-full items-center gap-[40px]">
             <div className="flex h-full items-end">
@@ -167,14 +159,7 @@ export function Dock() {
             />
           </div>
 
-          <div className="flex items-center gap-[12px] pr-[32px]">
-            <DockButton label="Star" href="https://github.com/JaceThings/highlighters">
-              <StarIcon />
-            </DockButton>
-            <DockButton label="Follow" href="https://ja.mt">
-              <PersonIcon />
-            </DockButton>
-          </div>
+          <DockLinks className="pr-[32px]" />
         </div>
 
         <div
