@@ -2,9 +2,10 @@ import { useId, useMemo, type CSSProperties, type ReactNode } from "react";
 import paperBg from "./paperBg.ts";
 import { IS_WEBKIT } from "./is-webkit.ts";
 
-// The paper sheet. Authored at 561×313 with shadow bleed around a 510×288 sheet: sized to 110%
-// wide and stretched to the card's full height, so the sheet always covers the content even when
-// the card is narrower-and-taller than the artwork's aspect (e.g. on mobile).
+// The paper sheet. Authored at 561×313: a 510×288 sheet at the top with shadow bleed (≈25px) below
+// it. Sized 110% wide and 313/288 of the card height, so the sheet region covers the card exactly
+// at any aspect (the bleed hangs below) - on mobile the card is narrower-and-taller than the
+// artwork, which the old fixed aspect didn't cover.
 //
 // Engine split: the artwork is a live SVG (paths + filters in the page DOM) on Blink/Gecko,
 // which rasterise it once and hold 60fps. WebKit can't cache the filter chain (feTurbulence +
@@ -34,14 +35,16 @@ export function PaperCard({
       {IS_WEBKIT ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 -z-10 h-full -translate-x-1/2 bg-[length:100%_100%] bg-no-repeat"
-          style={{ width: "110%", backgroundImage: "url(/paper-sheet.webp)" }}
+          className="pointer-events-none absolute left-1/2 top-0 -z-10 -translate-x-1/2 bg-[length:100%_100%] bg-no-repeat"
+          // Height is 313/288 of the card so the artwork's 288-tall sheet region covers the card
+          // exactly and its bottom shadow bleed (the remaining 25 of 313) hangs below it.
+          style={{ width: "110%", height: "calc(100% * 313 / 288)", backgroundImage: "url(/paper-sheet.webp)" }}
         />
       ) : (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 -z-10 h-full -translate-x-1/2"
-          style={{ width: "110%", maxWidth: "none" }}
+          className="pointer-events-none absolute left-1/2 top-0 -z-10 -translate-x-1/2"
+          style={{ width: "110%", height: "calc(100% * 313 / 288)", maxWidth: "none" }}
           // The SVG markup is our own build artifact (paperBg.ts), not user input.
           dangerouslySetInnerHTML={{ __html: svg }}
         />

@@ -20,7 +20,10 @@ export function Layout({
 }) {
   return (
     <main
-      className="relative flex min-h-dvh w-full items-stretch justify-center bg-bg"
+      // overflow-x-clip: the demo cards break out by a negative margin for the paper shadow; on
+      // mobile that reaches past the viewport, so clip the horizontal overflow (no scroll) while
+      // leaving vertical scrolling untouched.
+      className="relative flex min-h-dvh w-full items-stretch justify-center overflow-x-clip bg-bg"
       style={{ paddingBottom: FOOTER_CLEARANCE_PX }}
     >
       <RuledPaper />
