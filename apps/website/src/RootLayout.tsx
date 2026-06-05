@@ -7,10 +7,12 @@ const loadMotionFeatures = () => import("./lib/motion-features.ts").then((m) => 
 import { Dock } from "./components/dock/Dock.tsx";
 import { FocusRingOverlay } from "./components/FocusRingOverlay.tsx";
 import { Layout } from "./components/Layout.tsx";
+import { MobileNotice } from "./components/MobileNotice.tsx";
 import { PageFade } from "./components/PageFade.tsx";
 import { SelectionMarker } from "./components/SelectionMarker.tsx";
 import { SelectionStyleProvider } from "./selection-style.tsx";
 import { DockEntranceContext } from "./dock-entrance.tsx";
+import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
 
 // The agentation dev-feedback toolbar, dev only.
 function DevAgentation() {
@@ -39,6 +41,9 @@ function DevOutlineDials() {
 // The persistent app shell. Overlays + dock sit outside PageFade so they never
 // re-animate between pages; MotionConfig respects prefers-reduced-motion.
 export function RootLayout() {
+  // The marker demo (the dock + select-to-paint) is pointer-driven, so the dock is dropped on
+  // touch devices; the MobileNotice sheet explains why.
+  const isTouch = useIsTouchDevice();
   // The dock holds its entrance until the page signals; the timer is the fallback
   // for routes with no cascade.
   const [dockReady, setDockReady] = useState(false);
@@ -61,7 +66,8 @@ export function RootLayout() {
             </Layout>
             <FocusRingOverlay />
             <SelectionMarker />
-            <Dock />
+            {!isTouch && <Dock />}
+            <MobileNotice />
             <DevAgentation />
             <DevOutlineDials />
           </DockEntranceContext.Provider>
