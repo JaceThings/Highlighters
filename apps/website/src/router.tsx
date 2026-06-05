@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import {
   createRootRoute,
   createRoute,
@@ -8,6 +9,11 @@ import { RootLayout } from "./RootLayout.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Docs } from "./pages/Docs.tsx";
 import { Squiggles } from "./pages/Squiggles.tsx";
+
+// Dev review page; lazy so the playground it pulls in stays out of the main bundle.
+const QuoteReview = lazy(() =>
+  import("./pages/QuoteReview.tsx").then((m) => ({ default: m.QuoteReview })),
+);
 
 const rootRoute = createRootRoute({
   component: RootLayout,
@@ -31,6 +37,16 @@ const squigglesRoute = createRoute({
   component: Squiggles,
 });
 
+const quoteReviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/quotes",
+  component: () => (
+    <Suspense fallback={null}>
+      <QuoteReview />
+    </Suspense>
+  ),
+});
+
 // Catch-all: unknown paths redirect home (beforeLoad throws, so no 404 flashes).
 const catchAllRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -44,6 +60,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   docsRoute,
   squigglesRoute,
+  quoteReviewRoute,
   catchAllRoute,
 ]);
 

@@ -4,12 +4,9 @@ import type { MarkType } from "@highlighters/core";
 import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
 import { prefersReducedMotion } from "./useSpringNumber.ts";
 
-// A mark-type change can't be morphed smoothly (rebuilding the band's clip every frame
-// re-rasterizes the SVG-filtered marks). So play it as a two-beat hand gesture: fade the
-// OLD mark out by opacity, then REDRAW the new one with its draw-on swipe. The redraw is
-// triggered by bumping `drawKey` - the caller folds it into the mark's React key, so the
-// mark remounts and replays its entrance. The opacity-only fade-out never touches the clip,
-// so the first beat stays smooth; the second beat is the renderer's own draw-on.
+// A mark-type change can't morph smoothly (rebuilding the clip every frame re-rasterizes the
+// SVG-filtered marks). So play it in two beats: fade the old mark out by opacity, then bump
+// `drawKey` so the caller remounts the mark and it replays its own draw-on swipe as the new type.
 const FADE_OUT_MS = 150;
 const FADE_OUT = { type: "tween" as const, duration: FADE_OUT_MS / 1000, ease: STATE_CHANGE_EASE };
 
