@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { Highlight, useHighlight } from "@highlighters/react";
 import type { HighlightOptions, TipType } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
-import { useMarkTypeFade } from "../hooks/useMarkTypeFade.ts";
+import { useMarkTypeSwap } from "../hooks/useMarkTypeSwap.ts";
 import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
 import type { Quote } from "./quotes.ts";
 import { planMarks, type MarkStrategy } from "./quote-marks.ts";
@@ -72,26 +72,30 @@ export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
     const c = toCoreOptions(previewOptions);
     return lockTipType ? { ...c, tip: { ...c.tip, type: lockTipType } } : c;
   }, [previewOptions, lockTipType]);
-  // Mark-type changes can't morph smoothly, so cross-fade them (see useMarkTypeFade).
-  const fade = useMarkTypeFade(core.markType ?? "highlight");
+  // Mark-type changes can't morph smoothly, so fade the old out and redraw the new (see
+  // useMarkTypeSwap). `swap.drawKey` keys each run below so the redraw is a real draw-on.
+  const swap = useMarkTypeSwap(core.markType ?? "highlight");
 
-  // The text is byte-identical entered/not, and the mark is an overlay, so the
-  // swap has zero layout shift. `seed` keys each run so overlapping marks don't collide.
-  const renderRun = (children: ReactNode, runOptions: HighlightOptions) =>
-    entered ? (
-      <Highlight as="span" options={runOptions} host={host} key={runOptions.seed}>
+  // The text is byte-identical entered/not, and the mark is an overlay, so the swap has zero
+  // layout shift. The key is `seed` (so overlapping marks don't collide) plus the swap's
+  // drawKey, so a mark-type change remounts the run and replays its draw-on (see useMarkTypeSwap).
+  const renderRun = (children: ReactNode, runOptions: HighlightOptions) => {
+    const key = `${runOptions.seed}-${swap.drawKey}`;
+    return entered ? (
+      <Highlight as="span" options={runOptions} host={host} key={key}>
         {children}
       </Highlight>
     ) : (
-      <span key={runOptions.seed}>{children}</span>
+      <span key={key}>{children}</span>
     );
+  };
 
   // The stack-demo overlap word is ALWAYS painted by a second mark, so toggling
   // Stack only changes its OPACITY (an in-place update) rather than adding/removing
   // a node - which would remeasure and replay the outer draw-on. ON: live alpha so
   // the two passes darken; OFF: 0, flat.
   const stacked = previewOptions.stack !== false;
-  const liveOpacity = (core.opacity ?? 0.5) * fade.factor;
+  const liveOpacity = (core.opacity ?? 0.5) * swap.factor;
   const words = quote.text.split(" ");
   const plan = planMarks(words, strategy);
 
@@ -99,7 +103,7 @@ export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
   // an in-place restyle of the existing marks (Highlight -> handle.update), exactly like the
   // dock's live marker: no second copy, no redraw, no flash.
   const quoteBody = (color: HighlightOptions["color"]) => {
-    const opts: HighlightOptions = { ...core, markType: fade.markType, color, opacity: liveOpacity };
+    const opts: HighlightOptions = { ...core, markType: swap.markType, color, opacity: liveOpacity };
     const innerMark = (word: string) =>
       renderRun(word, { ...opts, seed: 404, opacity: stacked ? liveOpacity : 0 });
     const pieces: ReactNode[] = [];
