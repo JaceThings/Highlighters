@@ -115,8 +115,10 @@ iOS 17+ it stays ambiguous → 47.33pt `low`. A second, smaller collision is `37
 This library gives you the correct radius **magnitude**. It does **not** reproduce the *curve
 shape*. CSS `border-radius` draws circular arcs; Apple's hardware and UIKit use **superellipses**
 (squircles), which are visibly smoother at the corner. There is no shipping CSS solution for this
-yet — `corner-shape` is unshipped. So a sheet rounded with these values will read as the right size
-but will not be pixel-identical to a native iOS corner.
+yet — `corner-shape` is unshipped. So a sheet rounded with `border-radius` and these values will
+read as the right size but not be pixel-identical to a native iOS corner. If you need the true
+shape, feed the magnitude into a superellipse path renderer (`clip-path: path(...)`) instead of
+`border-radius`.
 
 ## Browser support
 

@@ -1,12 +1,19 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import type { ShadowConfig } from "@lisse/core";
+import { SmoothCorners } from "@lisse/react";
 import { useIsTouchDevice } from "../hooks/useIsTouchDevice.ts";
-import { applyRadiusTokens } from "../lib/device-radius.ts";
+import { applyRadiusTokens, detectDeviceRadius } from "../lib/device-radius.ts";
 
 const DISMISSED_KEY = "hl-mobile-notice-dismissed";
 // Close to iOS's sheet spring.
 const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const EXIT_MS = 420;
+// iOS-ish corner smoothing for the squircle top; below the screen-radius floor for flat/non-iPhone.
+const SMOOTHING = 0.6;
+const RADIUS_FLOOR = 22;
+// Lisse ShadowConfig (box-shadow strategy below) so the lift traces the squircle, not a rect.
+const DRAWER_SHADOW: ShadowConfig = { offsetX: 0, offsetY: -8, blur: 40, spread: -10, color: "#140e0a", opacity: 0.22 };
 
 // A one-time, Apple-sheet-style heads-up on touch devices: the live demo (select-to-paint + the
 // pen dock) is built for a desktop pointer. The sheet's top corners follow the device's own screen
@@ -43,6 +50,10 @@ export function MobileNotice() {
 
   if (!mounted) return null;
 
+  // The device's true screen radius (floored for flat/non-iPhone screens), rendered as a Lisse
+  // squircle so the curve shape matches iOS, not a circular CSS arc.
+  const radius = Math.max(detectDeviceRadius().screenCornerRadius, RADIUS_FLOOR);
+
   const dismiss = () => {
     try {
       localStorage.setItem(DISMISSED_KEY, "1");
@@ -67,59 +78,68 @@ export function MobileNotice() {
           transition: `opacity ${EXIT_MS}ms ${SPRING}`,
         }}
       />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Best viewed on desktop"
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 201,
-          transform: open ? "translateY(0)" : "translateY(110%)",
-          transition: `transform ${EXIT_MS}ms ${SPRING}`,
-          background: "var(--color-bg)",
-          // Top corners follow the device's screen radius (floored for non-iPhone/flat screens).
-          borderTopLeftRadius: "max(var(--device-screen-radius, 0px), 22px)",
-          borderTopRightRadius: "max(var(--device-screen-radius, 0px), 22px)",
-          boxShadow: "0 -10px 44px rgba(20, 14, 10, 0.20)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)",
+      <SmoothCorners
+        asChild
+        autoEffects={false}
+        corners={{
+          topLeft: { radius, smoothing: SMOOTHING },
+          topRight: { radius, smoothing: SMOOTHING },
+          bottomLeft: 0,
+          bottomRight: 0,
         }}
+        shadow={DRAWER_SHADOW}
+        shadowStrategy="box-shadow"
       >
-        <div style={{ paddingTop: 10 }}>
-          <div
-            aria-hidden
-            style={{ width: 38, height: 5, borderRadius: 3, margin: "0 auto", background: "rgba(var(--primary-rgb), 0.22)" }}
-          />
-        </div>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Best viewed on desktop"
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 201,
+            transform: open ? "translateY(0)" : "translateY(110%)",
+            transition: `transform ${EXIT_MS}ms ${SPRING}`,
+            background: "var(--color-bg)",
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)",
+          }}
+        >
+          <div style={{ paddingTop: 10 }}>
+            <div
+              aria-hidden
+              style={{ width: 38, height: 5, borderRadius: 3, margin: "0 auto", background: "rgba(var(--primary-rgb), 0.22)" }}
+            />
+          </div>
 
-        <div className="flex flex-col gap-3" style={{ padding: "18px 24px 4px" }}>
-          <h2 className="m-0" style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--color-text-primary)" }}>
-            Best on desktop
-          </h2>
-          <p className="m-0 text-[0.95rem] leading-6" style={{ color: "var(--color-text-secondary)" }}>
-            Highlighters is a live demo: you select text with a pointer and drag a marker over it. On
-            a phone that fights the OS, and the pen dock is built for a cursor, so it may not work as
-            shown here.
-          </p>
-          <p className="m-0 text-[0.9rem] leading-6" style={{ color: "var(--color-text-secondary)", opacity: 0.85 }}>
-            Open <strong style={{ fontWeight: 600 }}>highlighte.rs</strong> on a desktop for the full
-            thing. You can still read everything here.
-          </p>
-        </div>
+          <div className="flex flex-col gap-3" style={{ padding: "18px 24px 4px" }}>
+            <h2 className="m-0" style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--color-text-primary)" }}>
+              Best on desktop
+            </h2>
+            <p className="m-0 text-[0.95rem] leading-6" style={{ color: "var(--color-text-secondary)" }}>
+              Highlighters is a live demo: you select text with a pointer and drag a marker over it. On
+              a phone that fights the OS, and the pen dock is built for a cursor, so it may not work as
+              shown here.
+            </p>
+            <p className="m-0 text-[0.9rem] leading-6" style={{ color: "var(--color-text-secondary)", opacity: 0.85 }}>
+              Open <strong style={{ fontWeight: 600 }}>highlighte.rs</strong> on a desktop for the full
+              thing. You can still read everything here.
+            </p>
+          </div>
 
-        <div style={{ padding: "14px 16px 0" }}>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="w-full cursor-pointer border-0 py-3 text-[0.95rem] font-medium"
-            style={{ background: "var(--color-text-primary)", color: "#fff", borderRadius: "var(--device-radius-md, 16px)" }}
-          >
-            Got it
-          </button>
+          <div style={{ padding: "14px 16px 0" }}>
+            <button
+              type="button"
+              onClick={dismiss}
+              className="w-full cursor-pointer border-0 py-3 text-[0.95rem] font-medium"
+              style={{ background: "var(--color-text-primary)", color: "#fff", borderRadius: "var(--device-radius-md, 16px)" }}
+            >
+              Got it
+            </button>
+          </div>
         </div>
-      </div>
+      </SmoothCorners>
     </>,
     document.body,
   );
