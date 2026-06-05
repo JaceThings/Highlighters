@@ -12,7 +12,9 @@ export function DocsPlayground() {
 
   return (
     <PlaygroundOptionsProvider>
-      <div className="flex w-full flex-col" style={{ gap: 48 }}>
+      {/* gap is small because each .cv-demo pads ~32px below itself (room for the paper shadow
+          under content-visibility's paint clip); 12 + 32 keeps the ~48px rhythm. */}
+      <div className="flex w-full flex-col" style={{ gap: 12 }}>
         {OPTION_DEMOS.map((demo, i) => (
           <Stagger key={demo.title} index={1 + i}>
             <OptionDemo demo={demo} quote={quotes[i]} />

@@ -7,6 +7,18 @@ body {
   overscroll-behavior: none;
 }
 
+/* Window the docs demos: ~21 cards each hold live marks (mask + blend + edge filter), and
+   keeping them all painted makes scrolling lag worse the further down you go. content-visibility
+   skips painting off-screen cards (safe - marks don't re-measure on scroll). Its paint
+   containment would clip the paper's soft shadow (~26px past the sheet), so the card breaks out
+   and pads it back; contain-intrinsic-size keeps the scrollbar stable. */
+.cv-demo {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 440px;
+  margin-inline: -32px;
+  padding: 4px 32px 32px;
+}
+
 /* Animatable ink colour for the marker-popover previews. Registering it as a
    <color> lets `transition: --ink` crossfade the gradient ink on a palette swap in
    a single element, no second mark to fade over the first. */

@@ -1,5 +1,5 @@
 import { useId, type CSSProperties } from "react";
-import { lightenOklch, oklchToCss, parseOklch } from "./oklch.ts";
+import { lightenOklch, oklchToRgb, parseOklch } from "./oklch.ts";
 
 // The three nib shapes, each in its own 0–15 space. TX centres the nib on the barrel;
 // per-tip `ty` drops its base onto the funnel top.
@@ -43,9 +43,11 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
   // A pure-white ink would vanish against the panel - cap the displayed nib lightness so the
   // marker stays visible even at full white.
   const visibleInk = ink.L > 0.9 ? { L: 0.9, C: ink.C, H: ink.H } : ink;
-  const visibleColor = oklchToCss(visibleInk);
-  // Lighter tip-gradient top, reused as the rim colour so the rim blends into the nib.
-  const tipTop = oklchToCss(lightenOklch(visibleInk, 0.06));
+  // Emit rgb(), not oklch(): rgb is correct in every SVG colour slot on every engine (WebKit
+  // mis-renders oklch() in some of them).
+  const visibleColor = oklchToRgb(visibleInk);
+  // Lighter top stop for the tip gradient.
+  const tipTop = oklchToRgb(lightenOklch(visibleInk, 0.06));
   // Specular highlight opacity, scaled off lightness so light inks brighten.
   const whiteAlpha = Math.max(0.07, Math.min(0.5, 0.07 + 0.7 * Math.max(0, visibleInk.L - 0.5)));
 
@@ -81,10 +83,12 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
         fill={`url(#${id}-paint2)`}
         style={{ mixBlendMode: "color-dodge" }}
       />
-      <g filter={`url(#${id}-filter1)`}>
-        <g transform={`translate(${TX} ${TIPS[tip].ty})`}>
-          <path d={TIPS[tip].d} fill={`url(#${id}-tipgrad)`} />
-        </g>
+      {/* Nib fill + a filter-free specular shine (white -> transparent gradient). Replaces an
+          feFlood/feComposite highlight that WebKit mis-rendered with a warm cast - a plain
+          gradient renders identically on every engine. */}
+      <g transform={`translate(${TX} ${TIPS[tip].ty})`}>
+        <path d={TIPS[tip].d} fill={`url(#${id}-tipgrad)`} />
+        <path d={TIPS[tip].d} fill={`url(#${id}-shine)`} />
       </g>
       <defs>
         <filter
@@ -119,44 +123,14 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           <feBlend mode="normal" in2={`${id}-effect1_dropShadow`} result={`${id}-effect2_dropShadow`} />
           <feBlend mode="normal" in="SourceGraphic" in2={`${id}-effect2_dropShadow`} result="shape" />
         </filter>
-        <filter
-          id={`${id}-filter1`}
-          x="13"
-          y="-1"
-          width="16"
-          height="18"
-          filterUnits="userSpaceOnUse"
-          colorInterpolationFilters="sRGB"
-        >
-          <feFlood floodOpacity="0" result="BackgroundImageFix" />
-          <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
-          {/* Specular highlight at the nib's top edge; opacity scales with ink luminance. */}
-          <feColorMatrix
-            in="SourceAlpha"
-            type="matrix"
-            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-            result="hardAlpha"
-          />
-          <feOffset dy="2.5" />
-          <feGaussianBlur stdDeviation="0.5" />
-          <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" result={`${id}-hlAlpha`} />
-          <feFlood floodColor="#ffffff" floodOpacity={whiteAlpha} />
-          <feComposite in2={`${id}-hlAlpha`} operator="in" />
-          <feBlend mode="normal" in2="shape" result={`${id}-effect1_innerShadow`} />
-          {/* Top rim, tinted to the lighter gradient colour so it blends in. */}
-          <feColorMatrix
-            in="SourceAlpha"
-            type="matrix"
-            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-            result="hardAlpha"
-          />
-          <feOffset dy="1" />
-          <feGaussianBlur stdDeviation="0.5" />
-          <feComposite in2="hardAlpha" operator="arithmetic" k2="-1" k3="1" result={`${id}-rimAlpha`} />
-          <feFlood floodColor={tipTop} floodOpacity="1" />
-          <feComposite in2={`${id}-rimAlpha`} operator="in" />
-          <feBlend mode="normal" in2={`${id}-effect1_innerShadow`} result={`${id}-effect2_innerShadow`} />
-        </filter>
+        {/* Specular shine over the nib: white fading out by ~40% down. Filter-free (a plain
+            gradient) so Chrome and Safari render it identically. Opacity scales with ink
+            luminance, so light inks brighten like the old feFlood highlight did. */}
+        <linearGradient id={`${id}-shine`} x1="21" y1="0" x2="21" y2="16" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#ffffff" stopOpacity={whiteAlpha} />
+          <stop offset="0.18" stopColor="#ffffff" stopOpacity={whiteAlpha * 0.5} />
+          <stop offset="0.42" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
         <linearGradient
           id={`${id}-paint0`}
           x1="8"
