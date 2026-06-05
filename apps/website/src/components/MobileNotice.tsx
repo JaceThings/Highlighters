@@ -116,13 +116,12 @@ export function MobileNotice() {
               Best on desktop
             </h2>
             <p className="m-0 text-[0.95rem] leading-6" style={{ color: "var(--color-text-secondary)" }}>
-              Highlighters is a live demo: you select text with a pointer and drag a marker over it. On
-              a phone that fights the OS, and the pen dock is built for a cursor, so it may not work as
-              shown here.
+              This is a hands-on demo: select text and drag a nib over it with a pointer. Touch can't
+              really do that, so the marker tools are off here.
             </p>
             <p className="m-0 text-[0.9rem] leading-6" style={{ color: "var(--color-text-secondary)", opacity: 0.85 }}>
-              Open <strong style={{ fontWeight: 600 }}>highlighte.rs</strong> on a desktop for the full
-              thing. You can still read everything here.
+              Open <strong style={{ fontWeight: 600 }}>highlighte.rs</strong> on a computer for the full
+              experience.
             </p>
           </div>
 
