@@ -4,7 +4,25 @@ import { SmoothCorners } from "@lisse/react";
 import { useIsTouchDevice } from "../hooks/useIsTouchDevice.ts";
 import { detectDeviceRadius } from "../lib/device-radius.ts";
 
-export const DISMISSED_KEY = "hl-mobile-notice-dismissed";
+const DISMISSED_KEY = "hl-mobile-notice-dismissed";
+
+/** Whether the notice has been dismissed before (persisted; safe in private mode). */
+export function isNoticeDismissed(): boolean {
+  try {
+    return localStorage.getItem(DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markNoticeDismissed(): void {
+  try {
+    localStorage.setItem(DISMISSED_KEY, "1");
+  } catch {
+    // private mode: a non-persisted dismissal is fine for this session
+  }
+}
+
 // Close to iOS's sheet spring.
 const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const EXIT_MS = 420;
@@ -68,14 +86,7 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const [open, setOpen] = useState(false); // animation target
 
   useEffect(() => {
-    if (!isTouch) return;
-    let dismissed = false;
-    try {
-      dismissed = localStorage.getItem(DISMISSED_KEY) === "1";
-    } catch {
-      // private mode: treat as not dismissed
-    }
-    if (dismissed) return;
+    if (!isTouch || isNoticeDismissed()) return;
     setMounted(true);
     const id = requestAnimationFrame(() => setOpen(true)); // next frame: slide up
     return () => cancelAnimationFrame(id);
@@ -98,11 +109,7 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const radius = Math.max(detectDeviceRadius().screenCornerRadius, RADIUS_FLOOR);
 
   const dismiss = () => {
-    try {
-      localStorage.setItem(DISMISSED_KEY, "1");
-    } catch {
-      // ignore
-    }
+    markNoticeDismissed();
     setOpen(false);
     setTimeout(() => {
       setMounted(false);

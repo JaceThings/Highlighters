@@ -8,20 +8,12 @@ import { Dock } from "./components/dock/Dock.tsx";
 import { MobileDock } from "./components/dock/MobileDock.tsx";
 import { FocusRingOverlay } from "./components/FocusRingOverlay.tsx";
 import { Layout } from "./components/Layout.tsx";
-import { MobileNotice, DISMISSED_KEY } from "./components/MobileNotice.tsx";
+import { MobileNotice, isNoticeDismissed } from "./components/MobileNotice.tsx";
 import { PageFade } from "./components/PageFade.tsx";
 import { SelectionMarker } from "./components/SelectionMarker.tsx";
 import { SelectionStyleProvider } from "./selection-style.tsx";
 import { DockEntranceContext } from "./dock-entrance.tsx";
 import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
-
-function noticeAlreadyDismissed(): boolean {
-  try {
-    return localStorage.getItem(DISMISSED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
 
 // The agentation dev-feedback toolbar, dev only.
 function DevAgentation() {
@@ -57,7 +49,7 @@ export function RootLayout() {
   const isTouch = useIsTouchDevice();
   // On touch, the trimmed MobileDock replaces the pen dock; it appears once the MobileNotice
   // sheet is dismissed (or immediately on a return visit where it already was).
-  const [mobileDockShown, setMobileDockShown] = useState(noticeAlreadyDismissed);
+  const [mobileDockShown, setMobileDockShown] = useState(isNoticeDismissed);
   // The dock holds its entrance until the page signals; the timer is the fallback
   // for routes with no cascade.
   const [dockReady, setDockReady] = useState(false);
