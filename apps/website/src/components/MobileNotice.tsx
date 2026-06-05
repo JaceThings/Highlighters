@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { SmoothCorners } from "@lisse/react";
 import { useIsTouchDevice } from "../hooks/useIsTouchDevice.ts";
-import { applyRadiusTokens, detectDeviceRadius } from "../lib/device-radius.ts";
+import { detectDeviceRadius } from "../lib/device-radius.ts";
 
 const DISMISSED_KEY = "hl-mobile-notice-dismissed";
 // Close to iOS's sheet spring.
@@ -31,7 +31,6 @@ export function MobileNotice() {
       // private mode: treat as not dismissed
     }
     if (dismissed) return;
-    applyRadiusTokens(); // sets --device-screen-radius / --device-radius-md on <html>
     setMounted(true);
     const id = requestAnimationFrame(() => setOpen(true)); // next frame: slide up
     return () => cancelAnimationFrame(id);
@@ -91,50 +90,57 @@ export function MobileNotice() {
           role="dialog"
           aria-modal="true"
           aria-label="Best viewed on desktop"
+          className="flex flex-col"
           style={{
             position: "fixed",
             left: 0,
             right: 0,
             bottom: 0,
             zIndex: 201,
+            gap: 20,
+            padding: 20,
+            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
             transform: open ? "translateY(0)" : "translateY(110%)",
             transition: `transform ${EXIT_MS}ms ${SPRING}`,
             background: "var(--color-bg)",
             filter: SHEET_SHADOW,
-            paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)",
+            color: "var(--color-text-primary)",
+            fontWeight: 500,
+            letterSpacing: "-0.25px",
           }}
         >
-          <div style={{ paddingTop: 10 }}>
-            <div
-              aria-hidden
-              style={{ width: 38, height: 5, borderRadius: 3, margin: "0 auto", background: "rgba(var(--primary-rgb), 0.22)" }}
-            />
-          </div>
+          {/* A baked MacBook screen (menu bar + notch + wallpaper): the "go to a desktop" cue. */}
+          <img src="/mac-mask.png" alt="" aria-hidden draggable={false} className="block w-full select-none" />
 
-          <div className="flex flex-col gap-3" style={{ padding: "18px 24px 4px" }}>
-            <h2 className="m-0" style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--color-text-primary)" }}>
+          <div className="flex flex-col" style={{ gap: 8, padding: "0 4px", lineHeight: "24px" }}>
+            <h2 className="m-0" style={{ fontSize: 16 }}>
               Best on desktop
             </h2>
-            <p className="m-0 text-[0.95rem] leading-6" style={{ color: "var(--color-text-secondary)" }}>
+            <p className="m-0" style={{ fontSize: 14 }}>
               This is a hands-on demo: select text and drag a nib over it with a pointer. Touch can't
               really do that, so the marker tools are off here.
             </p>
-            <p className="m-0 text-[0.9rem] leading-6" style={{ color: "var(--color-text-secondary)", opacity: 0.85 }}>
-              Open <strong style={{ fontWeight: 600 }}>highlighte.rs</strong> on a computer for the full
-              experience.
+            <p className="m-0" style={{ fontSize: 14, opacity: 0.5, textAlign: "justify" }}>
+              Open highlighters on a computer for the full experience.
             </p>
           </div>
 
-          <div style={{ padding: "14px 16px 0" }}>
-            <button
-              type="button"
-              onClick={dismiss}
-              className="w-full cursor-pointer border-0 py-3 text-[0.95rem] font-medium"
-              style={{ background: "var(--color-text-primary)", color: "#fff", borderRadius: "var(--device-radius-md, 16px)" }}
-            >
-              Got it
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="w-full cursor-pointer border-0"
+            style={{
+              background: "var(--color-text-primary)",
+              color: "var(--color-bg)",
+              fontSize: 14,
+              fontWeight: 500,
+              lineHeight: "24px",
+              padding: "12px 0",
+              borderRadius: 9999,
+            }}
+          >
+            Got It
+          </button>
         </div>
       </SmoothCorners>
     </>,
