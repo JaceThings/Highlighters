@@ -110,8 +110,9 @@ function SwatchPicker() {
   // The shared colour is a hex, so match swatches by resolved hex (a swatch picked here and
   // a hex picked in the dock both ring the matching swatch).
   const activeHex = useMemo(() => colorToHex(color, "#f7d054"), [color]).toLowerCase();
-  // Bump on each pick so the lasso rings a freshly hand-drawn circle every selection.
-  const [lassoSeed, setLassoSeed] = useState(() => Math.floor(Math.random() * 1e9));
+  // Bump on each pick so the lasso rings a freshly hand-drawn circle every selection. Seeded
+  // deterministically (not Math.random) so it's stable across strict-mode double-invokes.
+  const [lassoSeed, setLassoSeed] = useState(() => SWATCH_CHIPS[0].seed * 31);
 
   return (
     <div role="radiogroup" aria-label="Color swatch" className="flex items-center gap-2 px-4 py-5">

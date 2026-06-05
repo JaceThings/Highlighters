@@ -11,7 +11,8 @@ body {
    keeping them all painted makes scrolling lag worse the further down you go. content-visibility
    skips painting off-screen cards (safe - marks don't re-measure on scroll). Its paint
    containment would clip the paper's soft shadow (~26px past the sheet), so the card breaks out
-   and pads it back; contain-intrinsic-size keeps the scrollbar stable. */
+   and pads it back; contain-intrinsic-size keeps the scrollbar stable. (The breakout only holds
+   while no ancestor clips overflow - keep the demo column free of overflow:hidden/clip.) */
 .cv-demo {
   content-visibility: auto;
   contain-intrinsic-size: auto 440px;
