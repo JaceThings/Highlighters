@@ -83,7 +83,7 @@ export function RootLayout() {
             {!isTouch && <Dock />}
             <MobileNotice onDismissed={() => setMobileDockShown(true)} />
             {isTouch && mobileDockShown && <MobileDock />}
-            <DevAgentation />
+            {!isTouch && <DevAgentation />}
             <DevOutlineDials />
           </DockEntranceContext.Provider>
         </SelectionStyleProvider>

@@ -2,8 +2,9 @@ import { useId, useMemo, type CSSProperties, type ReactNode } from "react";
 import paperBg from "./paperBg.ts";
 import { IS_WEBKIT } from "./is-webkit.ts";
 
-// The paper sheet. Authored at 561×313 with shadow bleed around a 510×288 sheet, so the artwork
-// is sized to 110% and centred to line the sheet up with the content box.
+// The paper sheet. Authored at 561×313 with shadow bleed around a 510×288 sheet: sized to 110%
+// wide and stretched to the card's full height, so the sheet always covers the content even when
+// the card is narrower-and-taller than the artwork's aspect (e.g. on mobile).
 //
 // Engine split: the artwork is a live SVG (paths + filters in the page DOM) on Blink/Gecko,
 // which rasterise it once and hold 60fps. WebKit can't cache the filter chain (feTurbulence +
@@ -33,13 +34,13 @@ export function PaperCard({
       {IS_WEBKIT ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 -z-10 -translate-x-1/2 bg-[length:100%_100%] bg-no-repeat"
-          style={{ width: "110%", aspectRatio: "561 / 313", backgroundImage: "url(/paper-sheet.webp)" }}
+          className="pointer-events-none absolute left-1/2 top-0 -z-10 h-full -translate-x-1/2 bg-[length:100%_100%] bg-no-repeat"
+          style={{ width: "110%", backgroundImage: "url(/paper-sheet.webp)" }}
         />
       ) : (
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-0 -z-10 -translate-x-1/2"
+          className="pointer-events-none absolute left-1/2 top-0 -z-10 h-full -translate-x-1/2"
           style={{ width: "110%", maxWidth: "none" }}
           // The SVG markup is our own build artifact (paperBg.ts), not user input.
           dangerouslySetInnerHTML={{ __html: svg }}
