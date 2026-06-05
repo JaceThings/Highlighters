@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { ShadowConfig } from "@lisse/core";
 import { SmoothCorners } from "@lisse/react";
 import { useIsTouchDevice } from "../hooks/useIsTouchDevice.ts";
 import { applyRadiusTokens, detectDeviceRadius } from "../lib/device-radius.ts";
@@ -12,8 +11,8 @@ const EXIT_MS = 420;
 // iOS-ish corner smoothing for the squircle top; below the screen-radius floor for flat/non-iPhone.
 const SMOOTHING = 0.6;
 const RADIUS_FLOOR = 22;
-// Lisse ShadowConfig (box-shadow strategy below) so the lift traces the squircle, not a rect.
-const DRAWER_SHADOW: ShadowConfig = { offsetX: 0, offsetY: -8, blur: 40, spread: -10, color: "#140e0a", opacity: 0.22 };
+// drop-shadow (not box-shadow) so the lift follows the squircle clip-path instead of being clipped.
+const SHEET_SHADOW = "drop-shadow(0 -5px 18px rgba(20, 14, 10, 0.18))";
 
 // A one-time, Apple-sheet-style heads-up on touch devices: the live demo (select-to-paint + the
 // pen dock) is built for a desktop pointer. The sheet's top corners follow the device's own screen
@@ -73,7 +72,7 @@ export function MobileNotice() {
           position: "fixed",
           inset: 0,
           zIndex: 200,
-          background: "rgba(20, 14, 10, 0.45)",
+          background: "rgba(20, 14, 10, 0.32)",
           opacity: open ? 1 : 0,
           transition: `opacity ${EXIT_MS}ms ${SPRING}`,
         }}
@@ -87,8 +86,6 @@ export function MobileNotice() {
           bottomLeft: 0,
           bottomRight: 0,
         }}
-        shadow={DRAWER_SHADOW}
-        shadowStrategy="box-shadow"
       >
         <div
           role="dialog"
@@ -103,6 +100,7 @@ export function MobileNotice() {
             transform: open ? "translateY(0)" : "translateY(110%)",
             transition: `transform ${EXIT_MS}ms ${SPRING}`,
             background: "var(--color-bg)",
+            filter: SHEET_SHADOW,
             paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 18px)",
           }}
         >
