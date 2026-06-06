@@ -1,4 +1,5 @@
-// 12 hand-drawn variations of one marker squiggle (the there-and-back stroke). Preview at /squiggles.
+// 12 hand-drawn variations of one marker squiggle (the there-and-back stroke), drawn under the
+// active option in the docs scribble legend.
 
 export type PressurePoint = { t: number; pressure: number };
 export type Squiggle = { d: string; pressure: PressurePoint[] };

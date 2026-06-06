@@ -4,8 +4,7 @@ import type { MarkPlan } from "./quote-marks.ts";
 import type { Quote } from "./quotes.ts";
 
 // Shared quote presentation: the handwritten face, the card frame, and the mark-building. The
-// live Preview, its snap variant, and the /quotes review all use these, so a quote renders at one
-// exact size and wrapping everywhere.
+// live Preview and its snap variant use these, so a quote renders at one exact size and wrapping.
 
 // Self-hosted face (tokens.css) with system-hand fallbacks.
 export const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
