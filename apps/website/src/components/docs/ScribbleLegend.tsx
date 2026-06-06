@@ -3,9 +3,8 @@ import { AnimatePresence, m } from "framer-motion";
 import { MarkUnderline } from "./MarkUnderline.tsx";
 import { SQUIGGLES, nextSquiggle } from "./squiggles.ts";
 
-// A row of selectable labels where the active one is underlined by a hand-drawn marker
-// scribble (a fresh random one per selection). Re-selecting the active label is a no-op.
-// Keyboard: a Tab-focused option previews its underline at half opacity; Enter draws it solid.
+// A row of labels where the active one is underlined by a hand-drawn marker scribble (fresh per
+// selection). Keyboard: a Tab-focused option previews its underline at half opacity; Enter draws it solid.
 const INK = "#73574a";
 const UNDERLINE_W = 65.542;
 const UNDERLINE_H = 9;
@@ -30,13 +29,11 @@ export function ScribbleLegend({
     setSquiggle(nextSquiggle());
   };
 
-  // Footer padding sizes this row to ~75px, matching the slider/swatch controls so the quote
-  // area is the same height on every card; the underline still clears the sheet's bottom edge.
+  // Padding sizes this row to ~75px, matching the slider/swatch controls so the quote area is the same height on every card.
   return (
     <div role="tablist" aria-label={ariaLabel} className="flex items-center gap-3 px-4 py-5">
       {options.map((opt) => {
         const isActive = opt.value === value;
-        // A focused but not-yet-selected option shows a faded underline preview.
         const isPreview = focused === opt.value && !isActive;
         return (
           <button
@@ -45,8 +42,7 @@ export function ScribbleLegend({
             role="tab"
             aria-selected={isActive}
             onClick={() => select(opt.value)}
-            // Preview the underline only on keyboard focus, not a mouse click: :focus-visible
-            // is the browser's own pointer-vs-keyboard heuristic, so a click never flashes it.
+            // Preview only on keyboard focus: :focus-visible is the browser's pointer-vs-keyboard heuristic, so a click never flashes it.
             onFocus={(e) => {
               if (e.currentTarget.matches(":focus-visible")) setFocused(opt.value);
             }}

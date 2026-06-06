@@ -3,16 +3,12 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  /* No rubber-band/overscroll bounce past the page edges. */
-  overscroll-behavior: none;
+  overscroll-behavior: none; /* no rubber-band bounce */
 }
 
-/* Window the docs demos: ~21 cards each hold live marks (mask + blend + edge filter), and
-   keeping them all painted makes scrolling lag worse the further down you go. content-visibility
-   skips painting off-screen cards (safe - marks don't re-measure on scroll). Its paint
-   containment would clip the paper's soft shadow (~26px past the sheet), so the card breaks out
-   and pads it back; contain-intrinsic-size keeps the scrollbar stable. (The breakout only holds
-   while no ancestor clips overflow - keep the demo column free of overflow:hidden/clip.) */
+/* content-visibility skips painting off-screen demo cards (each holds filtered live marks). Its paint
+   clip would cut the paper shadow (~26px), so the card breaks out and pads it back; contain-intrinsic-size
+   keeps the scrollbar stable. Breakout only holds with no overflow:hidden/clip ancestor. */
 .cv-demo {
   content-visibility: auto;
   contain-intrinsic-size: auto 440px;
@@ -20,9 +16,7 @@ body {
   padding: 4px 32px 32px;
 }
 
-/* Animatable ink colour for the marker-popover previews. Registering it as a
-   <color> lets `transition: --ink` crossfade the gradient ink on a palette swap in
-   a single element, no second mark to fade over the first. */
+/* Animatable ink colour: registering as <color> lets `transition: --ink` crossfade gradient ink in one element. */
 @property --ink {
   syntax: "<color>";
   inherits: false;
@@ -36,16 +30,14 @@ html {
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  /* Inter v4 ships an `opsz` axis; let the browser pick optical sizes from the variable font. */
-  font-optical-sizing: auto;
+  font-optical-sizing: auto; /* use Inter v4's opsz axis */
 }
 
 body {
   font-family: var(--font-sans);
   font-weight: 450;
-  /* font-feature-settings replaces (not augments) the defaults, so re-list the
-   * always-on features plus cv05, Inter's tailed lowercase l (official build only;
-   * see tokens.css). */
+  /* font-feature-settings replaces (not augments) defaults, so re-list always-on features plus
+   * cv05, Inter's tailed lowercase l (official build only). */
   font-feature-settings:
     "kern" 1,
     "liga" 1,
@@ -59,14 +51,8 @@ body {
   color: var(--color-text-primary);
 }
 
-/* Default selection style = the brown @highlighters marker (see
- * SelectionMarker.tsx). Once that component has mounted and added
- * `selection-marker-ready` to <html>, we suppress the browser's native blue
- * selection band so the painted brown marker REPLACES it (text color stays
- * intact since the overlay floats a translucent band over the glyphs).
- *
- * Gated on the class: if JS fails to load, `selection-marker-ready` is never
- * added and the browser's own native selection still works as a fallback. */
+/* Once SelectionMarker mounts and adds `selection-marker-ready`, suppress the native selection band
+ * so the painted brown marker replaces it. Class-gated: if JS fails, native selection still works. */
 html.selection-marker-ready ::selection {
   background-color: transparent;
   color: inherit;
@@ -78,11 +64,7 @@ html.selection-marker-ready ::-moz-selection {
 
 p {
   text-wrap: pretty;
-  /* Justified body text relies on hyphenation to avoid huge word-spacing
-     gaps in narrow columns. Harmless on non-justified text: the browser
-     only inserts hyphens at line-break points where they would otherwise
-     overflow. Monospace contexts (install commands) don't use <p>, so
-     they're unaffected. */
+  /* Hyphenation avoids huge word-spacing gaps in narrow justified columns; harmless elsewhere. */
   hyphens: auto;
   -webkit-hyphens: auto;
 }
@@ -93,25 +75,18 @@ h3 {
   text-wrap: balance;
 }
 
-/* The focus ring is rendered globally by <FocusRingOverlay>: it springs
- * between any element marked with [data-focus-ring]. Suppress the browser's
- * default outline on those targets so it doesn't double up with the overlay. */
+/* Focus ring is drawn by <FocusRingOverlay>; suppress the default outline so it doesn't double up. */
 [data-focus-ring]:focus,
 [data-focus-ring]:focus-visible {
   outline: none;
 }
 
-/* Lets `width: auto` participate in CSS transitions, so a pill button
-   that sizes to its content can smoothly resize when its label changes
-   without any JS measurement. Chrome 129+, Safari 26+; falls back to
-   snapping in older browsers. */
+/* Lets `width: auto` transition, so content-sized pills resize smoothly with no JS. Newer browsers only. */
 :root {
   interpolate-size: allow-keywords;
 }
 
-/* Dock ink crossfade: the previous-colour marker overlay dissolves out to
-   reveal the new ink underneath (see Marker.tsx). prefers-reduced-motion
-   collapses this to an instant swap via the global rule below. */
+/* Dock ink crossfade: previous-colour overlay dissolves to reveal the new ink. */
 @keyframes dock-ink-out {
   from {
     opacity: 1;
@@ -121,10 +96,8 @@ h3 {
   }
 }
 
-/* Dock markers: the selected pen sits raised; unselected pens pop up slightly on
-   hover. Driven here (not inline) so :hover can layer over the resting state.
-   The selected rule comes last so a hovered selected pen stays at its raised
-   offset rather than dropping to the hover pop. */
+/* Dock pens: selected sits raised, others pop on hover. Selected rule comes LAST so a hovered
+   selected pen stays raised rather than dropping to the hover pop. */
 .dock-pen-art {
   transform: translateY(0);
   transition: transform 240ms cubic-bezier(0.2, 0, 0, 1);
@@ -137,37 +110,26 @@ h3 {
   transform: translateY(-24px);
 }
 
-/* The marker's keyboard focus outline is a single traveling SVG (Marker.tsx), so drop
-   the browser default on the pens; the outline itself handles the keyboard-only reveal. */
+/* Marker focus outline is a traveling SVG, so drop the browser default on the pens. */
 .dock-pen:focus {
   outline: none;
 }
 
-/* sr-only content is for assistive tech only: exclude it from text
- * selection so Cmd+A + Cmd+C doesn't paste screen-reader headings,
- * pronunciation glosses, or live-region descriptions into user
- * clipboards. Screen readers still announce this content; they
- * ignore `user-select`. */
+/* sr-only: exclude from selection so Cmd+A+C doesn't paste screen-reader text. SRs ignore user-select. */
 .sr-only {
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* The docs paper is a read-only demonstration: never selectable (Cmd+A, drag), forced onto
- * descendants so the quote marks can't re-enable it. Controls stay tab-focusable (user-select
- * doesn't affect focus); inputs stay editable. */
+/* Docs paper is read-only: never selectable, forced onto descendants so quote marks can't re-enable it. */
 .demo-paper,
 .demo-paper * {
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* Native range input restyle for the Playground sliders. We layer a
- * styled track + fill div underneath the input (see Slider.tsx); the
- * input itself stays interactive (keyboard focus, drag, accessibility)
- * but its visuals are stripped so the layered div shows through. The
- * thumb is intentionally invisible: the fill bar's right edge is the
- * value indicator, matching the Figma reference. */
+/* Slider range input: visuals stripped so a layered track/fill div shows through; input stays
+ * interactive. Thumb is invisible (the fill bar's right edge is the value indicator). */
 .playground-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -185,10 +147,8 @@ h3 {
   height: 100%;
   border: none;
 }
-/* iOS Safari paints the default thumb chrome even with appearance:none +
- * transparent background + opacity:0. The input has pointer-events:none
- * (the wrapper div handles drag), so the thumb doesn't need to be
- * hit-testable: collapse it to 0×0 and force every visual property off. */
+/* iOS Safari paints default thumb chrome despite appearance:none; the wrapper handles drag, so
+ * collapse the thumb to 0x0 and force every visual off. */
 .playground-slider::-webkit-slider-thumb {
   -webkit-appearance: none !important;
   appearance: none !important;
@@ -210,17 +170,11 @@ h3 {
   opacity: 0;
 }
 
-/* Click-to-type affordance on the value readout. The span gets cursor:text
- * on hover so users see they can click and edit; the input replaces it
- * in-place with matching font features, right-aligned, no border or
- * outline (FocusRingOverlay handles focus visuals). */
+/* Click-to-type value readout: cursor:text signals it's editable; the input replaces it in place. */
 .playground-slider-value {
   cursor: text;
   font-feature-settings: "ss03" 1, "ss04" 1;
-  /* Explicit on the readout so the digits don't shift width as values
-     count from 10 → 100. <input> doesn't inherit body's variant by
-     default, so it gets the same rule below. */
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums; /* digits don't shift width 10 -> 100 */
 }
 .playground-slider-input {
   width: 4ch;
@@ -248,9 +202,7 @@ h3 {
   }
 }
 
-/* The agentation dev toolbar is chrome, not content: it must never be
- * selectable (and so never painted by the brown selection marker). Cascades to
- * the toolbar + settings panel; form fields inside stay typeable. */
+/* Dev toolbar is chrome, not content: never selectable (so never painted by the marker). Fields stay typeable. */
 [data-agentation-root] {
   user-select: none;
   -webkit-user-select: none;

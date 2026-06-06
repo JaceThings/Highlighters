@@ -15,8 +15,7 @@ import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
 import { playMarkerPop, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
-// Defer each Preview until its section nears the viewport. One-way latch: once
-// painted it never unmounts, so its marks persist and update in place.
+// Defer each Preview until its section nears the viewport. One-way latch: once painted it never unmounts.
 function useSeen(rootMargin = "350px") {
   const ref = useRef<HTMLDivElement | null>(null);
   const [seen, setSeen] = useState(false);
@@ -76,9 +75,9 @@ const TOGGLE_OPTS = [
 ] as const;
 
 interface Base {
-  /** Stable key: the option code, also shown in the heading and keying the quote logic. */
+  /** Option code: stable key, also shown in the heading and keying the quote logic. */
   title: string;
-  /** Plain-English heading shown before the code, e.g. "Slant angle". */
+  /** Plain-English heading, e.g. "Slant angle". */
   name: string;
   desc: string;
 }
@@ -88,7 +87,7 @@ type Demo =
   | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
   | (Base & { kind: "color" });
 
-// The designer's six highlighter inks (from Figma), ordered warm -> cool for the row.
+// The six highlighter inks, warm -> cool.
 const SWATCH_COLORS = [
   { id: "yellow", label: "Yellow", hex: "#f7d054" },
   { id: "orange", label: "Orange", hex: "#f4b460" },
@@ -99,13 +98,12 @@ const SWATCH_COLORS = [
 ];
 const SWATCH_CHIPS = SWATCH_COLORS.map((c) => ({
   ...c,
-  // Stable per-swatch seed so each blob keeps its own hand-drawn scribble across renders.
+  // Stable per-swatch seed so each blob keeps its own scribble across renders.
   seed: [...c.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7),
 }));
 
 const BLOB_PX = 33;
-const LASSO_PX = 64; // notably larger than the blob so the lasso rings it with a clear gap
-// Shared wrapper for the selected + focus-preview lassos, centred over the blob.
+const LASSO_PX = 64; // larger than the blob so the lasso rings it with a gap
 const LASSO_WRAP = "pointer-events-none absolute top-1/2 left-1/2";
 const LASSO_WRAP_STYLE = { width: LASSO_PX, height: LASSO_PX, x: "-50%", y: "-50%" };
 const LASSO_EXIT = { opacity: 0, transition: { duration: 0.12 } };
@@ -113,14 +111,11 @@ const LASSO_EXIT = { opacity: 0, transition: { duration: 0.12 } };
 function SwatchPicker() {
   const { options, set } = usePlaygroundOptions();
   const color = options.color;
-  // The shared colour is a hex, so match swatches by resolved hex (a swatch picked here and
-  // a hex picked in the dock both ring the matching swatch).
+  // Shared colour is a hex, so match swatches by resolved hex (dock and picker ring the same swatch).
   const activeHex = useMemo(() => colorToHex(color, "#f7d054"), [color]).toLowerCase();
-  // Bump on each pick so the lasso rings a freshly hand-drawn circle every selection. Seeded
-  // deterministically (not Math.random) so it's stable across strict-mode double-invokes.
+  // Bump per pick so the lasso re-draws. Deterministic seed (not Math.random) for strict-mode double-invokes.
   const [lassoSeed, setLassoSeed] = useState(() => SWATCH_CHIPS[0].seed * 31);
-  // The swatch under keyboard focus (not the selected one): ringed with a faded preview lasso,
-  // mirroring the scribble-underline legend's Tab preview instead of a generic focus outline.
+  // Keyboard-focused swatch (not the selected one): ringed with a faded preview lasso, not a focus outline.
   const [focused, setFocused] = useState<string | null>(null);
 
   return (
@@ -132,7 +127,6 @@ function SwatchPicker() {
     >
       {SWATCH_CHIPS.map(({ id, label, seed, hex }) => {
         const selected = hex.toLowerCase() === activeHex;
-        // A keyboard-focused, not-yet-selected swatch previews its lasso at half opacity.
         const isPreview = focused === id && !selected;
         return (
           <button
@@ -141,8 +135,7 @@ function SwatchPicker() {
             role="radio"
             aria-checked={selected}
             aria-label={label}
-            // Preview only on keyboard focus (:focus-visible), never a mouse click, matching the
-            // legend. The faded lasso is the focus indicator, so no generic data-focus-ring here.
+            // Preview only on :focus-visible, never a mouse click. The faded lasso is the focus indicator.
             onFocus={(e) => {
               if (e.currentTarget.matches(":focus-visible")) setFocused(id);
             }}
@@ -151,7 +144,7 @@ function SwatchPicker() {
               if (selected) return;
               set("color", hex);
               setLassoSeed((s) => s + 1);
-              playMarkerPop(); // a random marker tap as the lasso draws in
+              playMarkerPop();
             }}
             className={`relative flex flex-1 select-none items-center justify-center outline-none ${selected ? "cursor-default" : "cursor-pointer"}`}
           >
@@ -176,7 +169,7 @@ function SwatchPicker() {
   );
 }
 
-// Discrete (button) controls render as a scribble-underline legend.
+// Discrete controls render as a scribble-underline legend.
 function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle" }> }) {
   const { options, set, setShape } = usePlaygroundOptions();
   if (demo.kind === "toggle") {
@@ -201,10 +194,10 @@ function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle
   );
 }
 
-// A slider whose fill is a hand-drawn scribble, drawn/undrawn as the value moves.
+// A slider whose fill is a scribble, drawn/undrawn as the value moves.
 function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" }> }) {
   const { options, set } = usePlaygroundOptions();
-  // Fresh seed per slider so each scribble is uniquely hand-drawn.
+  // Fresh seed per slider so each scribble is unique.
   const [seed] = useState(() => Math.floor(Math.random() * 1e9));
   const onNum = useCallback(
     (v: number, fromDrag?: boolean) => set(demo.path, v, fromDrag),
@@ -230,7 +223,6 @@ function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" 
 
 export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   const { ref, seen } = useSeen();
-  // The `snap` demo swaps in a Range-based preview so the boundary clamp shows.
   return (
     <div ref={ref} className="cv-demo">
       <Section
@@ -245,8 +237,8 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
         description={demo.desc}
       >
         <PaperCard>
-          {/* StaticQuote reserves the marked Preview's exact height, so when the marks mount the
-              card never resizes (which would re-rasterize the paper/scribble SVGs). */}
+          {/* StaticQuote reserves Preview's exact height so the card never resizes when marks mount
+              (a resize would re-raster the paper/scribble SVGs). */}
           {quote == null ? (
             <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
           ) : !seen ? (
@@ -273,7 +265,7 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   );
 }
 
-// Every option, one demo each, in build order.
+// Every option, one demo each, in build order. `desc` is user-facing copy, not a code comment.
 export const OPTION_DEMOS: Demo[] = [
   { kind: "pills", title: "markType", name: "Mark type", aria: "Mark kind", path: "markType", def: "highlight", shape: true, opts: [{ value: "highlight", label: "Highlight" }, { value: "underline", label: "Underline" }, { value: "overline", label: "Overline" }, { value: "strike-through", label: "Strike" }], desc: "The kind of mark: a highlight band, an under or overline, or a strikethrough. (shape is a synonym.)" },
   { kind: "color", title: "color", name: "Colour", desc: "The ink hue. Pick a canonical highlighter swatch, a clean { palette, swatch } reference. Defaults to fluorescent yellow." },

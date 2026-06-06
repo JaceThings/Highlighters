@@ -7,8 +7,7 @@ export interface HighlightAction {
 }
 
 /**
- * Svelte action that highlights an element's text content with a realistic mark.
- * Text stays intact and selectable — the mark is a decorative overlay.
+ * Svelte action that highlights an element's text content with a decorative overlay mark.
  *
  * @example
  * ```svelte
@@ -23,7 +22,7 @@ export function highlight(node: Element, options?: HighlightOptions): HighlightA
 
   return {
     update(next?: HighlightOptions): void {
-      // Push through the live handle to preserve geometry rather than re-seeding.
+      // Push through the live handle to preserve geometry.
       handle.update(next ?? {});
     },
     destroy(): void {

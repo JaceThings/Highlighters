@@ -1,7 +1,7 @@
 // Shared Perfect-Freehand path helpers for the hand-drawn docs marks.
 
-// Evenly sample n points along a path's length (via a throwaway off-screen SVG). Cached at
-// module level so the DOM measurement runs once per unique path string and survives remounts.
+// Evenly sample n points along a path (via a throwaway off-screen SVG). Cached so the DOM
+// measurement runs once per unique path string and survives remounts.
 const pathCache = new Map<string, [number, number][]>();
 
 export function samplePath(d: string, n: number): [number, number][] {
@@ -28,8 +28,7 @@ export function samplePath(d: string, n: number): [number, number][] {
   }
 }
 
-// getStroke outline → closed SVG path with quadratic midpoints. `p` = coordinate
-// precision (decimals); a dense outline can drop to 1 to keep the `d` string small.
+// getStroke outline -> closed SVG path with quadratic midpoints. `p` = coordinate precision (decimals).
 export function toPath(pts: number[][], p = 2): string {
   if (pts.length < 2) return "";
   const d = [`M ${pts[0][0].toFixed(p)} ${pts[0][1].toFixed(p)}`];
@@ -42,7 +41,7 @@ export function toPath(pts: number[][], p = 2): string {
   return d.join(" ");
 }
 
-// Bounding box of an outline as an SVG viewBox string, with `pad` units of margin.
+// Outline bounding box as an SVG viewBox string, with `pad` units of margin.
 export function outlineViewBox(outline: number[][], pad = 1): string {
   let minX = Infinity;
   let minY = Infinity;

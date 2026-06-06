@@ -1,9 +1,7 @@
 import { useEffect } from "react";
 import { IS_WEBKIT } from "../components/docs/is-webkit.ts";
 
-// Warm the /docs route from the home page while the browser is idle: its JS chunk (the playground
-// + @highlighters), the handwritten quote font, and the WebKit-only paper raster. So navigating in
-// is instant and the entrance cascade plays in sync instead of racing the chunk load.
+// Warm the /docs route from home while idle: JS chunk, quote font, WebKit-only paper raster.
 export function useDocsPrefetch(): void {
   useEffect(() => {
     let warmed = false;
@@ -11,7 +9,7 @@ export function useDocsPrefetch(): void {
       if (warmed) return;
       warmed = true;
       void import("../playground/DocsPlayground.tsx");
-      // Fully load (not just cache) the font, so /docs paints it with no swap reflow.
+      // Fully load (not just cache) the font so /docs paints it with no swap reflow.
       void document.fonts?.load?.('400 25px "Letters Home"')?.catch(() => {});
       if (IS_WEBKIT) prefetchImage("/paper-sheet.webp");
     };
@@ -25,7 +23,6 @@ export function useDocsPrefetch(): void {
 }
 
 function prefetchImage(href: string): void {
-  // Dedupe by comparing resolved URLs rather than interpolating href into a selector.
   const url = new URL(href, location.href).href;
   const already = [...document.head.querySelectorAll<HTMLLinkElement>('link[rel="prefetch"]')];
   if (already.some((l) => l.href === url)) return;

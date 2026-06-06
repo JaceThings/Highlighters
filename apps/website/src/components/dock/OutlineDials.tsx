@@ -3,10 +3,8 @@ import { DialRoot, useDialKit } from "dialkit";
 import "dialkit/styles.css";
 import { DEFAULT_TUNING, setPreview, setTipTune } from "./outline-tuning.ts";
 
-// Dev-only DialKit panel that drives the marker-outline tuning store (outline-tuning.ts).
-// Pick a Preview to force a pen's outline visible (clicking the panel drops keyboard
-// focus), then dial X/Y and Scale per tip. Kept for future tuning; sliders seed from the
-// shipped DEFAULT_TUNING so the panel and the shipped defaults can't drift apart.
+// Dev-only DialKit panel driving the marker-outline tuning store (outline-tuning.ts). Pick a
+// Preview to force a pen's outline visible, then dial X/Y/Scale. Sliders seed from DEFAULT_TUNING.
 type Dial = [number, number, number, number]; // [default, min, max, step]
 const nudge = (def: number): Dial => [def, -24, 24, 0.5];
 const scaleDial = (def: number): Dial => [def, 0.7, 1.4, 0.01];

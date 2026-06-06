@@ -1,17 +1,11 @@
 /**
  * Live selection swipe-velocity tracking for speed-aware ink deposit.
  *
- * The model is a spatial velocity field: as the user drags, we sample the focus
- * caret's pixel position over time and store `{x, y, v}` samples in the SAME
- * container-local px space the line geometry is built in. A live drag never reflows
- * between sampling and painting, so a line can look up the swipe speed at any point
- * along its band by spatial position - no character-offset mapping (which would
- * need a brittle per-glyph layer that breaks on ligatures, bidi, and wrapping).
- *
- * Imported ONLY by `highlightSelection` and runs ONLY during an active fine-pointer
- * drag, so the static `highlight()` path and SSR never touch a clock or the DOM
- * through it. Output is a {@link LineSpeedProfile} per line (pure data), or
- * `undefined` when a line has no samples so callers fall back to legacy geometry.
+ * A spatial velocity field: focus-caret `{x, y, v}` samples in the same container-local px space the
+ * line geometry uses. A live drag never reflows between sampling and painting, so a line looks up the
+ * swipe speed by spatial position (no brittle per-glyph character-offset mapping). Used only by
+ * `highlightSelection` during an active fine-pointer drag. Output is a {@link LineSpeedProfile} per
+ * line, or `undefined` when a line has no samples.
  */
 
 import { clamp } from "../internal/math.js";
@@ -45,8 +39,7 @@ function caretLocal(
     range.setStart(node, offset);
     range.collapse(true);
     let rect: DOMRect | undefined = range.getClientRects()[0] ?? range.getBoundingClientRect();
-    // A collapsed caret can measure 0×0 (node start, empty wrapper). Fall back to
-    // the single char ending AT the offset, whose right edge sits at the caret.
+    // A collapsed caret can measure 0x0; fall back to the single char ending at the offset, whose right edge sits at the caret.
     if (!rect || (rect.width === 0 && rect.height === 0)) {
       const len = node.nodeType === 3 ? (node as Text).length : node.childNodes.length;
       const start = Math.max(0, Math.min(offset, len) - 1);
@@ -57,22 +50,17 @@ function caretLocal(
         rect = range.getClientRects()[0] ?? range.getBoundingClientRect();
       }
     }
-    // Still fully empty → unmeasurable; skip rather than plant a bogus (0,0)
-    // sample that would corrupt the velocity.
+    // Still empty: unmeasurable, skip rather than plant a bogus (0,0) sample that corrupts the velocity.
     if (!rect || (rect.width === 0 && rect.height === 0)) return null;
     // Right edge tracks the focus side; vertical centre lands inside the y-band.
     return { x: rect.right - originLeft, y: (rect.top + rect.bottom) / 2 - originTop };
   } catch {
-    // Detached node, cross-origin, or a host without Range support → no sample.
+    // Detached node, cross-origin, or no Range support: no sample.
     return null;
   }
 }
 
-/**
- * Accumulates a spatial velocity field for the current drag and serves per-line
- * speed profiles. One instance per {@link highlightSelection} handle; {@link reset}
- * clears it between gestures.
- */
+/** Accumulates the drag's spatial velocity field and serves per-line speed profiles. {@link reset} clears it between gestures. */
 export class SelectionVelocityTracker {
   private samples: Sample[] = [];
   private prevX = 0;
@@ -91,11 +79,7 @@ export class SelectionVelocityTracker {
     return this.samples.length > 0;
   }
 
-  /**
-   * Record one focus-caret reading. `now` is a monotonic ms timestamp;
-   * `smoothing` is the EMA weight on the newest sample. No-ops if the caret can't
-   * be measured.
-   */
+  /** Record one focus-caret reading. `now` is a monotonic ms timestamp; `smoothing` is the EMA weight on the newest sample. No-op if unmeasurable. */
   recordSample(
     selection: Selection,
     originLeft: number,
@@ -110,9 +94,7 @@ export class SelectionVelocityTracker {
     if (!pos) return;
 
     if (!this.hasPrev) {
-      // First reading: seed position/time only, no sample. Velocity needs two
-      // readings, and a fake 0-speed point would read as "wet" at the band's
-      // start and pin peak deposit at full, defeating a fast swipe's dimming.
+      // First reading seeds position/time only: a fake 0-speed sample would read "wet" at the band start and pin peak deposit, defeating a fast swipe's dimming.
       this.prevX = pos.x;
       this.prevY = pos.y;
       this.prevT = now;
@@ -131,7 +113,7 @@ export class SelectionVelocityTracker {
     this.push({ x: pos.x, y: pos.y, v: this.ema });
   }
 
-  /** Append a sample, collapsing a co-located recent one (last-pass on backtrack). */
+  /** Append a sample, collapsing a co-located recent one. */
   private push(sample: Sample): void {
     const from = Math.max(0, this.samples.length - DEDUP_LOOKBACK);
     for (let i = this.samples.length - 1; i >= from; i--) {
@@ -147,11 +129,7 @@ export class SelectionVelocityTracker {
     }
   }
 
-  /**
-   * Build the {@link LineSpeedProfile} for a line box (container-local px), or
-   * `undefined` when no sample fell on this line. `sd` supplies the calibration
-   * and strength.
-   */
+  /** Build the {@link LineSpeedProfile} for a line box (container-local px), or `undefined` when no sample fell on this line. */
   profileForLine(
     line: { top: number; height: number; left: number; width: number },
     sd: ResolvedSpeedDynamics,
@@ -164,9 +142,7 @@ export class SelectionVelocityTracker {
     }
     if (band.length === 0) return undefined;
 
-    // Deceleration uses TEMPORAL order (band is still in insertion order here), so
-    // it stays correct for backward (right-to-left) drags. Must be read before the
-    // x-sort below.
+    // Deceleration uses temporal (insertion) order so it stays correct for backward drags; must be read before the x-sort below.
     const vTemporalStart = band[0].v;
     const vTemporalEnd = band[band.length - 1].v;
 
@@ -176,12 +152,10 @@ export class SelectionVelocityTracker {
     const width = Math.max(1, line.width);
     const denom = Math.max(1e-3, sd.fastSpeed - sd.slowSpeed);
     const norm = (v: number): number => clamp((v - sd.slowSpeed) / denom, 0, 1);
-    // 1 (wet) at/below slowSpeed → minDeposit (dry) at/above fastSpeed, scaled by
-    // sensitivity so 0 = no effect.
+    // 1 (wet) at/below slowSpeed to minDeposit (dry) at/above fastSpeed, scaled by sensitivity (0 = no effect).
     const deposit = (v: number): number => 1 - sd.sensitivity * norm(v) * (1 - sd.minDeposit);
 
-    // `band` is sorted by x; binary-search the bracketing pair to keep this O(log n)
-    // on the drag-repaint path.
+    // `band` is sorted by x; binary-search the bracketing pair to keep this O(log n) on the repaint path.
     const vAtX = (absX: number): number => {
       const first = band[0];
       const last = band[band.length - 1];

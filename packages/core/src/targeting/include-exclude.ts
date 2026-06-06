@@ -1,10 +1,4 @@
-/**
- * Whole-page targeting with include/exclude selectors. Exclusion always wins over
- * inclusion because it is resolved structurally at collection time: a text node is
- * dropped the moment any ancestor matches an exclude selector (or carries
- * `data-highlight-exclude`), regardless of which include selector other ancestors
- * match.
- */
+/** Whole-page targeting with include/exclude selectors. Exclusion always wins: a node is dropped the moment any ancestor matches an exclude selector. */
 
 import type { PageTarget } from "../types.js";
 import {
@@ -21,11 +15,7 @@ function elementOf(node: Node): Element | null {
   return node.nodeType === 1 ? (node as Element) : node.parentElement;
 }
 
-/**
- * True if `node` is inside any subtree matching an exclude selector or marked with
- * `data-highlight-exclude`. Uses `Element.closest()` so an excluded subtree nested
- * inside an included ancestor is still excluded.
- */
+/** True if `node` is inside any subtree matching an exclude selector or marked `data-highlight-exclude`. */
 export function isExcluded(node: Node, excludeSelectors: string[]): boolean {
   const el = elementOf(node);
   if (!el) return false;
@@ -59,12 +49,7 @@ function isIncluded(node: Node, includeSelectors: string[]): boolean {
   return false;
 }
 
-/**
- * Collect every textual `Range` under `target.root` (default `document.body`),
- * honoring optional `include` selectors and dropping anything inside an excluded
- * subtree. Each accepted text node becomes one `Range` over its non-whitespace
- * span. Returns `[]` outside a DOM or when nothing matches; never throws.
- */
+/** Collect every textual `Range` under `target.root` (default `document.body`), honouring include/exclude. Each accepted text node becomes one `Range` over its non-whitespace span. Never throws. */
 export function collectPageRanges(target: PageTarget): Range[] {
   if (!hasDomWithRange()) return [];
 

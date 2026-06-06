@@ -1,7 +1,7 @@
-/** `@highlighters/svelte` — Svelte bindings for `@highlighters/core`. */
+/** `@highlighters/svelte`: Svelte bindings for `@highlighters/core`. */
 export { highlight, type HighlightAction } from "./highlight.js";
 
-// Re-export core types so consumers don't need a separate `@highlighters/core` import.
+// Re-export core types for convenience.
 export type {
   HighlightOptions,
   MarkHandle,

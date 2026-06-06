@@ -1,10 +1,8 @@
 /**
  * Internal SSR-environment predicates and `NodeFilter` sentinels.
  *
- * Each predicate preserves a distinct capability question - intentionally NOT
- * collapsed into one, because each call site reads a different set of globals and
- * a wider check would over- or under-guard it. Internal (never re-exported);
- * every export touches no DOM global at module load, so importing it is SSR-safe.
+ * Each predicate is a distinct capability question, kept separate because each call
+ * site reads a different set of globals. Touches no DOM global at module load (SSR-safe).
  */
 
 /** `document` + `Range` present - guards the targeting collectors that build `Range`s. */
@@ -31,8 +29,7 @@ export function hasMediaQueries(): boolean {
   );
 }
 
-// NodeFilter sentinels as literals so collectors configure a TreeWalker without
-// touching the global NodeFilter at module load - it doesn't exist outside a DOM.
+// NodeFilter sentinels as literals: the global NodeFilter doesn't exist outside a DOM.
 export const SHOW_TEXT = 0x4;
 export const FILTER_ACCEPT = 1;
 export const FILTER_REJECT = 2;
@@ -47,10 +44,7 @@ const NON_RENDERED_TAGS = new Set([
   "TITLE",
 ]);
 
-/**
- * Whether `node` sits inside a non-rendered subtree. Walks ancestors so a match
- * can't straddle from non-rendered source into adjacent visible text.
- */
+/** Whether `node` sits inside a non-rendered subtree (walks ancestors). */
 export function isInNonRenderedSubtree(node: Node): boolean {
   let el = node.parentElement;
   while (el) {

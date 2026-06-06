@@ -1,15 +1,12 @@
 /**
- * Tier C renderer - the CSS Custom Highlight API (`::highlight()`).
+ * Tier C renderer: the CSS Custom Highlight API (`::highlight()`). The maximally-safe tier.
  *
- * The maximally-safe tier (blueprint R26 / R29): registers the mark's `Range`s with
- * `CSS.highlights` and paints them via a generated `::highlight()` rule. Zero overlay
- * DOM, native multiline, find-in-page/selection unaffected, text nodes untouched.
- * The trade-off is fidelity - flat colour only, no edge organicness/texture/multiply
- * - but colour and coverage still match the other tiers (R28).
+ * Registers the mark's `Range`s with `CSS.highlights` and paints them via a generated `::highlight()`
+ * rule: zero overlay DOM, native multiline, find-in-page/selection unaffected, text nodes untouched.
+ * The trade-off is fidelity (flat colour only), but colour and coverage still match the other tiers.
  *
- * Each instance owns one named `Highlight` registration and one CSS rule in a
- * shared `<style>`. `unmount()` deregisters and removes its rule, leaving the
- * document pristine (R9).
+ * Each instance owns one named `Highlight` registration and one CSS rule in a shared `<style>`.
+ * `unmount()` deregisters and removes its rule, leaving the document pristine.
  */
 
 import type { Renderer, RenderContext } from "../types.js";
@@ -30,7 +27,7 @@ function getSharedStyle(doc: Document): HTMLStyleElement {
   return style;
 }
 
-/** Whether the Custom Highlight API is usable here; guarded for SSR/old engines (C1). */
+/** Whether the Custom Highlight API is usable here; guarded for SSR/old engines. */
 function highlightApiAvailable(): boolean {
   return (
     typeof CSS !== "undefined" &&
@@ -39,11 +36,7 @@ function highlightApiAvailable(): boolean {
   );
 }
 
-/**
- * Create a Tier C renderer (`tier: "highlight-api"`). Paints the mark's originating
- * ranges in a flat colour: one rule in the shared stylesheet keyed by a unique
- * highlight name, plus a `Highlight` registered over the ranges.
- */
+/** Create a Tier C renderer (`tier: "highlight-api"`): one shared-stylesheet rule keyed by a unique highlight name, plus a `Highlight` over the ranges. */
 export function createHighlightApiRenderer(): Renderer {
   const name = `highlighters-${++highlightSeq}`;
   let highlight: Highlight | null = null;
@@ -52,14 +45,10 @@ export function createHighlightApiRenderer(): Renderer {
 
   function ruleFor(context: RenderContext): string {
     const { options } = context;
-    // The Highlight API exposes no `opacity`/`mix-blend-mode` on `::highlight()`,
-    // so fold opacity into the fill via `color-mix` to match Tiers A/B coverage
-    // (R28). Blend mode is unavoidably dropped (no paintable property for it).
+    // `::highlight()` exposes no opacity/blend, so fold opacity into the fill via `color-mix`; blend mode is dropped.
     const alpha = Math.max(0, Math.min(1, options.opacity));
-    // options.color lands in stylesheet RULE TEXT (`styleEl.textContent`), not a
-    // CSSOM setter, so it must be guarded against CSS injection: `CSS.supports`
-    // accepts only a bare colour and rejects anything crafted to close `color-mix()`
-    // and inject extra rules. Fall back to transparent.
+    // `options.color` lands in raw stylesheet rule text, so guard against CSS injection: `CSS.supports`
+    // accepts only a bare colour and rejects anything crafted to close `color-mix()` and inject rules.
     const raw = String(options.color);
     const color =
       typeof CSS !== "undefined" && CSS.supports?.("color", raw) ? raw : "transparent";
@@ -93,8 +82,7 @@ export function createHighlightApiRenderer(): Renderer {
   /** Replace this renderer's rule in the shared sheet without disturbing others. */
   function rewriteOwnRule(): void {
     if (!styleEl) return;
-    // Strip only THIS renderer's rule by pattern (others stay byte-intact), then
-    // append the fresh one. `name` is escaped for regex safety.
+    // Strip only this renderer's rule (others stay byte-intact), then append the fresh one. `name` is regex-escaped.
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const ownRule = new RegExp(`\\s*::highlight\\(${escaped}\\)\\s*\\{[^}]*\\}`, "g");
     const base = (styleEl.textContent ?? "").replace(ownRule, "").trim();

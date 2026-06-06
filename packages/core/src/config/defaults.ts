@@ -1,9 +1,4 @@
-/**
- * The fully-resolved baseline that sits at the bottom of the merge chain
- * (defaults → user). Every default is a concrete value with no optionals, so
- * `resolveOptions()` can layer partial overrides on a guaranteed-complete object.
- * Deep-frozen so it can be shared as the merge floor without any consumer mutating it.
- */
+/** The fully-resolved baseline at the bottom of the merge chain. Deep-frozen so it can be shared as the merge floor without mutation. */
 
 import type { ResolvedOptions } from "../types.js";
 import { defaultSwatch } from "./palettes.js";
@@ -48,7 +43,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   }),
   edge: Object.freeze({
     waviness: 1,
-    frequency: 22, // px segmentLength of the wave grid
+    frequency: 22, // px segment length of the wave grid
     roughness: 0.2,
     cap: "round",
     radius: 5,

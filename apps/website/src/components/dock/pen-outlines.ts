@@ -1,10 +1,8 @@
 import type { PenTip } from "../../selection-style.tsx";
 
-// Designed marker focus-outlines, one per nib. Each is a donut (outer contour + inner
-// contour) so a single fill with `fill-rule: evenodd` paints the ring. Authored at the
-// pen art's scale (height ~170, the pen's viewBox height) but only 39 wide, so the band
-// sits a few px outside the barrel. The barrel runs past the viewBox bottom; the dock
-// clips it at the tray floor.
+// Designed marker focus-outlines, one per nib. Each is a donut (outer + inner contour) so one
+// fill with `fill-rule: evenodd` paints the ring. Authored at the pen art's scale (~170 tall) but
+// only 39 wide; the barrel runs past the viewBox bottom and the dock clips it at the tray floor.
 export interface PenOutline {
   d: string;
   w: number;

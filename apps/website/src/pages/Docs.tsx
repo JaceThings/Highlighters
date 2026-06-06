@@ -1,8 +1,7 @@
 import { Suspense, lazy } from "react";
 import { Stagger } from "../components/Stagger.tsx";
 
-// The heavy playground engine (@highlighters/react + @lisse) is lazy-loaded so it
-// stays out of the home bundle; Docs itself is imported eagerly by PageFade.
+// Playground engine lazy-loaded to stay out of the home bundle; Docs itself is eager via PageFade.
 const DocsPlayground = lazy(() =>
   import("../playground/DocsPlayground.tsx").then((m) => ({ default: m.DocsPlayground })),
 );

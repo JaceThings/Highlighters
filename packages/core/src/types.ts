@@ -1,31 +1,18 @@
 /**
  * The complete public + internal type surface for `@highlighters/core`.
  *
- * Two halves: Section 1 (pure config & geometry types) references no DOM lib
- * types and is safe to import from the SSR-safe `@highlighters/core/path` entry;
- * Section 2 references `lib.dom` types and must never be imported from there.
- *
- * Every per-mark random value derives deterministically from a seed via a
- * `sin()`-based hash (no PRNG, no wall-clock), so identical `(geometry, options,
- * seed)` inputs produce byte-identical marks across server and client.
+ * Two halves: the pure config & geometry types reference no DOM lib types and are safe to import from
+ * the SSR-safe `@highlighters/core/path` entry; the DOM-touching types reference `lib.dom` and must not be.
+ * Every per-mark random value derives deterministically from a seed (no PRNG, no wall-clock), so
+ * identical inputs produce byte-identical marks on server and client.
  */
 
-// SECTION 1 - Pure configuration & geometry types (DOM-free, SSR-safe)
+// Pure configuration & geometry types (DOM-free, SSR-safe)
 
-/**
- * A CSS color string (`#rgb`, `#rrggbb`, `rgb()`, `hsl()`, named, `currentColor`,
- * or a CSS custom-property reference such as `var(--accent)`).
- */
+/** A CSS color string (hex, `rgb()`, `hsl()`, named, `currentColor`, or `var(...)`). */
 export type ColorValue = string;
 
-/**
- * The kind of mark drawn. All share one band primitive and the full physics
- * model, differing mainly in vertical position/thickness:
- * - `highlight` - a tall band over the text;
- * - `underline` - a thin band at the baseline;
- * - `overline` - a thin band along the top;
- * - `strike-through` - a thin band centered on the x-height.
- */
+/** The kind of mark drawn. All share one band primitive, differing mainly in vertical position/thickness. */
 export type MarkType =
   | "highlight"
   | "underline"
@@ -40,10 +27,7 @@ export type TipType = "chisel" | "bullet" | "fine";
 /** End-cap rendering for a band's leading/trailing edge. */
 export type EdgeCap = "flat" | "round" | "square";
 
-/**
- * Compositing model for the ink layer. Default `multiply` gives true subtractive
- * ink optics: overlapping marks darken and dark glyphs stay legible.
- */
+/** Compositing model for the ink layer. Default `multiply` gives subtractive ink optics. */
 export type BlendMode =
   | "multiply"
   | "normal"
@@ -52,24 +36,13 @@ export type BlendMode =
   | "overlay"
   | "color-burn";
 
-/**
- * Boundary-snapping mode. Clamps a mark's start/end to the chosen text boundary
- * so it never overshoots into surrounding whitespace.
- */
+/** Boundary-snapping mode: clamps a mark's start/end to the chosen text boundary. */
 export type SnapMode = "none" | "word" | "line" | "glyph";
 
-/**
- * Renderer tier preference. `auto` selects the best supported tier and enables
- * auto-degrade; the others pin a specific tier and disable auto-degrade.
- */
+/** Renderer tier preference. `auto` selects + auto-degrades; the others pin a tier. */
 export type RendererTierPreference = "auto" | "svg" | "css" | "highlight-api";
 
-/**
- * The concrete renderer tier in use.
- * - `svg` - per-line SVG band with shared turbulence/displacement filters (default).
- * - `css` - `linear-gradient` band with `box-decoration-break: clone`.
- * - `highlight-api` - CSS Custom Highlight API (`::highlight()`).
- */
+/** The concrete renderer tier in use: `svg` (default), `css`, or `highlight-api`. */
 export type RendererTier = "svg" | "css" | "highlight-api";
 
 /** Direction a draw-on animation sweeps across each band. */
@@ -78,10 +51,7 @@ export type AnimationDirection = "left-to-right" | "right-to-left" | "center-out
 /** When an entrance animation begins. */
 export type AnimationTrigger = "immediate" | "in-view";
 
-/**
- * Animation easing - a named CSS timing keyword or any valid CSS easing
- * function string (`cubic-bezier(...)`, `steps(...)`).
- */
+/** Animation easing: a named CSS keyword or any valid CSS easing function string. */
 export type EasingValue =
   | "linear"
   | "ease"
@@ -90,32 +60,25 @@ export type EasingValue =
   | "ease-in-out"
   | (string & {});
 
-/** A single color stop within a gradient, expressed in `[0,1]` offset space. */
+/** A single color stop within a gradient, in `[0,1]` offset space. */
 export interface GradientStop {
   /** Position along the gradient, `0` (start) to `1` (end). */
   offset: number;
   color: ColorValue;
-  /** Stop alpha, `0`–`1`. Defaults to `1` when omitted. */
+  /** Stop alpha, `0`-`1`. Defaults to `1`. */
   opacity?: number;
 }
 
-/**
- * A multi-stop linear gradient across the band's length. This config only
- * describes the color ramp; the end-pool stops are sized in absolute px by the
- * renderer (see {@link PoolGradient}).
- */
+/** A multi-stop linear gradient (color ramp only; end-pool stops are sized in px by the renderer). */
 export interface GradientConfig {
   type: "linear";
-  /** Gradient angle in CSS degrees. Defaults to the canonical `85deg` swipe. */
+  /** Gradient angle in CSS degrees. Defaults to `85deg`. */
   angle?: number;
-  /** Ordered color stops. Two or more required for a visible gradient. */
+  /** Ordered color stops. Two or more for a visible gradient. */
   stops: GradientStop[];
 }
 
-/**
- * Names of the curated, harmonized palette families. Each is tuned so multiple of
- * its colors read coherently together for color-coding. `mild` is the default.
- */
+/** Names of the curated palette families, each tuned to read coherently for color-coding. `mild` is the default. */
 export type PaletteName =
   | "fluorescent"
   | "mild"
@@ -137,107 +100,79 @@ export interface Palette {
   swatches: Record<string, ColorValue>;
 }
 
-/**
- * Nib geometry. `angle` drives the chisel slant (the lean baked into each band's
- * clip-path). `width`/`thickness` are part of the option surface but reserved -
- * the default renderer derives the lean from `angle` and band width, not these.
- */
+/** Nib geometry. `angle` drives the chisel slant; `width`/`thickness` are reserved (the renderer derives the lean from `angle` and band width). */
 export interface TipOptions {
   /** Nib shape. Default `chisel`. */
   type?: TipType;
-  /** Broad-face width of the nib, in px. Reserved - not consumed by the renderer. */
+  /** Broad-face width of the nib, in px. Reserved, not consumed by the renderer. */
   width?: number;
-  /** Narrow-edge thickness of the nib, in px. Reserved - not consumed by the renderer. */
+  /** Narrow-edge thickness of the nib, in px. Reserved, not consumed by the renderer. */
   thickness?: number;
   /** Nib angle relative to the stroke, in degrees (chisel slant). */
   angle?: number;
-  /**
-   * Signed px each outer end runs past the text edges: positive overshoots,
-   * `0` stops flush, negative pulls in short. Inner edges of a wrapped run ignore
-   * this - they always overlap to stitch consecutive lines into one swipe. Default `2`.
-   */
+  /** Signed px each outer end runs past the text edge (negative pulls in short). Inner edges of a wrapped run always overlap. Default `2`. */
   overshoot?: number;
-  /** Per-end px variance of {@link overshoot} (≥0), deterministic. Default `1`. */
+  /** Per-end px variance of {@link overshoot} (>=0), deterministic. Default `1`. */
   overshootJitter?: number;
-  /** Per-line degrees of variance on the chisel {@link angle} (≥0), deterministic. Default `0`. */
+  /** Per-line degrees of variance on the chisel {@link angle} (>=0), deterministic. Default `0`. */
   angleJitter?: number;
 }
 
-/**
- * Ink behavior in real-highlighter vocabulary. All fields are normalized `0`–`1`
- * unless noted; the {@link ResolvedOptions} form has concrete defaults.
- */
+/** Ink behavior. Fields are normalized `0`-`1` unless noted; {@link ResolvedOptions} has concrete defaults. */
 export interface InkOptions {
-  /** Juiciness - deposit amount; raises width, softens edges. */
+  /** Deposit amount; raises width, softens edges. */
   flow?: number;
-  /** Inverse flow - raises edge sharpness and skip frequency. */
+  /** Inverse flow; raises edge sharpness and skip frequency. */
   viscosity?: number;
-  /** Capillary lateral edge spread (noise-perturbed, optionally blurred). */
+  /** Capillary lateral edge spread. */
   feathering?: number;
-  /** Lengthwise lighter/darker lanes within a stroke (the primary realism tell). */
+  /** Lengthwise lighter/darker lanes within a stroke. */
   streakiness?: number;
   /** Probabilistic alpha gaps (skipping), coupled to {@link viscosity}. */
   dryout?: number;
-  /**
-   * Deposit variation at stroke ends, `-1`–`1`: positive **pools** ink (wet look),
-   * `0` is even, negative engages the anti-pool guardrail that suppresses end
-   * darkening (premium-marker look).
-   */
+  /** Deposit variation at stroke ends, `-1`-`1`: positive pools ink, negative suppresses end darkening. */
   startEndBuildup?: number;
-  /**
-   * Directional dry-out along each line, `0`–`1`: saturated where the nib touches
-   * down, fading drier toward the line end. `0` is even coverage.
-   */
+  /** Directional dry-out along each line, `0`-`1`: saturated at touchdown, drier toward the end. */
   flowFade?: number;
 }
 
 /**
- * Speed-aware ink deposit for the LIVE text selection. Beta, off by default. A
- * faster swipe deposits less ink (deposit ∝ dwell-time per unit length), mapped
- * continuously, so within one line a slow→fast→slow drag fades dark→light→dark.
- *
- * Engages only under {@link highlightSelection} during a real fine-pointer drag;
- * a complete no-op (byte-identical output) for static marks, programmatic/keyboard
- * selections, SSR, and whenever `enabled` is `false`.
+ * Speed-aware ink deposit for the live selection. Beta, off by default: a faster swipe deposits less
+ * ink. Engages only under {@link highlightSelection} during a fine-pointer drag; a byte-identical
+ * no-op for static/programmatic/keyboard selections, SSR, and when `enabled` is `false`.
  */
 export interface SpeedDynamicsOptions {
-  /** Master enable. Default `false` - a Beta opt-in (engages only on a live fine-pointer drag). */
+  /** Master enable. Default `false`. */
   enabled?: boolean;
-  /** Overall strength, `0`–`1`. `0` disables the effect; `1` is full range. Default `1`. */
+  /** Overall strength, `0`-`1` (`0` disables). Default `1`. */
   sensitivity?: number;
-  /** Swipe speed (px/ms) at/below which ink is wettest (deposit ×1). Default `2.5` - a normal drag stays full. */
+  /** Swipe speed (px/ms) at/below which ink is wettest. Default `2.5`. */
   slowSpeed?: number;
-  /** Swipe speed (px/ms) at/above which ink is driest (deposit ×`minDeposit`). Default `10.5` - only a fast flick. */
+  /** Swipe speed (px/ms) at/above which ink is driest. Default `10.5`. */
   fastSpeed?: number;
-  /** Legibility floor `0`–`1`: the fastest swipe still deposits this fraction. Default `0.4`. */
+  /** Legibility floor `0`-`1`: the fastest swipe still deposits this fraction. Default `0.4`. */
   minDeposit?: number;
-  /** Velocity EMA weight on the newest sample, `0`–`1` (`1` = raw/instant, `0` = heavy lag). Default `1`. */
+  /** Velocity EMA weight on the newest sample, `0`-`1`. Default `1`. */
   smoothing?: number;
-  /** Core gradient stops per line - higher resolves finer mid-line variation. Default `24` (clamped `4`–`24`). */
+  /** Core gradient stops per line. Default `24` (clamped `4`-`24`). */
   resolution?: number;
-  /** Weight `0`–`1`: how much a fast swipe adds skipping (dryout). Default `1`. */
+  /** Weight `0`-`1`: how much a fast swipe adds skipping. Default `1`. */
   dryoutBoost?: number;
-  /** Weight `0`–`1`: how much a fast swipe adds railroading (streakiness). Default `0.08`. */
+  /** Weight `0`-`1`: how much a fast swipe adds streakiness. Default `0.08`. */
   streakBoost?: number;
-  /** Weight `0`–`1`: how much a fast swipe sharpens the edge (less feather). Default `1`. */
+  /** Weight `0`-`1`: how much a fast swipe sharpens the edge. Default `1`. */
   featherReduce?: number;
-  /** Weight `0`–`1`: how much deceleration into a line end pools ink there. Default `1`. */
+  /** Weight `0`-`1`: how much deceleration into a line end pools ink there. Default `1`. */
   poolBoost?: number;
 }
 
-/**
- * Edge appearance along the straight → frayed continuum. All waviness/roughness
- * at `0` yields clean geometric edges.
- */
+/** Edge appearance from straight to frayed. Waviness/roughness at `0` yields clean geometric edges. */
 export interface EdgeOptions {
-  /** Peak wavy-edge displacement, in absolute px (amplitude). */
+  /** Peak wavy-edge displacement, in absolute px. */
   waviness?: number;
-  /**
-   * Wave density as the px `segmentLength` between grid vertices (smaller = more
-   * periods per unit length). Width-independent.
-   */
+  /** Wave density as the px `segmentLength` between grid vertices. Width-independent. */
   frequency?: number;
-  /** High-frequency micro-jitter on top of the base wave, `0`–`1`. */
+  /** High-frequency micro-jitter on the base wave, `0`-`1`. */
   roughness?: number;
   /** End-cap style for the band's leading/trailing edges. */
   cap?: EdgeCap;
@@ -247,18 +182,15 @@ export interface EdgeOptions {
 
 /** Paper surface. Multiplies feathering and softens edges. */
 export interface PaperOptions {
-  /** Absorbency `0`–`1`: higher wicks more, growing feather and softening edges. */
+  /** Absorbency `0`-`1`: higher wicks more, growing feather and softening edges. */
   absorbency?: number;
 }
 
-/**
- * Fluorescence / glow. Additive emission over the multiply ink, so an enabled mark
- * may read brighter than its background. Off by default; never reduces legibility.
- */
+/** Fluorescence / glow: additive emission over the multiply ink. Off by default. */
 export interface GlowOptions {
   /** Master enable. Default `false`. */
   enabled?: boolean;
-  /** Additive emission strength, `0`–`1`. */
+  /** Additive emission strength, `0`-`1`. */
   intensity?: number;
   /** Bloom spread radius, in px. */
   spread?: number;
@@ -266,10 +198,7 @@ export interface GlowOptions {
   color?: ColorValue;
 }
 
-/**
- * Entrance-animation configuration. All entrance animation is suppressed
- * automatically under `prefers-reduced-motion: reduce`.
- */
+/** Entrance-animation configuration. Suppressed automatically under `prefers-reduced-motion: reduce`. */
 export interface AnimationOptions {
   /** Enable the draw-on swipe. Default `true` (subject to reduced-motion gate). */
   draw?: boolean;
@@ -281,9 +210,9 @@ export interface AnimationOptions {
   direction?: AnimationDirection;
   /** Per-line / per-mark delay, in milliseconds (sequential pen travel). */
   stagger?: number;
-  /** When the animation begins. `in-view` arms an `IntersectionObserver` (R24). */
+  /** When the animation begins. `in-view` arms an `IntersectionObserver`. */
   trigger?: AnimationTrigger;
-  /** `IntersectionObserver` threshold for `in-view`, `0`–`1`. */
+  /** `IntersectionObserver` threshold for `in-view`, `0`-`1`. */
   threshold?: number;
   /** `IntersectionObserver` root margin for `in-view` (CSS margin string). */
   rootMargin?: string;
@@ -291,10 +220,7 @@ export interface AnimationOptions {
   repeat?: boolean;
 }
 
-/**
- * The full user-facing options object. Every field is optional; values resolve to
- * {@link ResolvedOptions} via the deep-merge order defaults → user.
- */
+/** The full user-facing options object; every field optional, resolved to {@link ResolvedOptions}. */
 export interface HighlightOptions {
   /** Mark kind. Default `highlight`. */
   shape?: ShapeType;
@@ -307,7 +233,7 @@ export interface HighlightOptions {
   palette?: PaletteName;
   /** Multi-stop gradient; overrides `color` when present. */
   gradient?: GradientConfig;
-  /** Overall ink alpha, `0`–`1`. */
+  /** Overall ink alpha, `0`-`1`. */
   opacity?: number;
   /** Ink compositing model. Default `multiply`. */
   blendMode?: BlendMode;
@@ -328,9 +254,7 @@ export interface HighlightOptions {
   /** Boundary-snapping mode. Default depends on target (see {@link Target}). */
   snap?: SnapMode;
 
-  /** Fade the live selection out on clear instead of removing instantly.
-   *  Live-selection only ({@link highlightSelection}); static {@link highlight}
-   *  ignores it. Default `true`. */
+  /** Fade the live selection out on clear instead of removing instantly. Live-selection only. Default `true`. */
   fadeOnClear?: boolean;
 
   /** Explicit deterministic seed; derived from target identity when omitted. */
@@ -342,14 +266,10 @@ export interface HighlightOptions {
   /** Entrance animation. */
   animation?: AnimationOptions;
 
-  /**
-   * Wrap each targeted run in a real `<mark>` element for semantics, alongside the
-   * decorative overlay. Opt-in, fully reversible by `remove()`. Default `false`.
-   */
+  /** Wrap each targeted run in a real `<mark>` element for semantics. Reversible by `remove()`. Default `false`. */
   semantic?: boolean;
 
-  /** Background the mark composites against; drives only the dev-time WCAG-contrast
-   *  warning. Not rendered. */
+  /** Background the mark composites against; drives only the dev-time WCAG-contrast warning. Not rendered. */
   contrastBackground?: ColorValue;
 }
 
@@ -390,20 +310,13 @@ export interface ResolvedSpeedDynamics {
   poolBoost: number;
 }
 
-/**
- * A per-line speed read, computed live from the selection's swipe velocity and
- * injected into {@link buildMarkGeometry} as plain data (so geometry stays pure
- * and SSR-safe). Absent for static marks and when no drag velocity was sampled.
- */
+/** A per-line speed read from the selection's swipe velocity, injected into {@link buildMarkGeometry} as plain data. Absent for static marks. */
 export interface LineSpeedProfile {
-  /**
-   * Deposit multiplier in `[minDeposit, 1]` at fraction `f ∈ [0,1]` along the band
-   * - `1` where the swipe was slow (wet), `minDeposit` where it was fast (dry).
-   */
+  /** Deposit multiplier in `[minDeposit, 1]` at fraction `f` along the band: `1` where slow, `minDeposit` where fast. */
   depositAt: (fraction: number) => number;
-  /** Normalized mean swipe speed across the line, `0`–`1`. */
+  /** Normalized mean swipe speed across the line, `0`-`1`. */
   meanNorm: number;
-  /** Deceleration into the line end, `0`–`1` - drives extra end pooling. */
+  /** Deceleration into the line end, `0`-`1`; drives extra end pooling. */
   decel: number;
 }
 
@@ -442,10 +355,7 @@ export interface ResolvedAnimation {
   repeat: boolean;
 }
 
-/**
- * A fully-resolved configuration with no optionals - the single source of truth
- * handed to geometry and renderers, produced by `resolveOptions()`.
- */
+/** A fully-resolved configuration with no optionals, produced by `resolveOptions()`. */
 export interface ResolvedOptions {
   markType: MarkType;
   color: ColorValue;
@@ -478,11 +388,7 @@ export interface Box {
   height: number;
 }
 
-/**
- * A single visual line's rectangle, measured via `Range.getClientRects()`.
- * `top - anchorTop` is the seed source because it stays invariant under scroll and
- * forward/backward drag-extension.
- */
+/** A single visual line's rectangle. `top - anchorTop` is the seed source (invariant under scroll and drag-extension). */
 export interface LineRect {
   left: number;
   top: number;
@@ -490,17 +396,13 @@ export interface LineRect {
   height: number;
   /** Stable per-line seed, `round((top - anchorTop) * 7)`. */
   seed: number;
-  /** First visual line of the mark - controls leading overshoot. */
+  /** First visual line of the mark; controls leading overshoot. */
   isFirst: boolean;
-  /** Last visual line of the mark - controls trailing overshoot. */
+  /** Last visual line of the mark; controls trailing overshoot. */
   isLast: boolean;
 }
 
-/**
- * The reference point all per-line seeds are measured against. For static marks
- * derived from the target's stable identity (not a live selection top), preserving
- * SSR determinism.
- */
+/** The reference point all per-line seeds are measured against (the target's stable identity, preserving SSR determinism). */
 export interface Anchor {
   top: number;
   /** Retained for layout offset math; excluded from the seed. */
@@ -516,11 +418,7 @@ export interface EdgeVertex {
   gridIndex: number;
 }
 
-/**
- * The absolute-px end-pool gradient. Stops are fixed px from each end with
- * `min`/`max` clamps so a short mark cannot over-pool - never a percentage of
- * stroke length.
- */
+/** The absolute-px end-pool gradient. Stops are fixed px from each end with `min`/`max` clamps so a short mark can't over-pool. */
 export interface PoolGradient {
   /** CSS gradient angle in degrees (the canonical `85deg`). */
   angle: number;
@@ -533,27 +431,15 @@ export interface PoolGradient {
   endCorePct: number;
   endInsetPx: number;
   stops: GradientStop[];
-  /**
-   * Live-speed path only. Count of interior core stops between the two pool ends;
-   * absent on the legacy 4-stop gradient (every static mark + no-drag paint).
-   */
+  /** Live-speed only. Count of interior core stops between the two pool ends; absent on the 4-stop gradient. */
   coreStopCount?: number;
-  /** Live-speed path only. Pre-computed px position of each core stop (length === {@link coreStopCount}). */
+  /** Live-speed only. Pre-computed px position of each core stop (length === {@link coreStopCount}). */
   coreStopsPositionsPx?: number[];
-  /**
-   * Live-speed path only. Scales layer opacity to encode the line's ABSOLUTE
-   * deposit (≤ 1): the stops carry only relative shape (normalized to the brightest
-   * stop), so a uniformly-fast line must dim here or normalization cancels the
-   * dry-out. Absent → renderer uses `1`.
-   */
+  /** Live-speed only. Scales layer opacity to encode the line's absolute deposit (<=1), since the stops carry only relative shape. Absent means `1`. */
   layerScale?: number;
 }
 
-/**
- * A fixed-pixel, seamlessly-stitched (`stitchTiles="stitch"`) noise tile. Applied
- * at fixed px size and repeated; per-line variety comes from offsetting the sample
- * window, never from rescaling the texture.
- */
+/** A fixed-pixel, seamlessly-stitched noise tile, repeated at fixed px size; per-line variety comes from offsetting the sample window, never rescaling. */
 export interface NoiseTile {
   /** A `data:` URL of the dual-`feTurbulence` SVG tile. */
   dataUrl: string;
@@ -569,11 +455,7 @@ export interface MaskOffset {
   y: number;
 }
 
-/**
- * The complete, resolution-independent geometry for one visual line, produced by
- * `buildMarkGeometry()`. Each renderer tier may ignore parts it cannot express
- * (degrade is fidelity-only). Computed once per geometry and reused until reflow.
- */
+/** The complete, resolution-independent geometry for one visual line, produced by `buildMarkGeometry()`. Computed once and reused until reflow. */
 export interface MarkGeometry {
   /** The line's box in absolute px (band footprint, incl. overshoot). */
   box: Box;
@@ -581,21 +463,11 @@ export interface MarkGeometry {
   seed: number;
   /** `clip-path: path(...)` string in absolute-px coordinates. */
   clipPath: string;
-  /**
-   * Rebuild the `clip-path` truncated to an advancing `front` (local px), with the
-   * leading tip cap drawn AT the front - the draw-on grows the band by appending
-   * grid nodes (never stretching). `clipAtFront(box.width)` equals {@link clipPath}.
-   * Pure; safe to call per animation frame.
-   */
+  /** Rebuild the `clip-path` truncated to an advancing `front` (local px); the draw-on grows the band by appending grid nodes. Pure; safe per animation frame. */
   clipAtFront: (front: number) => string;
-  /** Chisel slant in px - how far the top edge leads the bottom (0 for bullet/fine). */
+  /** Chisel slant in px: how far the top edge leads the bottom (0 for bullet/fine). */
   slant: number;
-  /**
-   * Smallest visible front (local px) - the tip touchdown width below which the cap
-   * would invert, so {@link clipAtFront} clamps up to it. The draw-on starts here
-   * (progress `0→1` maps to `minFront → box.width`) so the band touches down at its
-   * tip and immediately drags rather than popping to this width and pausing.
-   */
+  /** Smallest visible front (local px): the tip touchdown width below which the cap inverts, so {@link clipAtFront} clamps up to it. The draw-on starts here. */
   minFront: number;
   topEdge: EdgeVertex[];
   bottomEdge: EdgeVertex[];
@@ -605,26 +477,19 @@ export interface MarkGeometry {
   pool: PoolGradient;
 }
 
-// SECTION 2 - DOM-touching types (NOT importable from the `/path` entry)
+// DOM-touching types (NOT importable from the `/path` entry)
 
-/**
- * A whole-page (or sub-tree) target with surgical exclusions. Everything textual
- * under `root` is highlighted except subtrees matching `exclude`; exclusion takes
- * precedence over inclusion at every level.
- */
+/** A whole-page (or sub-tree) target with exclusions; exclusion takes precedence over inclusion at every level. */
 export interface PageTarget {
   /** Root to scan. Defaults to `document.body`. */
   root?: Element | Document;
-  /** Selectors whose subtrees are additionally *included* (page-then-include). */
+  /** Selectors whose subtrees are additionally included. */
   include?: string[];
-  /** Selectors whose subtrees are excluded; precedence over inclusion (R7). */
+  /** Selectors whose subtrees are excluded; precedence over inclusion. */
   exclude?: string[];
 }
 
-/**
- * A text-search target: every match of `text` (exact string or `RegExp`) within
- * `root`, including matches spanning inline element boundaries.
- */
+/** A text-search target: every match of `text` (string or `RegExp`) within `root`, including matches spanning inline boundaries. */
 export interface TextTarget {
   text: string | RegExp;
   /** Root to search within. Defaults to `document.body`. */
@@ -632,15 +497,9 @@ export interface TextTarget {
 }
 
 /**
- * The full union of targeting inputs. Every variant normalizes to DOM `Range`s,
- * then per-visual-line rectangles, then the active renderer tier.
- *
- * - `Element` - that element's text content.
- * - `string`  - a CSS selector resolved to elements.
- * - `Range`   - an explicit range.
- * - `Selection` - the current selection's ranges.
- * - {@link TextTarget} - every match of a text query.
- * - {@link PageTarget}  - whole page/sub-tree with include/exclude.
+ * The full union of targeting inputs, each normalized to DOM `Range`s.
+ * `Element` (its text), `string` (CSS selector), `Range`, `Selection`,
+ * {@link TextTarget} (text query), {@link PageTarget} (page/sub-tree with include/exclude).
  */
 export type Target =
   | Element
@@ -650,12 +509,7 @@ export type Target =
   | TextTarget
   | PageTarget;
 
-/**
- * A handle to a single mark covering one target. `remove()` restores the DOM to
- * its pre-highlight state (no orphaned nodes, attributes, or observers).
- * `update()` re-resolves options through the merge chain without re-seeding
- * stable geometry.
- */
+/** A handle to a single mark. `remove()` restores the pre-highlight DOM; `update()` re-resolves options without re-seeding stable geometry. */
 export interface MarkHandle {
   /** Reveal the mark (re-animates only on first show or explicit re-show). */
   show(): void;
@@ -670,10 +524,7 @@ export interface MarkHandle {
   readonly tier: RendererTier;
 }
 
-/**
- * A grouping primitive that shows/hides multiple handles together and animates
- * them in sequence (choreography).
- */
+/** A grouping primitive that shows/hides multiple handles together and animates them in sequence. */
 export interface GroupHandle {
   /** Show all members, staggered in array order for sequential draw-on. */
   show(): void;
@@ -700,11 +551,7 @@ export interface RenderEnvironment {
   degradeThreshold: number;
 }
 
-/**
- * One renderer tier's implementation contract. A renderer owns the DOM/paint for
- * a single mark, applies updates without re-seeding stable geometry, and fully
- * tears down on `unmount`. Filters are never recomputed on scroll.
- */
+/** One renderer tier's contract: owns the DOM/paint for a single mark, updates without re-seeding stable geometry, tears down fully on `unmount`. */
 export interface Renderer {
   readonly tier: RendererTier;
   /** Create and attach overlay nodes for the mark's per-line geometry. */
@@ -713,18 +560,11 @@ export interface Renderer {
   update(context: RenderContext): void;
   /** Detach all nodes and release shared resources; leave the DOM pristine. */
   unmount(): void;
-  /**
-   * The per-line wrapper element for a line's stable seed - the surface the draw-on
-   * clips. `null` for an unmounted line or tiers with no overlay DOM (Tier C).
-   * Keyed by seed, not index: marks sharing one overlay container MUST NOT find
-   * each other's wrappers.
-   */
+  /** The per-line wrapper the draw-on clips, keyed by stable seed not index (so marks sharing a container can't find each other's). `null` if unmounted or no overlay DOM. */
   bandFor(seed: number): HTMLElement | null;
 }
 
-/**
- * Everything a {@link Renderer} needs to paint one mark for a single update.
- */
+/** Everything a {@link Renderer} needs to paint one mark for a single update. */
 export interface RenderContext {
   /** The positioned overlay host (absolutely positioned, `aria-hidden`). */
   container: HTMLElement;

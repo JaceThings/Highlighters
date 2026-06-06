@@ -2,8 +2,7 @@ import { m } from "framer-motion";
 import { useRouterState } from "@tanstack/react-router";
 import { DockNav, DockLinks } from "./DockButton.tsx";
 
-// The touch dock: the four nav/link buttons (no pens or colour) on a white pill that slides up
-// from the bottom on mount - which is once the MobileNotice sheet has been dismissed.
+// The touch dock: four nav/link buttons (no pens or colour) on a white pill, mounted once MobileNotice is dismissed.
 const SHADOW = "0 6px 14px -7px rgba(115, 87, 74, 0.3)";
 
 export function MobileDock() {

@@ -1,6 +1,6 @@
 import colorPickerUrl from "./color-picker.svg";
 
-// `ring` is the selected outline - solid, since box-shadow can't take a gradient.
+// `ring` is the selected outline, solid since box-shadow can't take a gradient.
 interface Swatch {
   id: string;
   label: string;
@@ -18,9 +18,7 @@ const SWATCHES: Swatch[] = [
 
 const PRESET_COLORS = new Set(SWATCHES.map((s) => s.color));
 
-// The custom disc wears a ring of the colour wheel once a custom colour is active; otherwise
-// the same wheel art fills it, hinting that it opens the HSL picker. Both use the one wheel
-// image so the ring and the fill can't drift apart.
+// One wheel image for both ring and fill, so they can't drift apart.
 const WHEEL = `url("${colorPickerUrl}") center / cover no-repeat`;
 
 export function ColorPalette({
@@ -30,7 +28,7 @@ export function ColorPalette({
 }: {
   value: string;
   onChange: (color: string) => void;
-  /** Clicking the custom swatch opens the HSL picker rising from this button. */
+  /** The custom swatch opens the HSL picker rising from this button. */
   onActivateCustom: (button: HTMLButtonElement) => void;
 }) {
   const customActive = !PRESET_COLORS.has(value);
@@ -51,8 +49,7 @@ export function ColorPalette({
   );
 }
 
-// The custom-colour disc: a rainbow ring with the picked colour at its centre when active,
-// or the wheel art when not - so it reads as "open the colour picker".
+// The custom-colour disc: rainbow ring with the picked colour at centre when active, else the wheel art.
 function CustomDisc({
   active,
   color,
@@ -75,13 +72,9 @@ function CustomDisc({
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
-        // Rasterise the stacked circles as one layer so the press-scale doesn't shimmer their
-        // edges against each other (the preset discs dodge this with their simpler structure).
+        // Rasterise the stacked circles as one layer so the press-scale doesn't shimmer their edges.
         style={{ willChange: "transform", backfaceVisibility: "hidden" }}
       >
-        {/* Rainbow ring + white gap, revealed as the centre scales down - the same select
-            reveal (and timing) as the preset discs. The centre carries the wheel art until a
-            custom colour is active, then the picked colour. */}
         <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
         <span className="absolute rounded-full bg-white" style={{ inset: "3.57px" }} />
         <span
@@ -93,8 +86,7 @@ function CustomDisc({
               : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
           }}
         >
-          {/* Wheel face when idle; the picked colour crossfades in over it on activation
-              (background can't transition, so fade a stacked colour layer's opacity). */}
+          {/* Picked colour crossfades over the wheel via opacity (background can't transition). */}
           <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
           <span
             className="absolute inset-0 rounded-full"
@@ -127,8 +119,7 @@ function Disc({
       onClick={(e) => onClick(e.currentTarget)}
       data-focus-ring
       data-focus-radius="full"
-      // Never scale the button itself - it shifts the hit area out from under
-      // the pointer and the click misfires. Press-scale lives on the visual layer.
+      // Never scale the button itself: it shifts the hit area and the click misfires. Press-scale lives on the visual layer.
       className="group relative size-[43px] shrink-0 rounded-full"
     >
       <span
@@ -136,14 +127,14 @@ function Disc({
         className="pointer-events-none absolute inset-0 rounded-full transition-transform duration-150 group-active:scale-[0.96]"
         style={{ background: "#fff", boxShadow: `inset 0 0 0 3.57px ${ring}` }}
       >
-        {/* Colour disc: fills when unselected; shrinks on select to reveal the ring. */}
+        {/* Disc fills when unselected; shrinks on select to reveal the ring. */}
         <span
           className="absolute inset-0 rounded-full"
           style={{
             background: fill,
             transformOrigin: "center",
             transform: selected ? "scale(0.703)" : "scale(1)",
-            // Faster on select (ring pops in), slower on deselect (disc eases back).
+            // Faster on select (ring pops), slower on deselect (disc eases back).
             transition: selected
               ? "transform 220ms cubic-bezier(0.2, 0, 0, 1)"
               : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",

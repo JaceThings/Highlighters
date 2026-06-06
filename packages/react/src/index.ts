@@ -1,8 +1,8 @@
-/** `@highlighters/react` — React bindings for `@highlighters/core`. */
+/** `@highlighters/react`: React bindings for `@highlighters/core`. */
 export { useHighlight, type HighlightTarget } from "./use-highlight.js";
 export { Highlight, type HighlightProps, type HighlightOwnProps } from "./highlight.js";
 
-// Re-export core types so consumers don't need a separate `@highlighters/core` import.
+// Re-export core types for convenience.
 export type {
   HighlightOptions,
   MarkHandle,

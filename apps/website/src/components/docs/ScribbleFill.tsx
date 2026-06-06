@@ -3,9 +3,8 @@ import { useMotionValueEvent, type MotionValue } from "framer-motion";
 import { makeZigzag, pointsUpTo, smoothStrokePath } from "./scribble-render.ts";
 import { IS_WEBKIT } from "./is-webkit.ts";
 
-// The slider "fill" as a hand-scribbled sawtooth instead of a solid bar. The path is rebuilt
-// over the points UP TO the slider fraction, so it lays on as the value rises and retracts as
-// it falls. Each slider passes its own seed, so every one is a uniquely hand-drawn line.
+// The slider fill as a hand-scribbled sawtooth: the path is rebuilt over points up to the slider
+// fraction, so it lays on as the value rises and retracts as it falls. Per-slider seed = a unique line.
 
 const useIso = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -17,7 +16,7 @@ const PEN_BLUE = "#91b4ff";
 const STROKE_W = 2.3;
 const BG_WAVE = 1.3;
 
-// The locked-in scribble shape; only the seed varies per slider.
+// Locked-in scribble shape; only the seed varies per slider.
 const ZIG = { width: VIEW_W, height: VIEW_H, meanStep: 2.4, toothHeight: 8, jitterX: 1.2, jitterY: 0.55 };
 
 export function ScribbleFill({
@@ -27,25 +26,25 @@ export function ScribbleFill({
   max,
   floor,
 }: {
-  /** Per-slider random seed → a unique hand-drawn zigzag. */
+  /** Per-slider random seed -> a unique hand-drawn zigzag. */
   seed: number;
-  /** The slider's live value (already tweened/dragged). Drives how far the line is drawn. */
+  /** The slider's live value (tweened/dragged); drives how far the line is drawn. */
   reported: MotionValue<number>;
   min: number;
   max: number;
-  /** Enforced minimum value. When set, a static blue "pen" squiggle marks 0 → floor. */
+  /** Enforced minimum. When set, a static blue pen squiggle marks 0 -> floor. */
   floor?: number;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
   const floorRef = useRef<SVGPathElement>(null);
   const waveId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const pts = useMemo(() => makeZigzag({ ...ZIG, seed }), [seed]);
-  // A second, differently-seeded scribble so the floor reads as its own pen stroke.
+  // Differently-seeded scribble so the floor reads as its own pen stroke.
   const floorPts = useMemo(() => makeZigzag({ ...ZIG, seed: seed + 9973 }), [seed]);
   const span = max - min === 0 ? 1 : max - min;
   const floorFrac = floor != null ? Math.max(0, Math.min(1, (floor - min) / span)) : 0;
 
-  // Redraw the smooth stroke up to the value fraction (drag + tween frames, and on seed change).
+  // Redraw the smooth stroke up to the value fraction.
   const draw = (v: number) => {
     const el = pathRef.current;
     if (!el) return;
@@ -54,7 +53,7 @@ export function ScribbleFill({
   };
   useIso(() => {
     draw(reported.get());
-    // The floor squiggle is static - drawn once to its fraction, redrawn only if it changes.
+    // The floor squiggle is static: drawn once, redrawn only if it changes.
     if (floor != null && floorRef.current) {
       floorRef.current.setAttribute("d", smoothStrokePath(pointsUpTo(floorPts, floorFrac)));
     }
@@ -69,8 +68,7 @@ export function ScribbleFill({
       className="absolute inset-0 h-full w-full"
       style={{ overflow: "visible" }}
     >
-      {/* Wavy hand-drawn edges on the track background only (the scribble stays crisp). Skipped
-          on WebKit, which can't rasterize turbulence at speed - the track reads as a plain bar. */}
+      {/* Wavy edges on the track background only; skipped on WebKit (slow turbulence -> plain bar). */}
       {!IS_WEBKIT && (
         <defs>
           <filter id={waveId} x="-2%" y="-50%" width="104%" height="200%">

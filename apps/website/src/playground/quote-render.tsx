@@ -3,8 +3,8 @@ import { m, type MotionValue } from "framer-motion";
 import type { MarkPlan } from "./quote-marks.ts";
 import type { Quote } from "./quotes.ts";
 
-// Shared quote presentation: the handwritten face, the card frame, and the mark-building. The
-// live Preview and its snap variant use these, so a quote renders at one exact size and wrapping.
+// Shared quote presentation (font, card frame, mark-building) so Preview and its snap variant render
+// at one exact size and wrapping.
 
 // Self-hosted face (tokens.css) with system-hand fallbacks.
 export const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
@@ -19,11 +19,8 @@ export const QUOTE_STYLE: CSSProperties = {
 };
 export const ATTRIBUTION_STYLE: CSSProperties = { fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 };
 
-/**
- * The quote card body: a centred, max-420 column holding the quote and its attribution. `hostRef`
- * is the positioned wrapper @highlighters scopes its overlay to; `pRef` reaches the quote's `<p>`
- * (the snap variant ranges into it). `children` is the quote text/marks.
- */
+// The quote card body. `hostRef` is the positioned wrapper @highlighters scopes its overlay to;
+// `pRef` reaches the `<p>` (the snap variant ranges into it).
 export function QuoteFrame({
   hostRef,
   pRef,
@@ -41,9 +38,8 @@ export function QuoteFrame({
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
       <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
-        {/* Marks layer: @highlighters mounts overlays here. Absolute inset-0 keeps its box (and so
-            the overlay's coordinate origin) identical to the wrapper, but lets the mark-type swap
-            fade it by compositor opacity without re-rendering or re-rasterizing the marks. */}
+        {/* Marks layer. Absolute inset-0 keeps the overlay's coordinate origin identical to the
+            wrapper while letting the mark-type swap fade it by compositor opacity, no re-raster. */}
         <m.div
           ref={hostRef}
           aria-hidden
@@ -61,12 +57,8 @@ export function QuoteFrame({
   );
 }
 
-/**
- * The quote at its final size with NO marks - what a card shows before its Preview mounts. Because
- * the text and frame are identical to Preview's, the swap is height-neutral: the card never resizes
- * (which would re-rasterize the paper/scribble SVGs), and it carries no per-frame option subscription
- * so off-screen cards stay cheap.
- */
+// The quote at final size with NO marks, shown before Preview mounts. Frame matches Preview's so the
+// swap is height-neutral (a resize would re-raster the paper/scribble SVGs); no per-frame subscription.
 export function StaticQuote({ quote }: { quote: Quote }) {
   return (
     <QuoteFrame author={quote.author}>
@@ -77,12 +69,8 @@ export function StaticQuote({ quote }: { quote: Quote }) {
   );
 }
 
-/**
- * Build a quote's content nodes from a {@link MarkPlan}: a band (outer mark) per range, with any
- * `doubles` sub-ranges inside it wrapped in a nested inner mark so they paint twice - the darker
- * overlap. `outer`/`inner` make a marked run from its children and a seed (300+ for bands, 900+
- * for doubles, so keys never collide).
- */
+// Build a quote's content nodes from a {@link MarkPlan}: an outer band per range, with `doubles`
+// sub-ranges nested in an inner mark (painted twice, the darker overlap). Seeds: 300+ bands, 900+ doubles.
 export function buildQuotePieces(
   words: string[],
   plan: MarkPlan,

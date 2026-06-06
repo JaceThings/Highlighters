@@ -18,9 +18,7 @@ function resolveTarget(target: HighlightTarget): Target | null {
 }
 
 /**
- * Applies a highlighter mark to a template ref (or core {@link Target}) and keeps
- * it reactive to `options`. Returns a getter for the live {@link MarkHandle} so
- * callers can drive it imperatively.
+ * Applies a highlighter mark to a template ref (or core {@link Target}), returning a getter for its live {@link MarkHandle}.
  *
  * @example
  * ```vue
@@ -48,7 +46,7 @@ export function useHighlight(
 
   function sync(): void {
     if (!handle) {
-      // Target appeared after setup — create it now.
+      // Target appeared after setup.
       setup();
       return;
     }
@@ -60,7 +58,7 @@ export function useHighlight(
     handle = null;
   }
 
-  // Recreate when the bound element changes (a ref reassigned to a new node).
+  // Recreate when the bound element changes.
   watch(() => resolveTarget(target), setup);
   // Push option changes through update() without re-seeding geometry.
   if (options !== undefined) {

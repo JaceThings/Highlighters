@@ -1,11 +1,7 @@
 @import "tailwindcss";
 
-/*
- * License note: Apple's SF font EULA restricts use to Apple-platform UI
- * and mockups. Self-hosting for a public website is a grey area. The
- * fallback chain on `--font-mono` keeps the page rendering correctly if
- * this file is ever pulled.
- */
+/* License note: Apple's SF font EULA restricts use to Apple-platform UI; self-hosting here is a grey
+ * area, so the `--font-mono` fallback chain keeps the page correct if this file is pulled. */
 @font-face {
   font-family: "SF Mono";
   font-style: normal;
@@ -15,9 +11,7 @@
   unicode-range: U+0020-007E, U+00A0-00FF, U+2000-206F;
 }
 
-/* Official rsms Inter v4.1, self-hosted, not the Google Fonts repackage, which
- * ships none of the cv/ss features (we need cv05, the tailed l). Subset to
- * latin+latin-ext, all layout features + wght/opsz axes kept. Upright only. */
+/* Official Inter v4.1, not the Google Fonts repackage (it drops the cv/ss features; we need cv05). */
 @font-face {
   font-family: "Inter Variable";
   font-style: normal;
@@ -26,9 +20,7 @@
   src: url("/fonts/InterVariable.woff2") format("woff2");
 }
 
-/* The handwriting face for the docs quotes. Self-hosted so it renders everywhere:
- * Safari's anti-fingerprinting blocks locally-installed fonts referenced by name, so a
- * bare font-family fell back to a system hand there. */
+/* Docs-quote handwriting face. Self-hosted because Safari blocks locally-installed fonts by name. */
 @font-face {
   font-family: "Letters Home";
   font-style: normal;
@@ -37,14 +29,11 @@
   src: url("/fonts/letters-home.woff2") format("woff2");
 }
 
-/* Tokens lifted from Figma file f6JlgIPQFMFIJSpiJbviOG. */
-
 @theme {
   /* Surface + text */
   --color-bg: #fbfbf9;
   --color-text-primary: #73574a;
-  /* RGB triplet of `--color-text-primary` for `rgba(var(--primary-rgb), α)`
-     compositing, read by the selection highlight overlay. */
+  /* RGB triplet of `--color-text-primary` for `rgba(var(--primary-rgb), a)` compositing. */
   --primary-rgb: 115, 87, 74;
   --color-text-secondary: rgba(154, 145, 138, 0.75);
   --color-text-input: #7e756c;
@@ -55,10 +44,6 @@
   --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
 
-  /* Shared easing for every short UI transition on the page (toggle pill
-     width/colour, icon-row colour, demo back-overlay opacity, demo front
-     fill, demo scale). Quint ease-out, slow finish, no overshoot.
-     Tailwind v4 maps `--ease-*` to `ease-*` utilities, so this is also
-     reachable as `ease-out-quint` on a className. */
+  /* Shared easing for short UI transitions. Quint ease-out; Tailwind maps it to `ease-out-quint`. */
   --ease-out-quint: cubic-bezier(0.2, 0, 0, 1);
 }

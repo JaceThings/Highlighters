@@ -23,8 +23,7 @@ import { useEditableValue } from "./useEditableValue.ts";
 import { usePointerDrag } from "./usePointerDrag.ts";
 import { feedScribbleSound, primeMarkerAudio, stopScribbleSound } from "../../lib/marker-audio.ts";
 
-// Track geometry. (Formerly a PlaygroundTuning context whose provider was never mounted,
-// so these defaults were the only values it ever yielded.)
+// Track geometry.
 const TRACK_HEIGHT = 14;
 const TRACK_SMOOTHING = 0.6;
 
@@ -34,36 +33,26 @@ interface SliderProps {
   min: number;
   max: number;
   step?: number;
-  /** Optional muted caption rendered directly under the track row. Zero
-   *  layout impact when absent. */
+  /** Optional muted caption under the track row; zero layout impact when absent. */
   description?: string;
-  /** `fromDrag` is true only for continuous pointer-drag updates. Tap-to-jump,
-   *  keyboard, double-click revert, and typed input all report `false` so the
-   *  consumer animates the value change. */
+  /** `fromDrag` is true only for continuous pointer-drag updates; tap, keyboard, revert, and typed
+   *  input report `false` so the consumer animates the change. */
   onChange: (next: number, fromDrag?: boolean) => void;
-  /** Enforced minimum: the value can't drop below it. The track still spans min→max, so a
-   *  custom fill can mark the 0→floor region. */
+  /** Enforced minimum the value can't drop below. The track still spans min->max, so a custom fill can mark the 0->floor region. */
   floor?: number;
-  /** Optional display formatter - e.g. `(v) => v.toFixed(2)` for smoothing. */
+  /** Optional display formatter, e.g. `(v) => v.toFixed(2)`. */
   format?: (value: number) => string;
-  /** Optional seed formatter for the editable input. Used when `format`
-   *  produces a decorated string the input shouldn't seed with (e.g. an
-   *  "iOS – 0.60" annotation). Falls back to `format`. */
+  /** Seed formatter for the editable input when `format` returns a decorated string the input shouldn't seed with. Falls back to `format`. */
   formatSeed?: (value: number) => string;
-  /** Extra values fed through `format` when computing the readout's
-   *  reserved column width, so special-case formatted strings (wider than
-   *  the endpoints) still fit without reflow. */
+  /** Extra values fed through `format` for the readout's reserved width, so wider formatted strings still fit without reflow. */
   formatSamples?: readonly number[];
-  /** Replace the default solid fill with custom content (e.g. a hand-drawn
-   *  scribble), painted inside the rounded track. Receives the live `reported`
-   *  motion value so it can reveal itself by the slider fraction. */
+  /** Replace the solid fill with custom content (e.g. a scribble). Receives the live `reported` so it can reveal by the slider fraction. */
   renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number; floor?: number }) => ReactNode;
   /** Play the marker scribble sound while the slider is scrubbed (drag or arrow keys). */
   scrubSound?: boolean;
 }
 
-// Isolates the per-frame readout state so digit morphing re-renders only this node, not the
-// whole Slider (and its scribble-fill subtree).
+// Isolates per-frame readout state so digit morphing re-renders only this node, not the whole Slider.
 function Readout({ displayed }: { displayed: MotionValue<string> }) {
   const [text, setText] = useState(() => displayed.get());
   useMotionValueEvent(displayed, "change", setText);
@@ -89,12 +78,10 @@ export function Slider({
   const trackHeight = TRACK_HEIGHT;
   const trackRef = useRef<HTMLDivElement | null>(null);
   const propAnimRef = useRef<ReturnType<typeof animate> | null>(null);
-  // Captured once on mount - double-click on the label reverts to this.
-  // Subsequent prop updates (presets, drags) don't touch the ref.
+  // Captured once on mount; double-click on the label reverts to this.
   const initialValueRef = useRef<number>(value);
 
   const safeRange = max - min === 0 ? 1 : max - min;
-  // Enforced lower bound: the track still spans min→max, but committed values clamp to `lo`.
   const lo = lowerBound(min, floor);
   // Memoised so `reservedChars` (which calls `format()`) doesn't rerun on every drag tick.
   const readoutMinWidth = useMemo(
@@ -104,12 +91,10 @@ export function Slider({
 
   const reported = useMotionValue(value);
 
-  // Signed ranges (min < 0 < max) anchor the fill chunk at zero and grow outward;
-  // unsigned ranges stay left-anchored.
+  // Signed ranges (min < 0 < max) anchor the fill at zero and grow outward; unsigned stay left-anchored.
   const isSigned = min < 0 && max > 0;
   const toPercent = (v: number) => ((v - min) / safeRange) * 100;
-  // Treat the ±step/2 band around zero as exactly zero so a sub-step `reported` value
-  // doesn't paint a sliver while the readout already shows "0".
+  // Treat the +/-step/2 band around zero as zero so a sub-step value doesn't paint a sliver while the readout shows "0".
   const fillLeft = useTransform(reported, (v) => {
     const clamped = clamp(v, min, max);
     if (isSigned && Math.abs(clamped) < step / 2) {
@@ -131,7 +116,7 @@ export function Slider({
     return format ? format(stepped) : String(stepped);
   });
 
-  // Marker scrub sound, gated once: each is undefined (a no-op) when scrubSound is off.
+  // Marker scrub sound, gated once: each is undefined when scrubSound is off.
   const scrubFeed = scrubSound ? feedScribbleSound : undefined;
   const scrubPrime = scrubSound ? primeMarkerAudio : undefined;
   const scrubStop = scrubSound ? stopScribbleSound : undefined;
@@ -158,8 +143,7 @@ export function Slider({
   // Stop any scribble this slider started if it unmounts mid-scrub.
   useEffect(() => scrubStop, [scrubStop]);
 
-  // Tween `reported` toward the controlled prop on non-drag changes (preset, keyboard).
-  // During a drag the drag is the source of truth - skip the tween.
+  // Tween `reported` toward the prop on non-drag changes; during a drag the drag is the source of truth.
   useEffect(() => {
     if (drag.isDraggingRef.current) return;
     if (propAnimRef.current) propAnimRef.current.stop();
@@ -187,8 +171,7 @@ export function Slider({
     }
   };
 
-  // Shift + Arrow on the hidden native range jumps 10×step. Plain arrows
-  // fall through to the browser's default ±step behaviour.
+  // Shift+Arrow jumps 10x step; plain arrows fall through to the browser's default +/-step.
   const handleRangeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!e.shiftKey) return;
     const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1
@@ -245,9 +228,8 @@ export function Slider({
           </span>
         )}
       </div>
-      {/* Hit-area band. `-mt-2` cancels the `gap-2` above and `pt-2` reclaims it as a top
-          hit extension into the gap, so the target reaches ~32px without overlapping the
-          label's double-click area. */}
+      {/* Hit-area band. `-mt-2` cancels the `gap-2`, `pt-2` reclaims it as a top hit extension,
+          so the target reaches ~32px without overlapping the label's double-click area. */}
       <div
         className="w-full touch-none select-none pt-2 pb-4 -mt-2 -mb-4"
         onPointerEnter={scrubPrime}
@@ -287,8 +269,8 @@ export function Slider({
               </SmoothCorners>
             )}
           </div>
-          {/* Hidden native range = the keyboard + screen-reader path. Pointer events are
-              disabled so it never steals drags; it stays focusable via Tab for arrow input. */}
+          {/* Hidden native range = keyboard + screen-reader path. Pointer-events off so it never
+              steals drags; stays focusable via Tab for arrow input. */}
           <input
             id={id}
             type="range"

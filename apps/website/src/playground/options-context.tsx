@@ -26,9 +26,8 @@ import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
 import { useSpringNumber } from "../hooks/useSpringNumber.ts";
 import { useAnimatedColor } from "../hooks/useAnimatedColor.ts";
 
-// The docs playground shares colour / opacity / markType / tip with the dock's live marker via
-// one SelectionStyle. Both speak the same three nibs: slant <-> chisel, round <-> bullet,
-// fine <-> fine, so the dock pen and the playground's tip.type stay in lockstep.
+// Playground shares colour / opacity / markType / tip with the dock's live marker via one
+// SelectionStyle. Nibs map: slant <-> chisel, round <-> bullet, fine <-> fine.
 function penToTipType(pen: PenTip): TipType {
   if (pen === "round") return "bullet";
   if (pen === "fine") return "fine";
@@ -39,8 +38,7 @@ function tipTypeToPen(type: TipType): PenTip {
   if (type === "fine") return "fine";
   return "slant"; // chisel
 }
-// Resolve any colour value to a hex string; `fallback` is returned for an unresolvable
-// swatch or a missing colour. Shared by the playground and the swatch picker.
+// Resolve any colour value to hex; `fallback` for an unresolvable swatch or missing colour.
 export function colorToHex(color: PlaygroundOptions["color"], fallback = DEFAULT_INK): string {
   if (typeof color === "string") return color;
   if (color && typeof color === "object" && "swatch" in color) {
@@ -53,14 +51,9 @@ export function colorToHex(color: PlaygroundOptions["color"], fallback = DEFAULT
   return fallback;
 }
 
-/**
- * The playground's live options: the core {@link HighlightOptions} plus a `stack`
- * boolean the control sections read/write. Lowered to core options by
- * {@link toCoreOptions} before reaching the renderer; `stack` owns the blend mode,
- * so it's no longer a user-facing knob.
- */
+/** Core {@link HighlightOptions} plus a `stack` boolean. Lowered by {@link toCoreOptions} for the renderer. */
 export interface PlaygroundOptions extends HighlightOptions {
-  /** Overlaps darken (multiply, translucent ink) vs. merge flat (normal). Default `true`. */
+  /** Overlaps darken (multiply) vs. merge flat (normal). Default `true`. */
   stack?: boolean;
 }
 
@@ -68,10 +61,7 @@ const STACK_DEFAULT = DEFAULT_OPTIONS.blendMode === "multiply";
 const TIP_OVERSHOOT_DEFAULT = 2;
 const TIP_OVERSHOOT_JITTER_DEFAULT = 1;
 
-/**
- * Lower the playground superset to core options: `stack: true` ⇒ `multiply`
- * (overlaps darken), `stack: false` ⇒ `normal` (overlaps merge flat).
- */
+/** Lower to core options: `stack` true ⇒ `multiply`, false ⇒ `normal`. */
 export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
   const { stack, ...rest } = opts;
   const blendMode: BlendMode =
@@ -79,16 +69,13 @@ export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
   return { ...rest, blendMode };
 }
 
-/**
- * The DEFAULT build the playground opens on. A hand-built config where every knob is
- * concrete (no `undefined`). `shape`/`markType` are written in lockstep - the library
- * reads them as last-wins synonyms.
- */
+// The default the playground opens on; every knob concrete (no `undefined`). `shape`/`markType` are
+// last-wins synonyms, written in lockstep.
 function buildInitialOptions(): PlaygroundOptions {
   return {
     shape: "highlight",
     markType: "highlight",
-    // Concrete swatch (not a string) so the ColorSection picker shows it selected.
+    // Concrete swatch (not a string) so the picker shows it selected.
     color: { palette: "fluorescent", swatch: "yellow" },
     opacity: 0.5,
     stack: STACK_DEFAULT,
@@ -97,8 +84,7 @@ function buildInitialOptions(): PlaygroundOptions {
       type: "chisel",
       width: 16,
       thickness: 4,
-      // Matches the live selection marker's chisel slant (penToTip "slant"), so the
-      // slant demo and the real tool agree.
+      // Matches the live marker's chisel slant, so the slant demo and the real tool agree.
       angle: 8,
       overshoot: TIP_OVERSHOOT_DEFAULT,
       overshootJitter: TIP_OVERSHOOT_JITTER_DEFAULT,
@@ -123,27 +109,22 @@ function buildInitialOptions(): PlaygroundOptions {
 type OptionPath = string;
 
 interface PlaygroundOptionsContextValue {
-  /** The live options. Lower with {@link toCoreOptions} before passing to the renderer. */
+  /** The live options. Lower with {@link toCoreOptions} before the renderer. */
   options: PlaygroundOptions;
-
   /** Replace the value at a one- or two-segment dotted `path`. */
   set: (path: OptionPath, value: unknown, fromDrag?: boolean) => void;
-
   /** Merge a partial patch over the current state (one shallow level per group). */
   merge: (patch: Partial<PlaygroundOptions>) => void;
-
   /** Set the mark kind (`shape`/`markType` synonym). */
   setShape: (shape: ShapeType) => void;
-
   reset: () => void;
 }
 
 const PlaygroundOptionsContext =
   createContext<PlaygroundOptionsContextValue | null>(null);
 
-// `previewOptions` changes every spring frame, so it lives in its OWN context:
-// only <Preview> re-renders per frame, while the control sections read the main
-// context (which changes only on a committed change, not per frame).
+// `previewOptions` changes every spring frame, so it lives in its OWN context: only <Preview>
+// re-renders per frame, not the control sections.
 const PlaygroundPreviewContext = createContext<PlaygroundOptions | null>(null);
 
 /** Shallow-merge `patch` onto `base`, deep-merging one level for object groups. */
@@ -200,20 +181,14 @@ function setAtPath(
   );
 }
 
-/**
- * Spring the numeric leaves toward their committed targets so the Preview eases
- * into a new look on tap/keyboard/preset changes. `fromDrag` bypasses the spring:
- * pointer input is already smooth and a trailing spring would lag it. Non-numeric
- * fields pass straight through.
- */
+// Spring the numeric leaves toward their targets so the Preview eases into a new look.
+// `fromDrag` bypasses the spring (pointer input is already smooth). Non-numeric fields pass through.
 function useAnimatedOptions(
   o: PlaygroundOptions,
   fromDrag: boolean,
 ): PlaygroundOptions {
   const cfg = { duration: 0.35, ease: STATE_CHANGE_EASE, fromDrag };
-  // Ink colour glides in OKLCH (see useAnimatedColor) so a swatch swap morphs in place
-  // like the dock's tips instead of snapping. Non-string colours (swatch objects) pass
-  // through untouched; the merged options always hand us a resolved hex.
+  // Ink colour glides in OKLCH (useAnimatedColor); swatch objects pass through untouched.
   const animatedColor = useAnimatedColor(typeof o.color === "string" ? o.color : DEFAULT_INK, cfg);
   const color = typeof o.color === "string" ? animatedColor : o.color;
   const opacity = useSpringNumber(o.opacity ?? 0.5, cfg);
@@ -258,14 +233,12 @@ function useAnimatedOptions(
 }
 
 export function PlaygroundOptionsProvider({ children }: { children: ReactNode }) {
-  // Colour / opacity / markType / tip are shared with the dock through SelectionStyle; the rest
-  // (ink, edge, angle, stack, ...) is playground-only.
+  // Colour / opacity / markType / tip shared with the dock via SelectionStyle; the rest is playground-only.
   const sel = useSelectionStyle();
   const [options, setOptions] = useState<PlaygroundOptions>(buildInitialOptions);
   const [fromDrag, setFromDrag] = useState(false);
 
-  // Dock pen -> playground tip.type. The guard (write only on a real change) keeps the
-  // playground->pen write below from echoing back into a loop.
+  // Dock pen -> tip.type. The change guard keeps the playground->pen write below from echoing into a loop.
   useEffect(() => {
     const type = penToTipType(sel.style.pen);
     setOptions((prev) => (prev.tip?.type === type ? prev : setAtPath(prev, "tip.type", type)));
@@ -274,7 +247,7 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
   const set = useCallback(
     (path: OptionPath, value: unknown, drag = false) => {
       setFromDrag(drag);
-      // Shared fields write to SelectionStyle (which the dock + live marker also read/write).
+      // Shared fields write to SelectionStyle (dock + live marker read/write it too).
       if (path === "color") return sel.setColor(colorToHex(value as PlaygroundOptions["color"]));
       if (path === "opacity") return sel.setOpacity(value as number);
       if (path === "markType") return sel.setMarkType(value as MarkType);
@@ -307,7 +280,7 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
     sel.setOpacity(DEFAULT_OPACITY);
   }, [sel]);
 
-  // Overlay the shared fields onto the local options; tip.type already tracks the pen above.
+  // Overlay shared fields onto local options; tip.type already tracks the pen above.
   const merged = useMemo<PlaygroundOptions>(
     () => ({
       ...options,
@@ -321,8 +294,8 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
 
   const previewOptions = useAnimatedOptions(merged, fromDrag);
 
-  // previewOptions is deliberately NOT in this value - it rides the separate
-  // PlaygroundPreviewContext so sections don't re-render every spring frame.
+  // previewOptions is deliberately NOT in this value: it rides PlaygroundPreviewContext so sections
+  // don't re-render every spring frame.
   const value = useMemo<PlaygroundOptionsContextValue>(
     () => ({ options: merged, set, merge, setShape, reset }),
     [merged, set, merge, setShape, reset],
@@ -347,10 +320,7 @@ export function usePlaygroundOptions(): PlaygroundOptionsContextValue {
   return ctx;
 }
 
-/**
- * The spring-animated options the {@link Preview} renders. Kept in a separate
- * context so consuming this per-frame value doesn't re-render the control sections.
- */
+/** The spring-animated options {@link Preview} renders, on a separate context to spare the sections. */
 export function usePreviewOptions(): PlaygroundOptions {
   const ctx = use(PlaygroundPreviewContext);
   if (!ctx) {

@@ -1,24 +1,19 @@
 /**
- * Tier A renderer - the realistic SVG-filter band (blueprint R26 / A3 / R31).
+ * Tier A renderer: the realistic SVG-filter band. The default tier.
  *
- * The default tier. Each visual line gets a positioned WRAPPER `<div>`; inside it
- * at `inset: 0` sit the ink node (pool gradient, clipped to the chisel/bullet/fine
- * geometry via `clip-path`, textured by the offset-sampled noise tile via
- * `mask-image`, run through a shared SVG filter) and an optional glow node. The
- * wrapper carries NO geometry clip-path - only the box position - so the draw-on can
- * wipe it open with `clip-path: inset(...)` instead of a `scaleX()` that would
- * stretch the texture/wave (each element clips its own subtree, so the insets compose).
+ * Each visual line gets a positioned wrapper `<div>`; inside it at `inset: 0` sit the ink node
+ * (pool gradient, clipped to the tip geometry via `clip-path`, textured by the offset-sampled noise
+ * tile via `mask-image`, run through a shared SVG filter) and an optional glow node. The wrapper
+ * carries no geometry clip-path, only the box position, so the draw-on can wipe it open with
+ * `clip-path: inset(...)` instead of a `scaleX()` that would stretch the texture/wave.
  *
- * One shared `<svg>`/`<defs>` filter block (turbulence + displacement + morphology
- * + blur) is reused by every mark (R31). Filters are referenced, never animated -
- * computed once per geometry and reused until reflow (R32), so scrolling never re-filters.
+ * One shared `<svg>`/`<defs>` filter block is reused by every mark. Filters are referenced, never
+ * animated: computed once per geometry and reused until reflow, so scrolling never re-filters.
  *
- * An optional additive fluorescence layer (R16) is a second node in `screen` blend
- * over the multiply ink, so an enabled mark reads brighter than its background
- * (Stokes shift) - never merely a darker tint, never reducing legibility.
+ * An optional additive fluorescence layer is a second node in `screen` blend over the multiply ink,
+ * so an enabled mark reads brighter than its background rather than as a darker tint.
  *
- * Nodes are pooled by stable line identity (A14 §6 / R22d); `unmount()` leaves the
- * DOM pristine (R9).
+ * Nodes are pooled by stable line identity; `unmount()` leaves the DOM pristine.
  */
 
 import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions } from "../types.js";
@@ -27,16 +22,13 @@ import { poolGradientToCss } from "./tier-b-css.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-/** Id of the document-level shared `<svg>` holding the filter defs (R31). */
+/** Id of the document-level shared `<svg>` holding the filter defs. */
 const SHARED_SVG_ID = "highlighters-shared-defs";
 
 /**
- * Lazily create (or return) the document-level shared `<svg>`/`<defs>` block every
- * Tier A mark references (R31). The `<svg>` is zero-size, off-screen, `aria-hidden`.
- *
- * Filters are interned into this block by id (see {@link edgeFilterId}): marks with
- * params that quantize to the same bucket share one filter, so the defs stay small
- * while feathering can still drive blur/dilation per mark.
+ * Lazily create (or return) the zero-size, off-screen, `aria-hidden` shared `<svg>`/`<defs>` block
+ * every Tier A mark references. Filters are interned by id (see {@link edgeFilterId}): marks whose
+ * params quantize to the same bucket share one filter, keeping the defs small.
  */
 function getSharedDefs(doc: Document): SVGDefsElement {
   const existing = doc.getElementById(SHARED_SVG_ID);
@@ -63,15 +55,12 @@ function getSharedDefs(doc: Document): SVGDefsElement {
   return defs;
 }
 
-/** Quantize a 0–1 knob into one of `steps` buckets so filters can be interned. */
+/** Quantize a 0-1 knob into one of `steps` buckets so filters can be interned. */
 function quantize(value: number, steps: number): number {
   return Math.round(clamp01(value) * steps) / steps;
 }
 
-/**
- * Edge-filter parameters, all absolute px. `scale` is the displacement fray (edge
- * roughness/wave), `morph` the dilation that spreads the bleed, `blur` the feather.
- */
+/** Edge-filter parameters, all absolute px: `scale` the displacement fray, `morph` the bleed dilation, `blur` the feather. */
 interface EdgeFilterParams {
   scale: number;
   morph: number;
@@ -79,13 +68,9 @@ interface EdgeFilterParams {
 }
 
 /**
- * Resolve + quantize the per-mark edge-filter params - the source of truth for both
- * the filter's id (equal params intern to one filter) and its built primitives.
- * Returns `null` when nothing perturbs the edge, so the mark skips the filter.
- *
- * Feathering drives blur and dilation; flow softens further, viscosity sharpens
- * (the two pull against each other on the blur axis); edge waviness/roughness and
- * paper absorbency raise the displacement fray.
+ * Resolve + quantize the per-mark edge-filter params, driving both the filter's id and its
+ * primitives. Returns `null` when nothing perturbs the edge, so the mark skips the filter.
+ * Feathering drives blur and dilation, flow softens, viscosity sharpens; waviness/roughness/absorbency raise the fray.
  */
 function resolveEdgeFilter(options: ResolvedOptions): EdgeFilterParams | null {
   const { edge, ink, paper } = options;
@@ -110,10 +95,7 @@ function edgeFilterId(p: EdgeFilterParams): string {
   return `highlighters-edge-${key}`;
 }
 
-/**
- * Return the id of the edge filter for `params`, interning it into the shared defs
- * on first use (R31). Params that quantize to the same bucket reuse the element.
- */
+/** Return the edge filter id for `params`, interning it into the shared defs on first use. */
 function ensureEdgeFilter(defs: SVGDefsElement, params: EdgeFilterParams): string {
   const id = edgeFilterId(params);
   const doc = defs.ownerDocument;
@@ -123,11 +105,7 @@ function ensureEdgeFilter(defs: SVGDefsElement, params: EdgeFilterParams): strin
   return id;
 }
 
-/**
- * Build one edge filter: turbulence → displacement (the fray), optional morphology
- * (bleed dilation), optional blur (the feather). `baseFrequency`/`seed` are static,
- * never animated (R32). Displacement scale is absolute px → resolution-independent (R22c).
- */
+/** Build one edge filter: turbulence, displacement (fray), optional morphology (bleed), optional blur (feather). Scale is absolute px, resolution-independent. */
 function buildEdgeFilter(
   doc: Document,
   id: string,
@@ -183,8 +161,7 @@ function buildEdgeFilter(
 
 /** Create a Tier A renderer (`tier: "svg"`). */
 export function createSvgRenderer(): Renderer {
-  // Per line: a positioned WRAPPER (the draw-on wipe surface, no geometry clip)
-  // holding an ink node and, optionally, a glow node - all pooled by identity.
+  // Per line: a positioned wrapper (the draw-on wipe surface, no geometry clip) holding an ink node and an optional glow node, all pooled by identity.
   const wrapperPool = new NodePool<HTMLElement>();
   const inkPool = new NodePool<HTMLElement>();
   const glowPool = new NodePool<HTMLElement>();
@@ -215,8 +192,7 @@ export function createSvgRenderer(): Renderer {
 
     // flow adds opacity, viscosity subtracts; 0.805 is the baked former ink.saturation gain.
     const flowGain = 1 + 0.35 * (clamp01(ink.flow) - clamp01(ink.viscosity));
-    // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
-    // so a uniformly-fast swipe dims the layer instead of being normalized to full.
+    // layerScale (live-speed path only, else 1) carries the band's absolute deposit so a uniformly-fast swipe dims the layer instead of normalizing to full.
     const effectiveAlpha = clamp01(
       options.opacity * 0.805 * flowGain * (line.pool.layerScale ?? 1),
     );
@@ -225,17 +201,13 @@ export function createSvgRenderer(): Renderer {
     setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool));
     s.backgroundRepeat = "no-repeat";
     setVendorPrefixed(el, "clipPath", line.clipPath);
-    // Offset-sampled, fixed-px, repeated noise tile (A14 §1) as a mask so the
-    // gradient shows through the grain. Sampled by offsetting the window, never by
-    // rescaling it (R22c).
+    // Offset-sampled, fixed-px, repeated noise tile as a mask so the gradient shows through the grain. Sampled by offsetting the window, never rescaling it.
     setVendorPrefixed(el, "maskImage", `url("${line.noiseTile.dataUrl}")`);
     setVendorPrefixed(el, "maskRepeat", "repeat");
     setVendorPrefixed(el, "maskPosition", `${line.maskOffset.x}px ${line.maskOffset.y}px`);
     setVendorPrefixed(el, "maskSize", `${line.noiseTile.width}px ${line.noiseTile.height}px`);
 
-    // The filter is invariant across a mark's lines, so it's interned ONCE in
-    // render() and the URL passed in - no per-line lookup or recompute on the hot
-    // reflow path (R32: referenced, never animated).
+    // The filter is invariant across a mark's lines, so it's interned once in render() and the URL passed in, no per-line recompute on the hot reflow path.
     setStyleOnce(el, "filter", filterValue);
   }
 
@@ -244,8 +216,7 @@ export function createSvgRenderer(): Renderer {
     const s = el.style;
     fillWrapper(el);
     s.pointerEvents = "none";
-    // Additive emission over the multiply ink: screen blend + bloom so the mark reads brighter
-    // than its background. 0.82 is the baked former ink.saturation contribution.
+    // Additive emission over the multiply ink: screen blend + bloom so the mark reads brighter than its background. 0.82 is the baked saturation contribution.
     s.mixBlendMode = "screen";
     s.opacity = String(round3(clamp01(glow.intensity * 0.82)));
     s.backgroundColor = glow.color;
@@ -267,8 +238,7 @@ export function createSvgRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    // Intern the edge filter ONCE: it depends only on doc + options, so it's
-    // invariant across all of a mark's lines (computing per line was needless work).
+    // Intern the edge filter once: it depends only on doc + options, so it's invariant across a mark's lines.
     const defs = getSharedDefs(doc);
     const filterParams = resolveEdgeFilter(context.options);
     const filterValue = filterParams ? `url(#${ensureEdgeFilter(defs, filterParams)})` : "";
@@ -279,9 +249,7 @@ export function createSvgRenderer(): Renderer {
     for (const line of context.lines) {
       keep.add(line.seed);
 
-      // The wrapper carries ONLY the box position, never a geometry clip - its
-      // clip-path is left untouched here so an in-flight/primed reveal is preserved
-      // across reflow (R22: reflow never re-animates).
+      // The wrapper carries only the box position, never a geometry clip; its clip-path is left untouched here so an in-flight/primed reveal survives reflow.
       let wrapper = wrapperPool.get(line.seed);
       if (!wrapper) {
         wrapper = doc.createElement("div");
@@ -309,8 +277,7 @@ export function createSvgRenderer(): Renderer {
       styleInk(ink, line, context, filterValue);
     }
 
-    // A vanished line's wrapper (with its ink/glow children) is removed as a unit;
-    // survivors keep their exact wrapper subtree (R22d).
+    // A vanished line's wrapper (with its ink/glow children) is removed as a unit; survivors keep their exact subtree.
     wrapperPool.retain(keep, (el) => el.remove());
     inkPool.retain(keep, () => {});
     // Drop all glow nodes if glow is now off.

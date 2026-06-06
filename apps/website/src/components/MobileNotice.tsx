@@ -26,14 +26,12 @@ function markNoticeDismissed(): void {
 // Close to iOS's sheet spring.
 const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const EXIT_MS = 420;
-// iOS-ish corner smoothing for the squircle top; below the screen-radius floor for flat/non-iPhone.
 const SMOOTHING = 0.6;
 const RADIUS_FLOOR = 22;
-// drop-shadow (not box-shadow) so the lift follows the squircle clip-path instead of being clipped.
+// drop-shadow, not box-shadow, so the lift follows the squircle clip-path.
 const SHEET_SHADOW = "drop-shadow(0 -5px 18px rgba(20, 14, 10, 0.18))";
 
-// A crisp MacBook-screen visual: a hi-res wallpaper with CSS chrome (bezel, menu bar, notch),
-// built in the DOM rather than a baked PNG so it stays sharp at any device pixel ratio.
+// MacBook-screen visual built in the DOM (not a baked PNG) so it stays sharp at any DPR.
 function MacScreen() {
   return (
     <div
@@ -77,11 +75,10 @@ function MacScreen() {
   );
 }
 
-// A one-time, dismissible Apple-sheet heads-up on touch devices: the live demo (select-to-paint and
-// the pen dock) needs a desktop pointer. Top corners follow the device screen radius (device-radius).
+// One-time dismissible heads-up on touch devices: the live demo needs a desktop pointer. Top corners follow the device screen radius.
 export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const isTouch = useIsTouchDevice();
-  const [mounted, setMounted] = useState(false); // present in the DOM (through enter/exit)
+  const [mounted, setMounted] = useState(false); // present in the DOM through enter/exit
   const [open, setOpen] = useState(false); // animation target
   const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -105,8 +102,7 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
 
   if (!mounted) return null;
 
-  // The device's true screen radius (floored for flat/non-iPhone screens), rendered as a Lisse
-  // squircle so the curve shape matches iOS, not a circular CSS arc.
+  // True screen radius (floored for flat screens), as a Lisse squircle so the curve matches iOS, not a circular CSS arc.
   const radius = Math.max(detectDeviceRadius().screenCornerRadius, RADIUS_FLOOR);
 
   const dismiss = () => {
@@ -165,7 +161,6 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
             letterSpacing: "-0.25px",
           }}
         >
-          {/* The "go to a desktop" cue. */}
           <MacScreen />
 
           <div className="flex flex-col" style={{ gap: 8, padding: "0 4px", lineHeight: "24px" }}>
