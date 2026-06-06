@@ -24,7 +24,7 @@ interface UsePointerDragOptions {
   reported: MotionValue<number>;
   /** Stops any in-flight prop-change tween before the pointer takes over (parent owns that tween's ref). */
   stopPropAnim: () => void;
-  /** Fired on each real (post-threshold) drag move, then once on drag end; drives scrub feedback. */
+  /** Fired whenever a drag or tap advances the value to a new step; drives scrub feedback. */
   onScrub?: () => void;
   onScrubEnd?: () => void;
 }
@@ -85,6 +85,7 @@ export function usePointerDrag({
       const prev = lastDragSteppedRef.current!;
       const stepsCrossed = Math.round(Math.abs(stepped - prev) / step);
       lastDragSteppedRef.current = stepped;
+      onScrub?.(); // feed the scribble only when the value advances a detent, not on every move
 
       if (stepAnimRef.current) stepAnimRef.current.stop();
       // Slow drag (one detent): magnetic circOut snap. Fast drag (multi-detent): hard set so the bar tracks the cursor.
@@ -162,7 +163,6 @@ export function usePointerDrag({
       isClickRef.current = false;
     }
     applyPointer(e.clientX);
-    onScrub?.(); // only once the drag is real
   };
 
   // Capture-release, not pointerup: also covers the pointer leaving the element and OS forced-release.
