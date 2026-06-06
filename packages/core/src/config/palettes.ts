@@ -1,8 +1,4 @@
-/**
- * Curated, harmonized palette families. Colors ship as named families, not loose
- * swatches: each is tuned so any pair of its swatches reads coherently together
- * for color-coding (consistent lightness/chroma within a family). Pure data.
- */
+/** Curated palette families, each tuned so any pair of its swatches reads coherently for color-coding. Pure data. */
 
 import type {
   ColorValue,
@@ -70,7 +66,7 @@ export const PALETTES: Record<PaletteName, Palette> = {
   },
 };
 
-/** Canonical default swatch per family - the least-text-obscuring hue (yellow where present). */
+/** Default swatch per family: the least-text-obscuring hue. */
 const DEFAULT_SWATCH_NAMES: Record<PaletteName, string> = {
   fluorescent: "yellow",
   mild: "yellow",
@@ -88,10 +84,7 @@ export function getPalette(name: PaletteName): Palette {
   return palette;
 }
 
-/**
- * Resolve a `{ palette, swatch }` reference to a {@link ColorValue}. Throws on an
- * unknown swatch within the (valid) family.
- */
+/** Resolve a `{ palette, swatch }` reference to a {@link ColorValue}. Throws on an unknown swatch. */
 export function resolveSwatch(ref: PaletteSwatch): ColorValue {
   const palette = getPalette(ref.palette);
   const color = palette.swatches[ref.swatch];
@@ -103,7 +96,7 @@ export function resolveSwatch(ref: PaletteSwatch): ColorValue {
   return color;
 }
 
-/** The canonical default color for a family (e.g. `fluorescent` → yellow). */
+/** The default color for a family. */
 export function defaultSwatch(name: PaletteName): ColorValue {
   return resolveSwatch({ palette: name, swatch: DEFAULT_SWATCH_NAMES[name] });
 }

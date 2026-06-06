@@ -11,8 +11,7 @@ import { useHighlight } from "./use-highlight.js";
 import type { HighlightOptions } from "@highlighters/core";
 
 /**
- * Component that highlights its slot content with a realistic mark. Text stays
- * intact and selectable — the mark is a decorative overlay.
+ * Highlights its slot content with a decorative overlay mark.
  *
  * @example
  * ```vue
@@ -23,7 +22,7 @@ import type { HighlightOptions } from "@highlighters/core";
  */
 export const Highlight = defineComponent({
   name: "Highlight",
-  // Consumer attrs land on the rendered element via the explicit `attrs` spread below.
+  // Attrs are spread onto the rendered element explicitly below.
   inheritAttrs: false,
   props: {
     as: {

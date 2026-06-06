@@ -1,47 +1,37 @@
 /**
- * Tier B renderer - a CSS `linear-gradient` band (blueprint R26 / A3).
+ * Tier B renderer: a CSS `linear-gradient` band. The lightweight tier.
  *
- * The lightweight tier: a per-line WRAPPER `<div>` holding a band `<div>` at
- * `inset: 0` painted with the absolute-px end-pool gradient and composited with
- * `mix-blend-mode: multiply` (R14). Edges are straight - no wave, no texture - but
- * colour, opacity, blend, and band position are shared with Tier A, so degrading
- * here changes fidelity, not identity (R28). The wrapper carries only the box
- * position (no clip) so the draw-on wipes it open with `clip-path: inset(...)`,
- * structurally identical to Tier A.
+ * A per-line wrapper `<div>` holds a band `<div>` at `inset: 0` painted with the absolute-px end-pool
+ * gradient and composited with `mix-blend-mode: multiply`. Edges are straight (no wave, no texture),
+ * but colour, opacity, blend, and band position match Tier A, so degrading here changes fidelity not
+ * identity. The wrapper carries only the box position (no clip), structurally identical to Tier A.
  *
- * Nodes are pooled by stable line identity (A14 §6 / R22d); `unmount()` leaves the
- * DOM pristine (R9).
+ * Nodes are pooled by stable line identity; `unmount()` leaves the DOM pristine.
  */
 
 import type { Renderer, RenderContext, MarkGeometry, PoolGradient } from "../types.js";
 import { NodePool, applyBoxPosition } from "./renderer.js";
 
 /**
- * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` with absolute-px
- * stop positions and `min`/`max` clamps (A14 §3) so a short mark can't over-pool.
- *
- * Each stop's alpha is folded into its colour via `color-mix(... transparent)`,
- * normalized to the brightest stop, so the gradient carries the RELATIVE pooling +
- * dry-out while the band's layer opacity supplies the base. The darkest point thus
- * matches a flat band; pooled/dried regions read lighter. (Without normalization
- * the per-stop alpha never rendered and the band was flat.)
+ * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` with absolute-px stop positions
+ * and `min`/`max` clamps so a short mark can't over-pool. Each stop's alpha is folded into its colour
+ * via `color-mix(... transparent)`, normalized to the brightest stop, so the gradient carries relative
+ * pooling + dry-out while the band's layer opacity supplies the base. Without normalization the
+ * per-stop alpha never renders and the band is flat.
  */
 export function poolGradientToCss(pool: PoolGradient): string {
   const stops = pool.stops;
   let maxAlpha = 0;
   for (const s of stops) maxAlpha = Math.max(maxAlpha, s.opacity ?? 1);
 
-  // Relative per-stop alpha (1 at the brightest stop) folded into the colour, so
-  // the layer opacity stays the absolute base.
+  // Relative per-stop alpha (1 at the brightest stop) folded into the colour, so layer opacity stays the absolute base.
   const fill = (i: number): string => {
     const stop = stops[i] ?? stops[0];
     const rel = maxAlpha > 0 ? (stop?.opacity ?? 1) / maxAlpha : 1;
     return `color-mix(in srgb, ${stop?.color ?? "transparent"} ${Math.round(rel * 100)}%, transparent)`;
   };
 
-  // Live-speed path: N core stops at pre-computed px positions between the two
-  // px-pool ends, the same color-mix normalization generalized over the array. No
-  // nested calc/min/max (positions are already px), so it parses everywhere.
+  // Live-speed path: N core stops at pre-computed px positions between the two pool ends; no nested calc/min/max, so it parses everywhere.
   const positions = pool.coreStopsPositionsPx;
   if (positions) {
     const parts: string[] = [
@@ -55,8 +45,7 @@ export function poolGradientToCss(pool: PoolGradient): string {
     return parts.join(", ");
   }
 
-  // Legacy 4-stop gradient - absolute-px insets with min()/max() clamps keep the
-  // cap-pool width constant.
+  // 4-stop gradient: absolute-px insets with min()/max() clamps keep the cap-pool width constant.
   const startCore = `min(${pool.startCorePx}px, ${pool.startCorePct}%)`;
   const endCore = `max(calc(100% - ${pool.endCorePx}px), ${pool.endCorePct}%)`;
 
@@ -76,7 +65,7 @@ function round2(value: number): number {
 
 /** Create a Tier B renderer (`tier: "css"`). */
 export function createCssRenderer(): Renderer {
-  // Per line: a positioned WRAPPER (the draw-on wipe surface) holding a band node.
+  // Per line: a positioned wrapper (the draw-on wipe surface) holding a band node.
   const wrapperPool = new NodePool<HTMLElement>();
   const bandPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
@@ -91,8 +80,7 @@ export function createCssRenderer(): Renderer {
     s.height = "100%";
     s.pointerEvents = "none";
     s.mixBlendMode = options.blendMode;
-    // layerScale (live-speed path only, else 1) carries the band's ABSOLUTE deposit
-    // so a uniformly-fast swipe dims here rather than being normalized back to full.
+    // layerScale (live-speed path only, else 1) carries the band's absolute deposit so a uniformly-fast swipe dims here rather than normalizing to full.
     s.opacity = String(options.opacity * (line.pool.layerScale ?? 1));
     s.backgroundImage = poolGradientToCss(line.pool);
     s.backgroundRepeat = "no-repeat";
@@ -108,8 +96,7 @@ export function createCssRenderer(): Renderer {
 
     for (const line of context.lines) {
       keep.add(line.seed);
-      // The wrapper carries ONLY the box position (no clip) so the draw-on wipes
-      // it open without scaling; its clip-path is left untouched across reflow.
+      // The wrapper carries only the box position (no clip) so the draw-on wipes it open without scaling; its clip-path is left untouched across reflow.
       let wrapper = wrapperPool.get(line.seed);
       if (!wrapper) {
         wrapper = doc.createElement("div");
@@ -130,8 +117,7 @@ export function createCssRenderer(): Renderer {
       styleBand(band, line, context);
     }
 
-    // Release lines that no longer exist (the wrapper takes its band child with
-    // it); survivors keep their identical wrapper subtree.
+    // Release vanished lines (the wrapper takes its band child with it); survivors keep their identical subtree.
     wrapperPool.retain(keep, (el) => el.remove());
     bandPool.retain(keep, () => {});
   }

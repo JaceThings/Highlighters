@@ -1,25 +1,16 @@
 import type { SnapMode } from "../types.js";
 
 /**
- * Snap a range's start/end to the nearest text boundary, so a stroke stops
- * precisely at line ends with no overshoot into surrounding whitespace.
+ * Snap a range's start/end to the nearest text boundary. Read-only DOM access: returns a
+ * cloned, adjusted `Range`, never mutating the document or input, and import-safe off-DOM.
  *
- * The only geometry module that reads the DOM, and it reads only - it returns a
- * cloned, adjusted `Range` and never mutates the document or the input. Import-safe
- * in a non-DOM environment (returns the range unchanged when nothing to measure).
- *
- *  - `none`  - returns the range unchanged.
- *  - `word`  - trims surrounding whitespace, then expands each end outward to the
- *    enclosing word boundary so a mid-word selection covers the whole word.
+ *  - `none`  - range unchanged (same reference).
+ *  - `word`  - trims whitespace, then expands each end to the enclosing word boundary.
  *  - `glyph` - trims surrounding whitespace only.
- *  - `line`  - trims like `glyph`; the per-visual-line clamping is enforced
- *    downstream when rects are measured.
- *
- * Returns the same reference for `none`; every other mode returns a clone.
+ *  - `line`  - trims like `glyph`; per-visual-line clamping happens downstream.
  */
 
 const WHITESPACE = /\s/;
-/** Characters that constitute a "word" for `word`-mode expansion. */
 const WORD_CHAR = /[\p{L}\p{N}_-]/u;
 
 function isText(node: Node | null): node is Text {
@@ -49,8 +40,7 @@ export function snapRangeToBounds(range: Range, mode: SnapMode): Range {
     if (j !== out.endOffset) out.setEnd(out.endContainer, j);
   }
 
-  // `word` grows each end outward to the enclosing word boundary; `line`/`glyph`
-  // stop at the trimmed glyph bounds.
+  // `word` grows each end out to the enclosing word boundary.
   if (mode === "word") {
     if (isText(out.startContainer)) {
       const text = out.startContainer.data;
@@ -66,9 +56,7 @@ export function snapRangeToBounds(range: Range, mode: SnapMode): Range {
     }
   }
 
-  // A trim that crosses the two boundaries (e.g. an all-whitespace range) can
-  // leave start after end; collapse to the start so callers get a valid,
-  // paint-nothing range rather than an inverted one.
+  // A trim crossing both boundaries (e.g. an all-whitespace range) can invert start/end; collapse to a valid paint-nothing range.
   if (out.collapsed && !range.collapsed) {
     out.collapse(true);
   }

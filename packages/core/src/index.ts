@@ -1,11 +1,4 @@
-/**
- * `@highlighters/core` - the framework-agnostic public API.
- *
- * One pipeline, many front doors: every targeting input normalizes to DOM
- * `Range`s, then per-visual-line rectangles, then absolute-px geometry, then the
- * selected renderer tier. The DOM-free subset (pure geometry + config + types) is
- * also available from the SSR-safe `@highlighters/core/path` entry.
- */
+/** `@highlighters/core` - the framework-agnostic public API. The DOM-free subset is available from the SSR-safe `@highlighters/core/path` entry. */
 
 export { highlight, highlightAll, highlightSelection, group } from "./render/highlight.js";
 

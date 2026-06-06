@@ -1,13 +1,12 @@
 /**
- * The public entry points (blueprint R6 / R9 / R10 / A2).
+ * The public entry points.
  *
- * One pipeline, many front doors (A2): every targeting input normalizes to DOM
- * `Range`s → per-visual-line rectangles → absolute-px {@link MarkGeometry} per line
- * → the selected renderer tier. The returned handle owns the reflow observer and
- * (for page/selection modes) the mutation watcher or selection listener, tearing
- * them all down on `remove()`.
+ * One pipeline, many front doors: every targeting input normalizes to DOM `Range`s, then
+ * per-visual-line rectangles, then absolute-px {@link MarkGeometry} per line, then the selected
+ * renderer tier. The returned handle owns the reflow observer and (for page/selection modes) the
+ * mutation watcher or selection listener, tearing them all down on `remove()`.
  *
- * SSR-safe (R34): outside a DOM the entry points return an inert no-op handle.
+ * SSR-safe: outside a DOM the entry points return an inert no-op handle.
  */
 
 import type {
@@ -41,7 +40,7 @@ import { applyDrawOn } from "./animation.js";
 import { createMarkHandle } from "./mark-handle.js";
 import { hasDom } from "../internal/dom.js";
 
-/** An inert no-op handle for non-DOM environments so callers needn't branch (R34). */
+/** An inert no-op handle for non-DOM environments so callers needn't branch. */
 function inertHandle(): MarkHandle {
   return {
     show() {},
@@ -67,7 +66,7 @@ function rendererForTier(tier: ReturnType<typeof selectTier>): Renderer {
   }
 }
 
-/** Default snap mode by target shape (R22b): elements/page → line, text/sel → word. */
+/** Default snap mode by target shape: elements/page yield line, text/selection yield word. */
 function defaultSnap(target: Target): SnapMode {
   if (typeof target === "string" || target instanceof Element) return "line";
   if (typeof Range !== "undefined" && target instanceof Range) return "word";
@@ -88,18 +87,14 @@ function hostFor(ranges: Range[]): HTMLElement | null {
     const node = range.commonAncestorContainer;
     const el = node instanceof Element ? node : node.parentElement;
     if (el) {
-      // Body, so absolute-px line boxes (in document coordinates) line up
-      // regardless of the target's own box.
+      // Body, so absolute-px line boxes (document coordinates) line up regardless of the target's box.
       return el.ownerDocument.body ?? el.ownerDocument.documentElement;
     }
   }
   return null;
 }
 
-/**
- * Compute per-line {@link MarkGeometry} for a set of ranges - the read-phase →
- * geometry step shared by initial mount, `update()`, and reflow.
- */
+/** Compute per-line {@link MarkGeometry} for a set of ranges; shared by mount, `update()`, and reflow. */
 function buildLines(
   ranges: Range[],
   options: ResolvedOptions,
@@ -108,10 +103,8 @@ function buildLines(
   profileFor?: (local: LineRect) => LineSpeedProfile | undefined,
 ): MarkGeometry[] {
   if (ranges.length === 0) return [];
-  // `getClientRects()` is viewport-relative; the container's rect encodes the
-  // scroll offset. Measuring both the per-line SEED and POSITION from it keeps a
-  // line's seed tied to its document position alone - stable under scroll and
-  // either drag direction (A14). Correct for `body` and any positioned host.
+  // `getClientRects()` is viewport-relative; subtracting the container's rect ties a line's seed
+  // and position to its document position alone, stable under scroll and either drag direction.
   const origin = container.getBoundingClientRect();
   const lineRects: LineRect[] = rangesToLineRects(
     ranges,
@@ -119,10 +112,8 @@ function buildLines(
     origin.top,
   );
   return lineRects.map((rect) => {
-    // An explicit `options.seed` must still yield a DISTINCT per-line seed, else a
-    // wrapped mark keys every line's pooled wrapper to one value, collapsing them
-    // onto a single node and aliasing the draw-on. Mixing it with `rect.seed` via
-    // `hashU32` keeps lines distinct yet deterministic.
+    // An explicit `options.seed` must still yield a distinct per-line seed, else every line's
+    // pooled wrapper keys to one value and collapses onto a single node, aliasing the draw-on.
     const seed = options.seed == null ? rect.seed : hashU32(options.seed + rect.seed);
     const local: LineRect = {
       ...rect,
@@ -133,16 +124,11 @@ function buildLines(
   });
 }
 
-/**
- * Is the live selection dragged backward (focus before anchor in document order)?
- * A backward drag started at the right, so the marker pours its dry-out ink from
- * the right edge (the `flowReversed` pool path). Collapsed/detached read as forward.
- */
+/** Is the live selection dragged backward (focus before anchor)? Then ink pours from the right edge. Collapsed/detached read as forward. */
 function isSelectionBackward(selection: Selection): boolean {
   const { anchorNode, focusNode } = selection;
   if (selection.isCollapsed || !anchorNode || !focusNode) return false;
   if (anchorNode === focusNode) return selection.focusOffset < selection.anchorOffset;
-  // compareDocumentPosition(focus) sets PRECEDING when focus comes before anchor.
   const relation = anchorNode.compareDocumentPosition(focusNode);
   return (relation & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
 }
@@ -167,8 +153,8 @@ function mountMark(
   const container = createOverlayContainer(host);
   const env = detectEnvironment();
 
-  // Static mark: never changes. Watched page mark (`rangeSource` set, R8): each
-  // update() re-collects so added nodes are painted and removed ones drop out.
+  // Static mark never changes; a watched page mark (`rangeSource` set) re-collects each update()
+  // so added nodes are painted and removed ones drop out.
   let activeRanges = ranges;
 
   const buildContext = (opts: ResolvedOptions): RenderContext => {
@@ -182,9 +168,8 @@ function mountMark(
   const renderer = rendererForTier(tier);
   renderer.mount(initialContext);
 
-  // Entrance animation, one-shot on mount. The draw-on finds each line's wrapper by
-  // stable seed via the renderer - never by index into the (possibly shared)
-  // container - so marks sharing a container don't animate each other's bands.
+  // Entrance animation, one-shot on mount. The draw-on finds each line's wrapper by stable seed,
+  // never by index, so marks sharing a container don't animate each other's bands.
   const animDisconnect = applyDrawOn(
     container,
     (seed) => renderer.bandFor(seed),
@@ -193,9 +178,8 @@ function mountMark(
     env,
   );
 
-  // Re-derive geometry and update the renderer WITHOUT re-animating (R22). An
-  // in-flight draw-on is retargeted onto the corrected geometry so it finishes
-  // drawing the right shape instead of snapping; once settled, retarget is a no-op.
+  // Re-derive geometry and update the renderer without re-animating. An in-flight draw-on is
+  // retargeted onto the corrected geometry so it finishes the right shape instead of snapping.
   const reflowTargets = host instanceof Element ? [host] : [];
   const reflow = createReflowObserver(reflowTargets, () => {
     const ctx = buildContext(resolved);
@@ -214,12 +198,10 @@ function mountMark(
     replay: () => animDisconnect.replay(),
     retarget: (lines) => animDisconnect.retarget(lines),
     rebuild: (opts) => {
-      // Mutate `resolved` IN-PLACE so the reflow closure above (which closed over
-      // this reference) picks up the new option values on its next build.
+      // Mutate `resolved` in place so the reflow closure above picks up the new values next build.
       Object.assign(resolved, opts);
-      // A watched page mark re-collects here so a watcher-fired update() paints
-      // added nodes and drops removed ones (R8). Reflow calls buildContext directly,
-      // so a resize never re-scans the DOM.
+      // A watched page mark re-collects here so a watcher-fired update() paints added and drops
+      // removed nodes. Reflow calls buildContext directly, so a resize never re-scans the DOM.
       if (rangeSource) activeRanges = rangeSource();
       return buildContext(resolved);
     },
@@ -227,16 +209,12 @@ function mountMark(
 }
 
 /**
- * Highlight a target - the primary entry point (R6a–R6c).
+ * Highlight a target: the primary entry point.
  *
- * @param target - Any {@link Target}: element, selector, `Range`, `Selection`,
- *   text query, or page target.
- * @param host - Optional positioned element to mount the overlay inside, instead
- *   of `document.body`. Use it to scope the overlay to a transformed, scrolling, or
- *   stacked container - the overlay then moves and z-orders with that container
- *   rather than sitting in document coordinates. Promoted to `position: relative`
- *   if static. Defaults to the body (document-coordinate overlay).
- * @returns A {@link MarkHandle}; inert outside a DOM (R34).
+ * @param target - Any {@link Target}: element, selector, `Range`, `Selection`, text query, or page target.
+ * @param host - Optional positioned element to mount the overlay inside, scoping it to a transformed,
+ *   scrolling, or stacked container. Promoted to `position: relative` if static. Defaults to the body.
+ * @returns A {@link MarkHandle}; inert outside a DOM.
  */
 export function highlight(
   target: Target,
@@ -257,14 +235,12 @@ export function highlight(
 }
 
 /**
- * Highlight whole-page / declarative-attribute content (R6d / R6e).
+ * Highlight whole-page / declarative-attribute content.
  *
- * Collects `data-highlight` elements and/or a page target (default root
- * `document.body`), honouring exclusions (R7), and attaches a debounced
- * `MutationObserver` so added matching nodes get marked and removed nodes drop
- * their marks without a full rescan (R8). Returns one handle covering all matches.
- *
- * @returns A {@link MarkHandle}; inert outside a DOM (R34).
+ * Collects `data-highlight` elements and/or a page target (default root `document.body`), honouring
+ * exclusions, and attaches a debounced `MutationObserver` so added nodes get marked and removed nodes
+ * drop their marks without a full rescan. Returns one handle covering all matches.
+ * @returns A {@link MarkHandle}; inert outside a DOM.
  */
 export function highlightAll(options?: HighlightOptions): MarkHandle {
   if (!hasDom()) return inertHandle();
@@ -275,8 +251,7 @@ export function highlightAll(options?: HighlightOptions): MarkHandle {
 
   const collect = (): Range[] => {
     const pageRanges = collectPageRanges({ root });
-    // Explicit data-highlight elements augment the page scan; the targeting layer
-    // drops data-highlight-exclude subtrees (R7).
+    // Explicit data-highlight elements augment the page scan; the targeting layer drops excluded subtrees.
     const declaredRanges: Range[] = [];
     for (const el of root.querySelectorAll("[data-highlight]")) {
       declaredRanges.push(...toRanges(el));
@@ -297,11 +272,7 @@ export function highlightAll(options?: HighlightOptions): MarkHandle {
   return wrapWithWatcher(handle, root);
 }
 
-/**
- * Attach a debounced mutation watcher to `root` that re-renders the handle's mark
- * on subtree changes (R8). `update({})` re-collects ranges via the `rangeSource`
- * threaded into `mountMark`. The watcher's disconnect is folded into `remove()`.
- */
+/** Attach a debounced mutation watcher that re-renders on subtree changes; its disconnect folds into `remove()`. */
 function wrapWithWatcher(
   handle: MarkHandle,
   root: Element | Document,
@@ -327,23 +298,21 @@ function wrapWithWatcher(
 }
 
 /**
- * Highlight the user's live selection in real time (R6f / A10 / C5).
+ * Highlight the user's live selection in real time.
  *
- * Drives `selectionchange`-derived ranges into the same pipeline. On coarse
- * pointers it defers to native selection UI rather than painting an overlay (C5).
- * `remove()` detaches the `selectionchange` listener.
- *
- * @returns A {@link MarkHandle}; inert outside a DOM (R34).
+ * Drives `selectionchange`-derived ranges into the same pipeline. On coarse pointers it defers to
+ * native selection UI rather than painting an overlay. `remove()` detaches the listener.
+ * @returns A {@link MarkHandle}; inert outside a DOM.
  */
 export function highlightSelection(options?: HighlightOptions): MarkHandle {
   if (!hasDom()) return inertHandle();
 
   const env = detectEnvironment();
-  // On touch devices, native selection is the better UX (C5): no overlay.
+  // On touch devices native selection is the better UX: no overlay.
   if (env.coarsePointer) return inertHandle();
 
-  // Accumulated across update() calls so options compose additively (A7) -
-  // re-spreading the construction-time options each update would revert prior ones.
+  // Accumulated across update() calls so options compose additively; re-spreading the
+  // construction-time options each update would revert prior ones.
   let userOptions: HighlightOptions = { snap: "word", ...options };
   let resolved = resolveOptions(userOptions);
   const host = document.body ?? document.documentElement;
@@ -353,15 +322,13 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   let renderer: Renderer | null = null;
   let currentRanges: Range[] = [];
 
-  // Speed-aware ink (R17), live-drag only. The tracker samples the focus caret's
-  // velocity during a primary fine-pointer drag and serves a per-line deposit
-  // profile. Skipped under reduced motion; sampling/profile additionally gated on
-  // `speed.enabled` and `dragging` so programmatic/keyboard/instant selections
-  // build no field → byte-identical legacy paint.
+  // Speed-aware ink, live-drag only. The tracker samples focus-caret velocity during a primary
+  // fine-pointer drag and serves a per-line deposit profile. Skipped under reduced motion; gated on
+  // `speed.enabled` and `dragging` so programmatic/keyboard/instant selections build no field.
   const tracker = env.prefersReducedMotion ? null : new SelectionVelocityTracker();
   let dragging = false;
   const onPointerDown = (e: PointerEvent): void => {
-    // Primary-button, fine-pointer only - matching the live-drag contract.
+    // Primary-button, fine-pointer only.
     if (e.button !== 0 || (e.pointerType !== "mouse" && e.pointerType !== "pen")) return;
     dragging = true;
     tracker?.reset();
@@ -373,18 +340,16 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     document.addEventListener("pointerdown", onPointerDown, true);
     document.addEventListener("pointerup", endDrag, true);
     document.addEventListener("pointercancel", endDrag, true);
-    // A pointer released OUTSIDE the window fires no pointerup, so blur clears the
-    // flag too - else it sticks `true` and a later non-drag selection paints with speed.
+    // A pointer released outside the window fires no pointerup, so blur clears the flag too,
+    // else it sticks true and a later non-drag selection paints with speed.
     window.addEventListener("blur", endDrag);
   }
 
   const rebuild = (ranges: Range[], flowReversed: boolean): RenderContext => {
     const snapped = snapRanges(ranges, resolved.snap);
-    // Speed profile only while a drag is actively feeding the tracker: gating on
-    // `dragging` keeps a programmatic/keyboard/post-release selection from reusing a
-    // finished gesture's stale samples (it paints legacy geometry instead). A line
-    // with no samples also returns undefined → legacy geometry. The speed look
-    // persists after release because nothing repaints until the next gesture.
+    // Speed profile only while a drag actively feeds the tracker; gating on `dragging` stops a
+    // post-release selection from reusing a finished gesture's stale samples. The look persists
+    // after release because nothing repaints until the next gesture.
     const speedOn = tracker !== null && resolved.speed.enabled && dragging;
     const profileFor = speedOn
       ? (local: LineRect): LineSpeedProfile | undefined =>
@@ -397,8 +362,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     return { container, options: resolved, lines, ranges };
   };
 
-  // Clear-fade (resolved.fadeOnClear): when the selection empties, fade the overlay
-  // out over CLEAR_FADE_MS then drop the bands. Re-selecting cancels the pending fade.
+  // Clear-fade: when the selection empties, fade the overlay out then drop the bands; re-selecting cancels it.
   const CLEAR_FADE_MS = 200;
   let clearTimer: ReturnType<typeof setTimeout> | null = null;
   const cancelClearFade = (): void => {
@@ -418,8 +382,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     let flowReversed = false;
     if (selection && !selection.isCollapsed) {
       flowReversed = isSelectionBackward(selection);
-      // Sample in the SAME container-local px space buildLines projects into, so the
-      // spatial lookup is exact during the drag.
+      // Sample in the same container-local px space buildLines projects into, so the lookup is exact during the drag.
       if (tracker && dragging && resolved.speed.enabled) {
         const origin = container.getBoundingClientRect();
         tracker.recordSample(
@@ -435,8 +398,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       }
     }
 
-    // Selection just emptied: fade out, then drop the bands when the fade lands.
-    // Disabled or reduced-motion → instant clear (below).
+    // Selection just emptied: fade out, then drop the bands when the fade lands (instant clear if disabled/reduced-motion).
     const cleared = ranges.length === 0 && currentRanges.length > 0;
     currentRanges = ranges;
     if (cleared && resolved.fadeOnClear && renderer && !env.prefersReducedMotion) {
@@ -512,10 +474,8 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
 }
 
 /**
- * Bundle handles into a {@link GroupHandle} for sequential show/hide choreography
- * (R10). `show()` reveals members in array order so their draw-on staggers like a
- * pen travelling down the page; `hide()`/`remove()` apply to all members.
- *
+ * Bundle handles into a {@link GroupHandle} for sequential show/hide choreography. `show()`
+ * reveals members in array order so their draw-on staggers like a pen down the page.
  * @param handles - The member handles, in choreography order.
  */
 export function group(handles: MarkHandle[]): GroupHandle {

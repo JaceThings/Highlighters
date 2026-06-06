@@ -1,8 +1,4 @@
-/**
- * Option merging and resolution. {@link mergeOptions} deep-merges two partials;
- * {@link resolveOptions} funnels to a fully-resolved {@link ResolvedOptions} via
- * the precedence defaults → user. No DOM access (SSR-safe).
- */
+/** Option merging and resolution. SSR-safe (no DOM access). */
 
 import type {
   BlendMode,
@@ -22,16 +18,12 @@ import { clamp } from "../internal/math.js";
 import { DEFAULT_OPTIONS } from "./defaults.js";
 import { defaultSwatch, resolveSwatch } from "./palettes.js";
 
-/**
- * A finite number, else `fallback`. `??` only catches `undefined`, so a `NaN` or
- * `±Infinity` (e.g. from `parseFloat("")`) would otherwise leak into geometry/CSS
- * and paint a broken mark. Every resolved numeric scalar funnels through this.
- */
+/** A finite number, else `fallback`. Guards against NaN/Infinity leaking into geometry/CSS. */
 function finiteOr(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-/** A finite, strictly-positive number, else `fallback` - for durations. */
+/** A finite, strictly-positive number, else `fallback`. */
 function positiveOr(value: number | undefined, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
 }
@@ -51,11 +43,7 @@ function mergeGroup(
   return { ...base, ...override };
 }
 
-/**
- * Deep-merge two partial option objects: top-level scalars take `override`,
- * namespaced groups merge field-wise. The `shape`/`markType` synonyms collapse
- * onto a single canonical `markType`. Pure - neither input is mutated.
- */
+/** Deep-merge two partials: scalars take `override`, namespaced groups merge field-wise, `shape`/`markType` collapse onto `markType`. Pure. */
 export function mergeOptions(
   base: HighlightOptions,
   override: HighlightOptions,
@@ -74,7 +62,6 @@ export function mergeOptions(
     }
   }
 
-  // Override wins, then base; collapse both spellings onto markType.
   const markType =
     override.markType ?? override.shape ?? base.markType ?? base.shape;
   if (markType !== undefined) {
@@ -91,8 +78,7 @@ function resolveColor(
   palette: HighlightOptions["palette"],
   fallback: ColorValue,
 ): ColorValue {
-  // Treat an empty/whitespace string as unset, so it falls back to the
-  // palette/default instead of emitting an empty colour token into the gradient.
+  // Empty/whitespace string is treated as unset so it can't emit an empty colour token into the gradient.
   if (typeof color === "string" && color.trim() !== "") {
     return color;
   }
@@ -105,15 +91,10 @@ function resolveColor(
   return fallback;
 }
 
-/**
- * Resolve a (possibly partial) {@link HighlightOptions} into a fully-defaulted
- * {@link ResolvedOptions}, with precedence DEFAULT_OPTIONS → explicit `input`.
- * Pure - no DOM access.
- */
+/** Resolve a partial {@link HighlightOptions} into a fully-defaulted {@link ResolvedOptions}. Pure. */
 export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   const d = DEFAULT_OPTIONS;
 
-  // Normalise the shape/markType synonym; nothing else layers under the input.
   const merged = mergeOptions({}, input);
 
   const tip: ResolvedTip = {
@@ -137,9 +118,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   };
 
   const sd = d.speed;
-  // Order the thresholds so fastSpeed >= slowSpeed even if a caller inverts them -
-  // otherwise the velocity normalizer's denominator collapses and the deposit
-  // curve degenerates into a near-instant step function.
+  // Order thresholds so fastSpeed >= slowSpeed; an inverted pair collapses the velocity normalizer's denominator.
   const rawSlow = Math.max(0, finiteOr(merged.speed?.slowSpeed, sd.slowSpeed));
   const rawFast = Math.max(0, finiteOr(merged.speed?.fastSpeed, sd.fastSpeed));
   const speed: ResolvedSpeedDynamics = {
@@ -168,8 +147,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     absorbency: finiteOr(merged.paper?.absorbency, d.paper.absorbency),
   };
 
-  // A user `palette` with no `color` must draw that palette's default swatch. Detect
-  // that intent from the RAW input, not the merged value.
+  // A `palette` with no `color` draws that palette's default swatch; detect from raw input, not merged.
   const color =
     input.color === undefined && input.palette !== undefined
       ? defaultSwatch(input.palette)
@@ -179,7 +157,6 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     enabled: merged.glow?.enabled ?? d.glow.enabled,
     intensity: finiteOr(merged.glow?.intensity, d.glow.intensity),
     spread: finiteOr(merged.glow?.spread, d.glow.spread),
-    // Falls back to the ink color so an enabled glow blooms in-hue.
     color: merged.glow?.color ?? (d.glow.color || color),
   };
 
@@ -201,7 +178,6 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     markType: merged.markType ?? merged.shape ?? d.markType,
     color,
     gradient: merged.gradient ?? d.gradient,
-    // Clamp once here so every renderer tier receives a [0,1] alpha.
     opacity: Math.max(0, Math.min(1, finiteOr(merged.opacity, d.opacity))),
     blendMode,
     tip,

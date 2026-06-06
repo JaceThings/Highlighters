@@ -1,13 +1,9 @@
 /**
- * Range → per-visual-line rectangles. The read-only layout stage: collect client
- * rects per text node, coalesce them into one rect per visual line, and stamp each
- * line with a layout-stable seed for the geometry layer's deterministic jitter.
- *
- * Per-text-node collection ({@link collectRangeRects}) avoids the full-width bbox
- * rects `getClientRects()` emits at block boundaries. The merge folds same-line
- * fragments (hyphenation, inline `<em>`/`<a>`) together, drops residual oversized
- * rects, and won't merge across large horizontal gaps (so flex `justify-between`
- * rows don't fuse into one ghost band).
+ * Range to per-visual-line rectangles: the read-only layout stage. Collect client rects per text node,
+ * coalesce into one rect per visual line, and stamp each line with a layout-stable seed for the
+ * geometry layer's jitter. Per-text-node collection avoids the full-width bbox rects `getClientRects()`
+ * emits at block boundaries; the merge folds same-line fragments but won't merge across large
+ * horizontal gaps (so `justify-between` rows don't fuse into one ghost band).
  */
 
 import type { Anchor, LineRect } from "../types.js";
@@ -26,18 +22,13 @@ function rectArray(list: DOMRectList): DOMRect[] {
 }
 
 /**
- * Client rects for a range, collected per text node.
- *
- * `Range.getClientRects()` across block boundaries emits full-width "bbox" rects
- * for the straddled blocks (and any empty block between) - spurious bands the
- * height-only filter in {@link mergeRectsByLine} doesn't catch. So for a
- * multi-text-node range we take the rects of a sub-range clamped to each text
- * node: tight to glyphs, no bbox possible. A single-text-node range has no
- * boundary to cross and keeps the range's own rects.
+ * Client rects for a range, collected per text node. `Range.getClientRects()` across block boundaries
+ * emits spurious full-width bbox rects, so a multi-text-node range uses a sub-range clamped to each
+ * text node (tight to glyphs); a single-text-node range keeps its own rects.
  */
 function collectRangeRects(range: Range): DOMRect[] {
   const common = range.commonAncestorContainer;
-  // A text-node common ancestor (or no TreeWalker) means a single text run.
+  // A text-node common ancestor (or no TreeWalker) is a single text run.
   if (common.nodeType === 3 || typeof document.createTreeWalker !== "function") {
     return rectArray(range.getClientRects());
   }
@@ -60,8 +51,7 @@ function collectRangeRects(range: Range): DOMRect[] {
   // 0 or 1 text node: the range's own rects are already artifact-free.
   if (texts.length <= 1) return rectArray(range.getClientRects());
 
-  // 2+ text nodes: one sub-range per text node, clamped to the parent range's
-  // endpoints, so every rect hugs real glyphs.
+  // 2+ text nodes: one sub-range per text node, clamped to the parent range's endpoints.
   const out: DOMRect[] = [];
   for (const text of texts) {
     const start = text === range.startContainer ? range.startOffset : 0;
@@ -120,12 +110,7 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
-/**
- * Coalesce raw `getClientRects()` output into one rect per visual line. Drops bbox
- * artifacts (taller than {@link BBOX_REJECT_RATIO} × median height) and merges
- * rects sharing a vertical centre within {@link MERGE_MAX_GAP_RATIO} horizontally.
- * Pure rect→rect transform; input is never mutated.
- */
+/** Coalesce raw `getClientRects()` output into one rect per visual line, dropping bbox artifacts and merging rects sharing a vertical centre. Pure; input never mutated. */
 export function mergeRectsByLine(rects: DOMRect[]): DOMRect[] {
   if (rects.length === 0) return [];
 
@@ -137,15 +122,14 @@ export function mergeRectsByLine(rects: DOMRect[]): DOMRect[] {
 
   const lines: LineBox[] = [];
   for (const r of rects) {
-    // Reject paragraph-spanning bbox artifacts (only with a median to compare
-    // against; a single-rect input has med === its own height).
+    // Reject paragraph-spanning bbox artifacts (only when there's a median to compare against).
     if (med > 0 && r.height > maxH) continue;
 
     const cy = (r.top + r.bottom) / 2;
     let merged = false;
     for (const line of lines) {
       if (Math.abs(cy - (line.top + line.bottom) / 2) >= tol) continue;
-      // Only merge when horizontally adjacent - wide gaps mean separate columns.
+      // Only merge when horizontally adjacent; wide gaps mean separate columns.
       const gap = Math.max(r.left - line.right, line.left - r.right);
       if (gap > maxGap) continue;
       if (r.top < line.top) line.top = r.top;
@@ -160,28 +144,22 @@ export function mergeRectsByLine(rects: DOMRect[]): DOMRect[] {
     }
   }
 
-  // Top-to-bottom document order so isFirst/isLast and stagger read correctly.
+  // Top-to-bottom order so isFirst/isLast and stagger read correctly.
   lines.sort((a, b) => a.top - b.top || a.left - b.left);
   return lines.map(toDomRect);
 }
 
-/**
- * The top-left-most point of the targeted content's bounding box (min `top`, min
- * `left` across every client rect). Used as the horizontal column-filter origin.
- * Returns `{ top: 0, left: 0 }` when there is nothing to measure.
- */
+/** The top-left-most point of the targeted content's bounding box; the horizontal column-filter origin. `{0, 0}` with nothing to measure. */
 export function computeAnchor(ranges: Range[]): Anchor {
   let top = Infinity;
   let left = Infinity;
 
   if (hasDomWithRange()) {
     for (const range of ranges) {
-      // Same per-text-node collection the line stage uses, so both stages agree
-      // on the content edge.
+      // Same per-text-node collection the line stage uses, so both stages agree on the content edge.
       for (const r of collectRangeRects(range)) {
-        // Must use the SAME `||` sub-pixel test `rangesToLineRects` uses, or the
-        // anchor could latch onto a caret rect the line stage discards and shift
-        // the column filter relative to the painted lines.
+        // Must use the same sub-pixel test `rangesToLineRects` uses, else the anchor latches onto a
+        // caret rect the line stage discards and shifts the column filter off the painted lines.
         if (r.width < 1 || r.height < 1) continue;
         if (r.top < top) top = r.top;
         if (r.left < left) left = r.left;
@@ -194,12 +172,7 @@ export function computeAnchor(ranges: Range[]): Anchor {
   return { top, left };
 }
 
-/**
- * Collect per-text-node rects over `ranges`, merge into visual lines, filter
- * stray rects outside the anchor column, and emit one {@link LineRect} per line
- * with its stable seed and `isFirst`/`isLast` flags. `anchor` drives the
- * horizontal column filter. Read-only; returns `[]` outside a DOM.
- */
+/** Collect per-text-node rects, merge into visual lines, drop rects outside the anchor column, and emit one {@link LineRect} per line with its stable seed. Read-only. */
 export function rangesToLineRects(
   ranges: Range[],
   anchor: Anchor,
@@ -216,10 +189,8 @@ export function rangesToLineRects(
   }
   if (raw.length === 0) return [];
 
-  // Anchor-column filter: drop rects horizontally outside the content column
-  // (sr-only text, decorative wrappers, other columns), bounded by the anchor's
-  // left and the widest rect's right plus slop. Bounded loop, not
-  // `Math.max(...spread)`, so a huge full-page scan can't blow the call stack.
+  // Anchor-column filter: drop rects horizontally outside the content column, bounded by the anchor's
+  // left and the widest rect's right plus slop. Bounded loop, not a spread, so a huge scan can't blow the stack.
   let maxRight = -Infinity;
   for (const r of raw) if (r.right > maxRight) maxRight = r.right;
   const minLeft = anchor.left - COLUMN_SLOP;
@@ -236,11 +207,8 @@ export function rangesToLineRects(
     top: rect.top,
     width: rect.width,
     height: rect.height,
-    // Seed off `originTop` (overlay container's document origin), NOT the
-    // selection's min-top: min-top moves when an upward drag adds a line above,
-    // which would re-roll every seed and re-randomize already-painted shapes. The
-    // container origin never moves with the selection (still scroll-stable - both
-    // shift together).
+    // Seed off `originTop` (container's document origin), not the selection's min-top: min-top moves
+    // when an upward drag adds a line above, re-rolling every seed and re-randomizing painted shapes.
     seed: Math.round((rect.top - originTop) * SEED_SCALE),
     isFirst: index === 0,
     isLast: index === lines.length - 1,

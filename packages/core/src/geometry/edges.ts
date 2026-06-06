@@ -2,16 +2,12 @@ import type { EdgeVertex } from "../types.js";
 import { hashJitter } from "./rng.js";
 
 /**
- * Wavy-edge vertex generation on a fixed spatial grid - the core of the
- * anchored-grid method.
+ * Wavy-edge vertices on a fixed spatial grid.
  *
- * A naïve highlighter interpolates vertices as a fraction of the current width
- * and seeds the jitter by the loop index; both depend on width, so widening the
- * mark slides every vertex AND re-shuffles every seed - the wobble visibly
- * "swims" during a drag. Here vertices live at `x = gridIndex * segmentLength` on
- * a global px grid and the jitter is seeded by that grid index, so wavelength and
- * per-x phase are constant at any width, and growing the extent only appends
- * vertices at fresh grid x's - everything already emitted stays byte-identical.
+ * Vertices live at `x = gridIndex * segmentLength` on a global px grid, jitter
+ * seeded by that grid index, so wavelength and per-x phase are width-independent
+ * and growing the extent only appends vertices, never shifting the existing ones.
+ * (Interpolating by current width and seeding by loop index would make the wobble swim during a drag.)
  */
 
 /** Per-role seed offsets so independent jitter draws never move in lockstep. */
@@ -29,29 +25,19 @@ export interface EdgeBuildOptions {
   segmentLength: number;
   /** Peak wave displacement from `baseY`, in absolute px. */
   amplitude: number;
-  /**
-   * High-frequency micro-jitter on top of the base wave, `0`–`1`. A small
-   * decorrelated nudge (up to ~30% of `amplitude`) so the edge reads frayed
-   * rather than cleanly sinusoidal. `0` yields the pure base wave.
-   */
+  /** High-frequency micro-jitter on the base wave, `0`-`1` (up to ~30% of `amplitude`) so the edge reads frayed rather than sinusoidal. */
   roughness: number;
   /** Base seed for this edge (e.g. line seed + a top/bottom offset). */
   seed: number;
 }
 
 /**
- * Generate wave vertices on the fixed global grid for one long edge, in ascending
- * grid-index order (left → right). For a reversed edge the caller reverses the
- * array; since each vertex is a pure function of its grid index, reversing keeps
- * byte-identical geometry.
- *
- * @returns The vertices, ascending in `x`. May be empty for a sub-`segmentLength`
- *   span (the caller then draws a straight edge between the corners).
+ * Generate wave vertices on the fixed global grid for one edge, ascending in `x`.
+ * @returns Vertices ascending in `x`; empty for a sub-`segmentLength` span (caller draws straight).
  */
 export function buildEdge(opts: EdgeBuildOptions): EdgeVertex[] {
   const { startX, endX, baseY, segmentLength, amplitude, roughness, seed } = opts;
 
-  // Non-positive spacing has no vertex grid; emit none (caller draws straight).
   if (!(segmentLength > 0)) return [];
 
   const lo = Math.min(startX, endX);

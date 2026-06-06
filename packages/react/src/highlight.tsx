@@ -12,8 +12,7 @@ import type { HighlightOptions } from "@highlighters/core";
 export type HighlightOwnProps = {
   children?: ReactNode;
   options?: HighlightOptions;
-  /** Positioned element to mount the overlay inside (instead of the body),
-   *  scoping it to a transformed/scrolling/stacked container. */
+  /** Positioned element to mount the overlay inside, instead of the body. */
   host?: HTMLElement | null;
 };
 
@@ -25,8 +24,7 @@ export type HighlightProps<E extends ElementType = "span"> = HighlightOwnProps &
 } & Omit<ComponentPropsWithoutRef<E>, ReservedKeys>;
 
 /**
- * Renders an element whose text content is highlighted with a realistic mark.
- * Text stays intact and selectable — the mark is a decorative overlay.
+ * Renders an element whose text content is highlighted with a decorative overlay mark.
  *
  * @example
  * ```tsx
@@ -38,9 +36,7 @@ export type HighlightProps<E extends ElementType = "span"> = HighlightOwnProps &
 export function Highlight<E extends ElementType = "span">(props: HighlightProps<E>) {
   const { as, options, host, children, ...rest } = props;
   const Component = (as ?? "span") as ElementType;
-  // Callback ref into state so the hook tracks the actual mounted node: an
-  // `as`-swap or deferred mount re-runs it on the new node rather than stranding
-  // the mark on a stale ref.
+  // Callback ref into state so the hook tracks the actual mounted node across as-swaps.
   const [node, setNode] = useState<Element | null>(null);
   const ref = useCallback((el: Element | null) => setNode(el), []);
 

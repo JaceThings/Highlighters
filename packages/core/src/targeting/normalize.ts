@@ -1,9 +1,4 @@
-/**
- * The single normalization front door: every {@link Target} variant collapses to
- * a flat array of DOM `Range`s here, so the rest of the pipeline only ever deals
- * with ranges. Never throws - an unmatched selector, empty page, collapsed
- * selection, or no DOM all yield `[]`.
- */
+/** The normalization front door: every {@link Target} variant collapses to a flat array of DOM `Range`s. Never throws; yields `[]` on no match or no DOM. */
 
 import type { Target, TextTarget } from "../types.js";
 import { findTextRanges } from "./text-search.js";
@@ -47,11 +42,9 @@ function rangeForElement(el: Element): Range {
 }
 
 /**
- * Normalize any {@link Target} to a flat array of DOM `Range`s. Dispatch order is
- * significant: the specific structural shapes (`Range`, `Selection`, `Element`,
- * {@link TextTarget}) are matched before the catch-all {@link PageTarget} object
- * form, and `string` is treated as a CSS selector. Never throws; returns `[]` when
- * nothing matches or without a DOM.
+ * Normalize any {@link Target} to a flat array of DOM `Range`s. Dispatch order is significant:
+ * specific shapes (`Range`, `Selection`, `Element`, {@link TextTarget}) are matched before the
+ * catch-all page-target object, and `string` is a CSS selector. Never throws.
  */
 export function toRanges(target: Target): Range[] {
   if (!hasDomWithRange() || target == null) return [];
@@ -93,7 +86,6 @@ export function toRanges(target: Target): Range[] {
     return findTextRanges(root, target.text);
   }
 
-  // Catch-all page-target object form: reached only after every more-specific
-  // shape and null have returned.
+  // Catch-all page-target object form, reached only after every more-specific shape returned.
   return collectPageRanges(target);
 }
