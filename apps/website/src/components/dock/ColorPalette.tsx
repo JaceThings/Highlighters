@@ -52,7 +52,14 @@ export function ColorPalette({
           }}
         />
       ))}
-      <CustomDisc active={customActive} color={value} onClick={onActivateCustom} />
+      <CustomDisc
+        active={customActive}
+        color={value}
+        onClick={(btn) => {
+          playColorBloop();
+          onActivateCustom(btn);
+        }}
+      />
     </div>
   );
 }
