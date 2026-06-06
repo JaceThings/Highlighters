@@ -47,7 +47,10 @@ const NAV_DOCS_URL = "/audio/nav-docs.mp3";
 const MENU_OPEN_URL = "/audio/menu-open.mp3";
 const MENU_CLOSE_URL = "/audio/menu-close.mp3"; // the open clip reversed
 const OPTION_CLICK_URL = "/audio/option-click.mp3";
-const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS, NAV_HOME_URL, NAV_DOCS_URL, MENU_OPEN_URL, MENU_CLOSE_URL, OPTION_CLICK_URL];
+const ALL_URLS = [
+  ...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS,
+  NAV_HOME_URL, NAV_DOCS_URL, MENU_OPEN_URL, MENU_CLOSE_URL, OPTION_CLICK_URL,
+];
 
 const SLIDER_GAIN = 0.01;
 const CIRCLE_GAIN = 0.0125;

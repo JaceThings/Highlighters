@@ -42,7 +42,11 @@ function DockButton({
         data-focus-radius="full"
         className={CLASSES}
         onPointerEnter={primeMarkerAudio}
-        onClick={() => (to === "/" ? playNavHome() : playNavDocs())}
+        onClick={() => {
+          if (active) return; // already here, no navigation -> no sound
+          if (to === "/") playNavHome();
+          else playNavDocs();
+        }}
       >
         {glyph}
       </Link>
