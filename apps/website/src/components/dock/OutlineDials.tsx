@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { DialRoot, useDialKit } from "dialkit";
 import "dialkit/styles.css";
 import { DEFAULT_TUNING, setPreview, setTipTune } from "./outline-tuning.ts";
-import { setCircleSpeed } from "../../lib/marker-audio.ts";
+import { setCircleSpeed, setCirclePitch } from "../../lib/marker-audio.ts";
 
 // Dev-only DialKit panel driving the marker-outline tuning store (outline-tuning.ts). Pick a
 // Preview to force a pen's outline visible, then dial X/Y/Scale. Sliders seed from DEFAULT_TUNING.
@@ -19,13 +19,19 @@ export function OutlineDials() {
     chisel: { x: nudge(slant.dx), y: nudge(slant.dy), scale: scaleDial(slant.scale) },
     bullet: { x: nudge(round.dx), y: nudge(round.dy), scale: scaleDial(round.scale) },
     fine: { x: nudge(fine.dx), y: nudge(fine.dy), scale: scaleDial(fine.scale) },
-    // Circle-pop speed (drives the docs swatch sound + its matched ring draw). <1 slows + deepens.
-    circlePop: { speed: [1, 0.4, 2, 0.05] as [number, number, number, number] },
+    // Circle pop: speed = ring-draw length, pitch = audio rate (independent; baked together later).
+    circlePop: {
+      speed: [1, 0.4, 2.5, 0.05] as [number, number, number, number],
+      pitch: [1, 0.5, 2, 0.02] as [number, number, number, number],
+    },
   });
 
   useEffect(() => {
     setCircleSpeed(p.circlePop.speed);
   }, [p.circlePop.speed]);
+  useEffect(() => {
+    setCirclePitch(p.circlePop.pitch);
+  }, [p.circlePop.pitch]);
 
   useEffect(() => {
     setTipTune("slant", { dx: p.chisel.x, dy: p.chisel.y, scale: p.chisel.scale });

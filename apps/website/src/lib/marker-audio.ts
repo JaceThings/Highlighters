@@ -150,12 +150,10 @@ function playClip(url: string, gain: number, vary = true, speed = 1): number {
   return buf ? buf.duration / rate : 0;
 }
 
-// One random clip per call, never the same one three times in a row. Each caller keeps its own history.
-// `speed` is read per call so a dev dial can retune it live. Returns the played clip's length in seconds.
-function makeOneShot(urls: string[], gain: number, speed: () => number = () => 1): () => number {
+// A no-repeat index picker over n items: random, never the same one three times in a row.
+function noRepeatPicker(n: number): () => number {
   const history: number[] = [];
-  const nextIndex = (): number => {
-    const n = urls.length;
+  return () => {
     if (n < 2) return 0; // also avoids the block-the-only-index infinite loop
     const last = history[history.length - 1];
     const prev = history[history.length - 2];
@@ -166,7 +164,12 @@ function makeOneShot(urls: string[], gain: number, speed: () => number = () => 1
     if (history.length > 3) history.shift();
     return i;
   };
-  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain, true, speed()) : 0);
+}
+
+// One random clip per call (no clip three times in a row). Returns the played clip's length in seconds.
+function makeOneShot(urls: string[], gain: number): () => number {
+  const pick = noRepeatPicker(urls.length);
+  return () => (ensureRunning() ? playClip(urls[pick()], gain) : 0);
 }
 
 // Shuffle bag: play through a shuffled copy of `urls`, then reshuffle. Every clip plays once per bag
@@ -197,12 +200,25 @@ function makeFixed(url: string, gain: number): () => number {
   return () => (ensureRunning() ? playClip(url, gain, false) : 0);
 }
 
-// Circle-pop playback speed, dev-tunable via DialKit (?dials). 1 = the clips' baked length.
+// Circle pop, dev-tunable via DialKit (?dials): speed scales the matched ring-draw length, pitch scales
+// the audio rate. Decoupled live (rate can't time-stretch); a chosen pair gets baked with atempo + asetrate.
 let circleSpeed = 1;
+let circlePitch = 1;
 export function setCircleSpeed(s: number): void {
   circleSpeed = s;
 }
-export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN, () => circleSpeed);
+export function setCirclePitch(p: number): void {
+  circlePitch = p;
+}
+const pickCircle = noRepeatPicker(CIRCLE_URLS.length);
+/** Docs swatch pop: plays at the dialed pitch, returns the ring-draw length (seconds) at the dialed speed. */
+export function playCircleSound(): number {
+  if (!ensureRunning()) return 0;
+  const url = CIRCLE_URLS[pickCircle()];
+  playClip(url, CIRCLE_GAIN, true, circlePitch);
+  const buf = buffers.get(url);
+  return buf ? buf.duration / circleSpeed : 0;
+}
 export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
 export const playColorBloop = makeShuffleBag(BLOOP_URLS, BLOOP_GAIN);
 export const playMarkerSelect = makeShuffleBag(SELECT_URLS, SELECT_GAIN);
