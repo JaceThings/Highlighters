@@ -128,12 +128,15 @@ export function primeMarkerAudio(): void {
 }
 
 // Play a clip once at `gain`. `vary` adds slight pitch variance (off for the fixed nav clicks).
-function playClip(url: string, gain: number, vary = true): void {
+// Returns the clip's playing length in seconds when it's already decoded (so a caller can match an
+// animation to it), else 0; the rate is fixed up front so the returned length accounts for it.
+function playClip(url: string, gain: number, vary = true): number {
+  const rate = vary ? 0.97 + Math.random() * 0.06 : 1;
   void decode(url).then((buf) => {
     if (!buf || !ctx || !master) return;
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    if (vary) src.playbackRate.value = 0.97 + Math.random() * 0.06;
+    src.playbackRate.value = rate;
     const g = ctx.createGain();
     g.gain.value = gain;
     src.connect(g).connect(master);
@@ -143,10 +146,13 @@ function playClip(url: string, gain: number, vary = true): void {
     };
     src.start();
   });
+  const buf = buffers.get(url);
+  return buf ? buf.duration / rate : 0;
 }
 
 // One random clip per call, never the same one three times in a row. Each caller keeps its own history.
-function makeOneShot(urls: string[], gain: number): () => void {
+// Returns the played clip's length in seconds (0 if it couldn't play).
+function makeOneShot(urls: string[], gain: number): () => number {
   const history: number[] = [];
   const nextIndex = (): number => {
     const n = urls.length;
@@ -160,14 +166,12 @@ function makeOneShot(urls: string[], gain: number): () => void {
     if (history.length > 3) history.shift();
     return i;
   };
-  return () => {
-    if (ensureRunning()) playClip(urls[nextIndex()], gain);
-  };
+  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain) : 0);
 }
 
 // Shuffle bag: play through a shuffled copy of `urls`, then reshuffle. Every clip plays once per bag
 // (no in-bag repeats), and a fresh bag never opens on the clip the previous bag closed on.
-function makeShuffleBag(urls: string[], gain: number): () => void {
+function makeShuffleBag(urls: string[], gain: number): () => number {
   let bag: number[] = [];
   let last = -1;
   const nextIndex = (): number => {
@@ -185,30 +189,23 @@ function makeShuffleBag(urls: string[], gain: number): () => void {
     last = bag.pop() ?? 0;
     return last;
   };
-  return () => {
-    if (ensureRunning()) playClip(urls[nextIndex()], gain);
-  };
+  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain) : 0);
+}
+
+// One fixed clip, no randomness or pitch variance.
+function makeFixed(url: string, gain: number): () => number {
+  return () => (ensureRunning() ? playClip(url, gain, false) : 0);
 }
 
 export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN);
 export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
 export const playColorBloop = makeShuffleBag(BLOOP_URLS, BLOOP_GAIN);
 export const playMarkerSelect = makeShuffleBag(SELECT_URLS, SELECT_GAIN);
-export function playNavHome(): void {
-  if (ensureRunning()) playClip(NAV_HOME_URL, NAV_GAIN, false);
-}
-export function playNavDocs(): void {
-  if (ensureRunning()) playClip(NAV_DOCS_URL, NAV_GAIN, false);
-}
-export function playMenuOpen(): void {
-  if (ensureRunning()) playClip(MENU_OPEN_URL, MENU_GAIN, false);
-}
-export function playMenuClose(): void {
-  if (ensureRunning()) playClip(MENU_CLOSE_URL, MENU_GAIN, false);
-}
-export function playOptionClick(): void {
-  if (ensureRunning()) playClip(OPTION_CLICK_URL, OPTION_GAIN, false);
-}
+export const playNavHome = makeFixed(NAV_HOME_URL, NAV_GAIN);
+export const playNavDocs = makeFixed(NAV_DOCS_URL, NAV_GAIN);
+export const playMenuOpen = makeFixed(MENU_OPEN_URL, MENU_GAIN);
+export const playMenuClose = makeFixed(MENU_CLOSE_URL, MENU_GAIN);
+export const playOptionClick = makeFixed(OPTION_CLICK_URL, OPTION_GAIN);
 
 // Slider scrub: one looping voice that swells with movement, fades when it stops.
 

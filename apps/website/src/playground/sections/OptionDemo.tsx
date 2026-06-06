@@ -115,6 +115,8 @@ function SwatchPicker() {
   const activeHex = useMemo(() => colorToHex(color, "#f7d054"), [color]).toLowerCase();
   // Bump per pick so the lasso re-draws. Deterministic seed (not Math.random) for strict-mode double-invokes.
   const [lassoSeed, setLassoSeed] = useState(() => SWATCH_CHIPS[0].seed * 31);
+  // Draw the ring over the length of the (random) pop that plays with it; undefined = the lasso's own pace.
+  const [lassoDrawMs, setLassoDrawMs] = useState<number | undefined>(undefined);
   // Keyboard-focused swatch (not the selected one): ringed with a faded preview lasso, not a focus outline.
   const [focused, setFocused] = useState<string | null>(null);
 
@@ -144,7 +146,8 @@ function SwatchPicker() {
               if (selected) return;
               set("color", hex);
               setLassoSeed((s) => s + 1);
-              playCircleSound();
+              const seconds = playCircleSound();
+              setLassoDrawMs(seconds > 0 ? seconds * 1000 : undefined);
             }}
             className={`relative flex flex-1 select-none items-center justify-center outline-none ${selected ? "cursor-default" : "cursor-pointer"}`}
           >
@@ -153,7 +156,7 @@ function SwatchPicker() {
               <AnimatePresence>
                 {selected ? (
                   <m.span key={lassoSeed} className={LASSO_WRAP} style={LASSO_WRAP_STYLE} exit={LASSO_EXIT}>
-                    <ScribbleLasso seed={lassoSeed} size={LASSO_PX} />
+                    <ScribbleLasso seed={lassoSeed} size={LASSO_PX} drawMs={lassoDrawMs} />
                   </m.span>
                 ) : isPreview ? (
                   <m.span key={`preview-${id}`} className={LASSO_WRAP} style={LASSO_WRAP_STYLE} initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={LASSO_EXIT}>
