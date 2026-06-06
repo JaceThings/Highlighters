@@ -22,6 +22,10 @@ export default defineConfig({
         // and the playground-only libs folded into it — stays off the "/"
         // critical path.
         manualChunks(id) {
+          // @highlighters/core is a workspace package, so its symlink resolves to
+          // packages/core/dist (outside node_modules) - match it before the guard below,
+          // or it folds into the app chunk and busts its cache on every app-code change.
+          if (id.includes("/packages/core/dist")) return "vendor";
           if (!id.includes("node_modules")) return undefined;
           if (
             id.includes("/react-router") ||

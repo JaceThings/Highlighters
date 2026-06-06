@@ -105,6 +105,10 @@ const SWATCH_CHIPS = SWATCH_COLORS.map((c) => ({
 
 const BLOB_PX = 33;
 const LASSO_PX = 64; // notably larger than the blob so the lasso rings it with a clear gap
+// Shared wrapper for the selected + focus-preview lassos, centred over the blob.
+const LASSO_WRAP = "pointer-events-none absolute top-1/2 left-1/2";
+const LASSO_WRAP_STYLE = { width: LASSO_PX, height: LASSO_PX, x: "-50%", y: "-50%" };
+const LASSO_EXIT = { opacity: 0, transition: { duration: 0.12 } };
 
 function SwatchPicker() {
   const { options, set } = usePlaygroundOptions();
@@ -115,6 +119,9 @@ function SwatchPicker() {
   // Bump on each pick so the lasso rings a freshly hand-drawn circle every selection. Seeded
   // deterministically (not Math.random) so it's stable across strict-mode double-invokes.
   const [lassoSeed, setLassoSeed] = useState(() => SWATCH_CHIPS[0].seed * 31);
+  // The swatch under keyboard focus (not the selected one): ringed with a faded preview lasso,
+  // mirroring the scribble-underline legend's Tab preview instead of a generic focus outline.
+  const [focused, setFocused] = useState<string | null>(null);
 
   return (
     <div
@@ -125,6 +132,8 @@ function SwatchPicker() {
     >
       {SWATCH_CHIPS.map(({ id, label, seed, hex }) => {
         const selected = hex.toLowerCase() === activeHex;
+        // A keyboard-focused, not-yet-selected swatch previews its lasso at half opacity.
+        const isPreview = focused === id && !selected;
         return (
           <button
             key={id}
@@ -132,29 +141,32 @@ function SwatchPicker() {
             role="radio"
             aria-checked={selected}
             aria-label={label}
-            data-focus-ring
-            data-focus-radius="full"
+            // Preview only on keyboard focus (:focus-visible), never a mouse click, matching the
+            // legend. The faded lasso is the focus indicator, so no generic data-focus-ring here.
+            onFocus={(e) => {
+              if (e.currentTarget.matches(":focus-visible")) setFocused(id);
+            }}
+            onBlur={() => setFocused((f) => (f === id ? null : f))}
             onClick={() => {
               if (selected) return;
               set("color", hex);
               setLassoSeed((s) => s + 1);
               playMarkerPop(); // a random marker tap as the lasso draws in
             }}
-            className={`relative flex flex-1 select-none items-center justify-center ${selected ? "cursor-default" : "cursor-pointer"}`}
+            className={`relative flex flex-1 select-none items-center justify-center outline-none ${selected ? "cursor-default" : "cursor-pointer"}`}
           >
             <span className="relative block" style={{ width: BLOB_PX, height: BLOB_PX }}>
               <ScribbleSwatch hex={hex} seed={seed} size={BLOB_PX} />
               <AnimatePresence>
-                {selected && (
-                  <m.span
-                    key={lassoSeed}
-                    className="pointer-events-none absolute top-1/2 left-1/2"
-                    style={{ width: LASSO_PX, height: LASSO_PX, x: "-50%", y: "-50%" }}
-                    exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                  >
+                {selected ? (
+                  <m.span key={lassoSeed} className={LASSO_WRAP} style={LASSO_WRAP_STYLE} exit={LASSO_EXIT}>
                     <ScribbleLasso seed={lassoSeed} size={LASSO_PX} />
                   </m.span>
-                )}
+                ) : isPreview ? (
+                  <m.span key={`preview-${id}`} className={LASSO_WRAP} style={LASSO_WRAP_STYLE} initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={LASSO_EXIT}>
+                    <ScribbleLasso seed={seed} size={LASSO_PX} draw={false} />
+                  </m.span>
+                ) : null}
               </AnimatePresence>
             </span>
           </button>
