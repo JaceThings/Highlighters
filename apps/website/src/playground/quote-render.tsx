@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
+import { m, type MotionValue } from "framer-motion";
 import type { MarkPlan } from "./quote-marks.ts";
 import type { Quote } from "./quotes.ts";
 
@@ -29,15 +30,27 @@ export function QuoteFrame({
   pRef,
   author,
   children,
+  markOpacity,
 }: {
   hostRef?: Ref<HTMLDivElement>;
   pRef?: Ref<HTMLParagraphElement>;
   author: string;
   children: ReactNode;
+  /** Compositor opacity for the marks layer (the mark-type swap fade). Defaults to fully opaque. */
+  markOpacity?: MotionValue<number>;
 }) {
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
-      <div ref={hostRef} className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
+      <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
+        {/* Marks layer: @highlighters mounts overlays here. Absolute inset-0 keeps its box (and so
+            the overlay's coordinate origin) identical to the wrapper, but lets the mark-type swap
+            fade it by compositor opacity without re-rendering or re-rasterizing the marks. */}
+        <m.div
+          ref={hostRef}
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{ opacity: markOpacity ?? 1 }}
+        />
         <p ref={pRef} className="m-0 text-wrap-pretty" style={QUOTE_STYLE}>
           {children}
         </p>

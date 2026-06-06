@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
 import { Highlight, useHighlight } from "@highlighters/react";
 import type { HighlightOptions, TipType } from "@highlighters/core";
 import { useEntranceComplete } from "../components/Stagger.tsx";
 import { useMarkTypeSwap } from "../hooks/useMarkTypeSwap.ts";
+import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
 import { toCoreOptions, usePreviewOptions } from "./options-context.tsx";
 import type { Quote } from "./quotes.ts";
 import { planMarks, type MarkStrategy } from "./quote-marks.ts";
@@ -75,27 +77,44 @@ export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
     );
   };
 
-  // Overlap doubles are always rendered, so the Stack toggle only changes their opacity (an in-place
-  // update) instead of adding/removing nodes and replaying the draw-on. ON: darken; OFF: 0, flat.
   const stacked = previewOptions.stack !== false;
-  const liveOpacity = (core.opacity ?? 0.5) * swap.factor;
+  // Steady ink alpha. The mark-type fade rides the layer's compositor opacity (swap.fade), not this.
+  const liveOpacity = core.opacity ?? 0.5;
   const words = quote.text.split(" ");
   const plan = planMarks(quote, words, strategy);
+
+  // Overlap doubles are always mounted (toggling opacity, not nodes, avoids a draw-on replay); the
+  // Stack toggle fades them in/out via this 0..1 amount rather than snapping. Only the overlap demo
+  // plans doubles, so this per-frame opacity tween touches one card's couple of inner marks - it
+  // can't go through a compositor layer like the mark-type fade, since opacity there would isolate
+  // the doubles' multiply blend and kill the darkening.
+  const hasDoubles = (plan.doubles?.length ?? 0) > 0;
+  const stackFade = useMotionValue(stacked ? 1 : 0);
+  const [stackAmt, setStackAmt] = useState(stacked ? 1 : 0);
+  useMotionValueEvent(stackFade, "change", setStackAmt);
+  useEffect(() => {
+    if (!hasDoubles) return;
+    const controls = animate(stackFade, stacked ? 1 : 0, { duration: 0.4, ease: STATE_CHANGE_EASE });
+    return () => controls.stop();
+  }, [stacked, hasDoubles, stackFade]);
 
   // Stable ranges + seeds every render, so a colour change restyles the existing marks in place
   // (handle.update) with no redraw or flash, like the dock's live marker.
   const quoteBody = (color: HighlightOptions["color"]) => {
-    const opts: HighlightOptions = { ...core, markType: swap.markType, color, opacity: liveOpacity };
+    // Keep the band on multiply so the Stack toggle fades the overlap (the inner double's opacity)
+    // instead of snapping the whole band's blend mode - a blend-mode flip can't be tweened, and it's
+    // the overlap darkening, not the single band, that the demo is about.
+    const opts: HighlightOptions = { ...core, markType: swap.markType, color, opacity: liveOpacity, blendMode: "multiply" };
     return buildQuotePieces(
       words,
       plan,
       (children, seed) => renderRun(children, { ...opts, seed }),
-      (children, seed) => renderRun(children, { ...opts, seed, opacity: stacked ? liveOpacity : 0 }),
+      (children, seed) => renderRun(children, { ...opts, seed, opacity: liveOpacity * stackAmt }),
     );
   };
 
   return (
-    <QuoteFrame hostRef={setHost} author={quote.author}>
+    <QuoteFrame hostRef={setHost} author={quote.author} markOpacity={swap.fade}>
       {"“"}
       {quoteBody(core.color)}
       {"”"}
