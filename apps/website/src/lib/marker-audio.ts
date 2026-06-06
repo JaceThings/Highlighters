@@ -1,5 +1,5 @@
-// Web Audio for the docs demo, three sound sets: a looping SLIDER scribble that swells while a slider
-// scrubs, a one-shot CIRCLE pop on a colour-swatch pick, and a one-shot ZIG-ZAG clip on a legend pick.
+// Web Audio for the marker UI: a looping SLIDER scribble while a slider scrubs, plus one-shot clicks
+// for the docs swatch, legend, dock colour, dock pen, nav buttons, popover-open, and pen-menu option.
 // MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached. The context is
 // created without resuming and only resumed inside a gesture (else the autoplay warning).
 
@@ -29,11 +29,37 @@ const ZIGZAG_URLS = [
   "/audio/marker-zigzag-12.mp3",
   "/audio/marker-zigzag-13.mp3",
 ];
-const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS];
+const BLOOP_URLS = [
+  "/audio/paint-bloop-1.mp3",
+  "/audio/paint-bloop-2.mp3",
+  "/audio/paint-bloop-3.mp3",
+  "/audio/paint-bloop-4.mp3",
+  "/audio/paint-bloop-5.mp3",
+];
+const SELECT_URLS = [
+  "/audio/marker-select-1.mp3",
+  "/audio/marker-select-2.mp3",
+  "/audio/marker-select-3.mp3",
+  "/audio/marker-select-4.mp3",
+];
+const NAV_HOME_URL = "/audio/nav-home.mp3";
+const NAV_DOCS_URL = "/audio/nav-docs.mp3";
+const MENU_OPEN_URL = "/audio/menu-open.mp3";
+const MENU_CLOSE_URL = "/audio/menu-close.mp3"; // the open clip reversed
+const OPTION_CLICK_URL = "/audio/option-click.mp3";
+const ALL_URLS = [
+  ...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS,
+  NAV_HOME_URL, NAV_DOCS_URL, MENU_OPEN_URL, MENU_CLOSE_URL, OPTION_CLICK_URL,
+];
 
 const SLIDER_GAIN = 0.01;
 const CIRCLE_GAIN = 0.0125;
 const ZIGZAG_GAIN = 0.0125;
+const BLOOP_GAIN = 0.025;
+const SELECT_GAIN = 0.1;
+const NAV_GAIN = 0.05;
+const MENU_GAIN = 0.025;
+const OPTION_GAIN = 0.025;
 const FADE_IN = 0.015; // s, slider swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
@@ -104,9 +130,31 @@ export function primeMarkerAudio(): void {
   for (const u of ALL_URLS) void decode(u);
 }
 
-// A one-shot picker over `urls`: one random clip per call, never the same one three times in a row.
-// Circle and zig-zag each get their own, so their histories stay independent.
-function makeOneShot(urls: string[], gain: number): () => void {
+// Play a clip once at `gain`. `vary` adds slight pitch variance (off for the fixed nav clicks). Returns
+// the clip's playing length in seconds when it's already decoded (so a caller can match an animation to
+// it), else 0.
+function playClip(url: string, gain: number, vary = true): number {
+  const rate = vary ? 0.97 + Math.random() * 0.06 : 1;
+  void decode(url).then((buf) => {
+    if (!buf || !ctx || !master) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g).connect(master);
+    src.onended = () => {
+      src.disconnect();
+      g.disconnect();
+    };
+    src.start();
+  });
+  const buf = buffers.get(url);
+  return buf ? buf.duration / rate : 0;
+}
+
+// One random clip per call, never the same one three times in a row. Returns the played clip's length (s).
+function makeOneShot(urls: string[], gain: number): () => number {
   const history: number[] = [];
   const nextIndex = (): number => {
     const n = urls.length;
@@ -120,29 +168,46 @@ function makeOneShot(urls: string[], gain: number): () => void {
     if (history.length > 3) history.shift();
     return i;
   };
-  return () => {
-    if (!ensureRunning()) return;
-    void decode(urls[nextIndex()]).then((buf) => {
-      if (!buf || !ctx || !master) return;
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.value = 0.97 + Math.random() * 0.06; // pitch variance
-      const g = ctx.createGain();
-      g.gain.value = gain;
-      src.connect(g).connect(master);
-      src.onended = () => {
-        src.disconnect();
-        g.disconnect();
-      };
-      src.start();
-    });
-  };
+  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain) : 0);
 }
 
-/** Colour swatch pick: a short pop. */
+// Shuffle bag: play through a shuffled copy of `urls`, then reshuffle. Every clip plays once per bag
+// (no in-bag repeats), and a fresh bag never opens on the clip the previous bag closed on.
+function makeShuffleBag(urls: string[], gain: number): () => number {
+  let bag: number[] = [];
+  let last = -1;
+  const nextIndex = (): number => {
+    if (bag.length === 0) {
+      bag = urls.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      // We pop from the end; if that first pick repeats the last bag's final clip, swap it to the front.
+      if (urls.length > 1 && bag[bag.length - 1] === last) {
+        [bag[bag.length - 1], bag[0]] = [bag[0], bag[bag.length - 1]];
+      }
+    }
+    last = bag.pop() ?? 0;
+    return last;
+  };
+  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain) : 0);
+}
+
+// One fixed clip, no randomness or pitch variance.
+function makeFixed(url: string, gain: number): () => number {
+  return () => (ensureRunning() ? playClip(url, gain, false) : 0);
+}
+
 export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN);
-/** Legend option pick (the zig-zag underline): a zig-zag clip. */
 export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
+export const playColorBloop = makeShuffleBag(BLOOP_URLS, BLOOP_GAIN);
+export const playMarkerSelect = makeShuffleBag(SELECT_URLS, SELECT_GAIN);
+export const playNavHome = makeFixed(NAV_HOME_URL, NAV_GAIN);
+export const playNavDocs = makeFixed(NAV_DOCS_URL, NAV_GAIN);
+export const playMenuOpen = makeFixed(MENU_OPEN_URL, MENU_GAIN);
+export const playMenuClose = makeFixed(MENU_CLOSE_URL, MENU_GAIN);
+export const playOptionClick = makeFixed(OPTION_CLICK_URL, OPTION_GAIN);
 
 // Slider scrub: one looping voice that swells with movement, fades when it stops.
 

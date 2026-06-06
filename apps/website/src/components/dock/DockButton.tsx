@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { BookIcon, HomeIcon, PersonIcon, StarIcon } from "../../icons/sf/index.tsx";
+import { playNavHome, playNavDocs, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
 const GITHUB_URL = "https://github.com/JaceThings/highlighters";
 const FOLLOW_URL = "https://ja.mt";
@@ -40,6 +41,12 @@ function DockButton({
         data-focus-ring
         data-focus-radius="full"
         className={CLASSES}
+        onPointerEnter={primeMarkerAudio}
+        onClick={() => {
+          if (active) return; // already here, no navigation -> no sound
+          if (to === "/") playNavHome();
+          else playNavDocs();
+        }}
       >
         {glyph}
       </Link>

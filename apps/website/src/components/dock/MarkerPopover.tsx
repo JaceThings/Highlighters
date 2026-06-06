@@ -6,6 +6,7 @@ import type { LineRect, MarkType } from "@highlighters/core";
 import { BASE_SELECTION_OPTIONS, penToTip, type PenTip } from "../../selection-style.tsx";
 import { INK_FADE_MS } from "./constants.ts";
 import { OpacitySlider } from "./OpacitySlider.tsx";
+import { playOptionClick } from "../../lib/marker-audio.ts";
 
 // Lisse ShadowConfig, not box-shadow, so the lift traces the squircle clip-path.
 const POPOVER_SHADOW: ShadowConfig = {
@@ -94,7 +95,10 @@ function MarkOption({
       type="button"
       aria-label={label}
       aria-pressed={selected}
-      onClick={() => onSelect(type)}
+      onClick={() => {
+        playOptionClick();
+        onSelect(type);
+      }}
       data-focus-ring
       data-focus-radius="12"
       className={`group flex h-[44px] flex-1 items-center justify-center overflow-hidden rounded-[12px] transition-colors duration-200 ${selected ? "bg-[#efeeed]" : "bg-transparent"}`}

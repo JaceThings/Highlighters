@@ -1,6 +1,6 @@
-import { useRef } from "react";
-import { hexToRgb } from "./oklch.ts";
+import { useRef, type CSSProperties } from "react";
 import checkerUrl from "./checker.svg";
+import { INK_FADE_MS } from "./constants.ts";
 import {
   TRACK_H,
   capsuleMask,
@@ -30,7 +30,6 @@ export function OpacitySlider({
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useCapsuleDrag({ trackRef, value, min: 0, max: 1, onChange });
-  const rgb = hexToRgb(inkColor);
   const pct = Math.round(value * 100);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -65,9 +64,15 @@ export function OpacitySlider({
       style={{ height: TRACK_H }}
     >
       <div aria-hidden className="absolute inset-0" style={{ ...capsuleMask, ...checkerboard }}>
+        {/* Ramp built from the registered --ink colour so a colour change fades (transition: --ink)
+            instead of snapping; a background-image gradient can't be transitioned directly. */}
         <div
           className="absolute inset-0"
-          style={{ backgroundImage: `linear-gradient(to right, rgba(${rgb}, 0), rgba(${rgb}, 1))` }}
+          style={{
+            backgroundImage: "linear-gradient(to right, color-mix(in oklab, var(--ink) 0%, transparent), var(--ink))",
+            ["--ink"]: inkColor,
+            transition: `--ink ${INK_FADE_MS}ms ease`,
+          } as CSSProperties}
         />
       </div>
       <CapsuleKnob left={knobLeftPercent(value, 0, 1)} />

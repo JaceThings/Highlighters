@@ -60,12 +60,13 @@ const SPREAD_POW = 2.5;
 
 /** The selection ring: a hand-drawn loop drawn on along its path (instant under reduced motion).
  *  `seed` varies the wobble per selection; `draw={false}` for a static ring (keyboard-focus preview). */
-export function ScribbleLasso({ seed, size, draw = true }: { seed: number; size: number; draw?: boolean }) {
+export function ScribbleLasso({ seed, size, draw = true, drawMs: drawMsProp }: { seed: number; size: number; draw?: boolean; drawMs?: number }) {
   const pathRef = useRef<SVGPathElement>(null);
   const pts = useMemo(() => makeLassoStroke(size, seed), [seed, size]);
   const staticD = useMemo(() => toPath(getStroke(pts, LASSO_OPTS_LAST)), [pts]);
-  // Vary the draw speed per pick so they don't all ring at an identical rate.
-  const drawMs = useMemo(() => 50 + mulberry(seed + 9277)() * 100, [seed]);
+  // Match the audio clip playing with it when given; else vary the speed per pick.
+  const drawMsRandom = useMemo(() => 50 + mulberry(seed + 9277)() * 100, [seed]);
+  const drawMs = drawMsProp ?? drawMsRandom;
 
   useEffect(() => {
     const el = pathRef.current;
