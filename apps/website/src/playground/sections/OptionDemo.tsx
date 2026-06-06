@@ -13,7 +13,7 @@ import { StaticQuote } from "../quote-render.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
-import { playZigSound, primeMarkerAudio } from "../../lib/marker-audio.ts";
+import { playMarkerPop, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
 // Defer each Preview until its section nears the viewport. One-way latch: once painted it never unmounts.
 function useSeen(rootMargin = "350px") {
@@ -144,7 +144,7 @@ function SwatchPicker() {
               if (selected) return;
               set("color", hex);
               setLassoSeed((s) => s + 1);
-              playZigSound();
+              playMarkerPop();
             }}
             className={`relative flex flex-1 select-none items-center justify-center outline-none ${selected ? "cursor-default" : "cursor-pointer"}`}
           >
