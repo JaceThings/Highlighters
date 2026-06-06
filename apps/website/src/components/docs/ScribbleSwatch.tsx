@@ -63,8 +63,9 @@ const SPREAD_MS = 80;
 const SPREAD_POW = 2.5;
 
 /** The selection ring: a hand-drawn loop drawn on along its path, or finished instantly under
- *  reduced motion. `seed` varies the wobble so each selection rings a fresh circle. */
-export function ScribbleLasso({ seed, size }: { seed: number; size: number }) {
+ *  reduced motion. `seed` varies the wobble so each selection rings a fresh circle. Pass
+ *  `draw={false}` for a static ring (no draw-on) - used for the faded keyboard-focus preview. */
+export function ScribbleLasso({ seed, size, draw = true }: { seed: number; size: number; draw?: boolean }) {
   const pathRef = useRef<SVGPathElement>(null);
   const pts = useMemo(() => makeLassoStroke(size, seed), [seed, size]);
   const staticD = useMemo(() => toPath(getStroke(pts, LASSO_OPTS_LAST)), [pts]);
@@ -75,7 +76,7 @@ export function ScribbleLasso({ seed, size }: { seed: number; size: number }) {
     const el = pathRef.current;
     if (!el) return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
+    if (reduce || !draw) {
       el.setAttribute("d", staticD);
       return;
     }
@@ -100,7 +101,7 @@ export function ScribbleLasso({ seed, size }: { seed: number; size: number }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [pts, staticD, drawMs]);
+  }, [pts, staticD, drawMs, draw]);
 
   return (
     <svg
