@@ -20,20 +20,34 @@ export function RowGrid({
   useLayoutEffect(() => {
     const grid = ref.current;
     if (!grid) return;
-    const cells = Array.from(grid.children) as HTMLElement[];
     // -0.5 absorbs sub-pixel rendering so an exact multiple stays N rows, a real overflow gets N+1.
     const snap = (el: HTMLElement, h: number) => {
       el.style.gridRow = `span ${Math.max(1, Math.ceil((h - 0.5) / ROW))}`;
     };
-    cells.forEach((el) => snap(el, el.getBoundingClientRect().height)); // pre-paint, no flash
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) {
         const h = e.borderBoxSize?.[0]?.blockSize ?? (e.target as HTMLElement).getBoundingClientRect().height;
         snap(e.target as HTMLElement, h);
       }
     });
-    cells.forEach((el) => ro.observe(el));
-    return () => ro.disconnect();
+    // Read every height first, then write spans + observe, so the pass never interleaves reads and
+    // writes (no forced relayout per cell).
+    const sync = () => {
+      const cells = Array.from(grid.children) as HTMLElement[];
+      const heights = cells.map((el) => el.getBoundingClientRect().height);
+      cells.forEach((el, i) => {
+        snap(el, heights[i]);
+        ro.observe(el); // observing an already-observed cell is a no-op
+      });
+    };
+    sync(); // initial pass runs pre-paint, so no flash
+    // Re-sync when cells are added/removed; the ResizeObserver already covers size changes.
+    const mo = new MutationObserver(sync);
+    mo.observe(grid, { childList: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
   }, []);
 
   return (
