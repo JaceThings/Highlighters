@@ -127,11 +127,11 @@ export function primeMarkerAudio(): void {
   for (const u of ALL_URLS) void decode(u);
 }
 
-// Play a clip once at `gain`. `vary` adds slight pitch variance (off for the fixed nav clicks).
-// Returns the clip's playing length in seconds when it's already decoded (so a caller can match an
-// animation to it), else 0; the rate is fixed up front so the returned length accounts for it.
-function playClip(url: string, gain: number, vary = true): number {
-  const rate = vary ? 0.97 + Math.random() * 0.06 : 1;
+// Play a clip once at `gain`. `vary` adds slight pitch variance (off for the fixed nav clicks); `speed`
+// scales the playback rate (>1 faster/higher, <1 slower/lower). Returns the clip's playing length in
+// seconds when it's already decoded (so a caller can match an animation to it), else 0.
+function playClip(url: string, gain: number, vary = true, speed = 1): number {
+  const rate = (vary ? 0.97 + Math.random() * 0.06 : 1) * speed;
   void decode(url).then((buf) => {
     if (!buf || !ctx || !master) return;
     const src = ctx.createBufferSource();
@@ -151,8 +151,8 @@ function playClip(url: string, gain: number, vary = true): number {
 }
 
 // One random clip per call, never the same one three times in a row. Each caller keeps its own history.
-// Returns the played clip's length in seconds (0 if it couldn't play).
-function makeOneShot(urls: string[], gain: number): () => number {
+// `speed` is read per call so a dev dial can retune it live. Returns the played clip's length in seconds.
+function makeOneShot(urls: string[], gain: number, speed: () => number = () => 1): () => number {
   const history: number[] = [];
   const nextIndex = (): number => {
     const n = urls.length;
@@ -166,7 +166,7 @@ function makeOneShot(urls: string[], gain: number): () => number {
     if (history.length > 3) history.shift();
     return i;
   };
-  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain) : 0);
+  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain, true, speed()) : 0);
 }
 
 // Shuffle bag: play through a shuffled copy of `urls`, then reshuffle. Every clip plays once per bag
@@ -197,7 +197,12 @@ function makeFixed(url: string, gain: number): () => number {
   return () => (ensureRunning() ? playClip(url, gain, false) : 0);
 }
 
-export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN);
+// Circle-pop playback speed, dev-tunable via DialKit (?dials). 1 = the clips' baked length.
+let circleSpeed = 1;
+export function setCircleSpeed(s: number): void {
+  circleSpeed = s;
+}
+export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN, () => circleSpeed);
 export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
 export const playColorBloop = makeShuffleBag(BLOOP_URLS, BLOOP_GAIN);
 export const playMarkerSelect = makeShuffleBag(SELECT_URLS, SELECT_GAIN);
