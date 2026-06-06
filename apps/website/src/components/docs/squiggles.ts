@@ -1,5 +1,4 @@
-// 12 hand-drawn variations of one marker squiggle (the there-and-back stroke), drawn under the
-// active option in the docs scribble legend.
+// 12 hand-drawn variations of one marker squiggle (the there-and-back stroke) for the docs scribble legend.
 
 export type PressurePoint = { t: number; pressure: number };
 export type Squiggle = { d: string; pressure: PressurePoint[] };
@@ -19,8 +18,7 @@ export const SQUIGGLES: Squiggle[] = [
   { d: "M-2.535 3.980 C73.387 -3.911 104.001 4.072 139.542 3.774 C139.542 3.774 139.542 3.774 139.542 3.774 C136.121 4.234 7.521 7.208 12.691 8.024 C20.560 9.266 54.474 10.516 149.271 9.852", pressure: [{"t":0,"pressure":0.20583834857866168},{"t":0.341,"pressure":0.770037349415943},{"t":0.693,"pressure":0.7125432722494006},{"t":1,"pressure":0.25200554486829785}] },
 ];
 
-// Draw squiggles from a shuffled bag so all 12 are used before any repeats; refill when empty,
-// never starting a fresh bag on the index that ended the last one.
+// Shuffled bag so all 12 are used before any repeats; a refilled bag never starts on the index that ended the last.
 let bag: number[] = [];
 let last = -1;
 

@@ -1,4 +1,3 @@
-// npm install commands, one per line on the 24px ruled grid.
 export function InstallCommands({ items }: { items: readonly string[] }) {
   return (
     <div className="m-0 flex flex-col items-start text-sm leading-6">

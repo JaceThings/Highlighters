@@ -1,7 +1,6 @@
 import { createContext, use } from "react";
 
-/** Coordinates the dock's entrance with the page text: the dock waits until the
- *  page signals its cascade has landed (a timer in RootLayout is the fallback). */
+/** Coordinates the dock's entrance with the page text (a timer in RootLayout is the fallback). */
 interface DockEntrance {
   /** True once the page's text has settled and the dock may enter. */
   ready: boolean;

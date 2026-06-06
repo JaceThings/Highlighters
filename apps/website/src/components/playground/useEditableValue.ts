@@ -7,9 +7,7 @@ interface UseEditableValueOptions {
   max: number;
   step: number;
   format?: (value: number) => string;
-  /** Optional seed formatter for the editable input - falls back to `format`.
-   *  Use this when `format` returns a non-parseable display string (e.g. a
-   *  decorated label) but the input should still seed with a clean number. */
+  /** Seed formatter for the input when `format` returns a non-parseable display string. Falls back to `format`. */
   formatSeed?: (value: number) => string;
   onChange: (next: number, fromDrag?: boolean) => void;
 }
@@ -34,7 +32,7 @@ export function useEditableValue({
     setEditing(true);
   };
 
-  // Focus + select on mount so the user can overtype immediately.
+  // Focus + select so the user can overtype immediately.
   useEffect(() => {
     if (editing && inputRef.current) {
       inputRef.current.focus();
@@ -43,8 +41,7 @@ export function useEditableValue({
   }, [editing]);
 
   const commitEdit = () => {
-    // `parseFloat` is lenient by design - grabs the leading numeric portion, so a
-    // decorated seed (e.g. with a unit suffix) still round-trips.
+    // `parseFloat` grabs the leading numeric portion, so a decorated seed (unit suffix) still round-trips.
     const parsed = parseFloat(draft);
     if (!Number.isNaN(parsed)) {
       const stepped = clamp(snap(parsed, step), min, max);

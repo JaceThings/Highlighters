@@ -1,8 +1,6 @@
-// Device-aware screen corner radius for iPhones. Apple never exposes the model or its
-// `_displayCornerRadius` to the web, so we infer it from three signals: the iPhone UA + iOS
-// version, the logical viewport (screen.width/height), and devicePixelRatio. Several viewports
-// map to multiple models with different radii; when they disagree we return the lower value and
-// flag confidence "low". Radii are in CSS px, which equal points on iOS, so no conversion.
+// Device-aware iPhone screen corner radius, inferred from UA + iOS version, viewport, and DPR
+// (Apple never exposes it). Ambiguous viewports return the lower radius at confidence "low".
+// Radii are CSS px, which equal points on iOS.
 
 export type RadiusTier =
   | "flat"
@@ -44,32 +42,32 @@ interface Entry {
   note?: string;
 }
 
-// Plain data, grouped by radius era. `w` is always the SHORTER side (portrait-normalized).
-// Entries for one viewport that disagree on radius are resolved at match time (see compute).
+// Grouped by radius era. `w` is always the SHORTER side (portrait-normalized). Viewports that
+// disagree on radius are resolved at match time (see compute).
 const TABLE: Entry[] = [
-  // Flat era (0pt) - square display edge: SE (all), 6, 7, 8.
+  // Flat (0pt)
   { w: 320, h: 568, dpr: 2, radius: 0, tier: "flat", confidence: "exact", note: "SE (1st gen)" },
   { w: 375, h: 667, dpr: 2, radius: 0, tier: "flat", confidence: "exact", note: "6 / 7 / 8 / SE 2 / SE 3" },
   { w: 414, h: 736, dpr: 3, radius: 0, tier: "flat", confidence: "exact", note: "6+ / 7+ / 8+" },
 
-  // Rounded era (~39pt) - the X generation.
+  // Rounded (~39pt)
   { w: 375, h: 812, dpr: 3, maxIOS: 16, radius: 39, tier: "rounded", confidence: "high", note: "X / XS / 11 Pro" },
   { w: 414, h: 896, dpr: 2, radius: 39, tier: "rounded", confidence: "exact", note: "XR / 11" },
   { w: 414, h: 896, dpr: 3, radius: 39, tier: "rounded", confidence: "exact", note: "XS Max / 11 Pro Max" },
 
-  // Rounder era (47.33pt) - 12/13/14, the minis, and 16e.
+  // Rounder (47.33pt)
   { w: 375, h: 812, dpr: 3, minIOS: 14, radius: 47.33, tier: "rounder", confidence: "high", note: "12 mini / 13 mini" },
   { w: 390, h: 844, dpr: 3, radius: 47.33, tier: "rounder", confidence: "high", note: "12 / 13 / 14 / 16e" },
 
-  // Rounder-max era (53.33pt) - the older Plus / Pro Max bodies.
+  // Rounder-max (53.33pt)
   { w: 428, h: 926, dpr: 3, radius: 53.33, tier: "rounder-max", confidence: "exact", note: "12 / 13 Pro Max, 14 Plus" },
 
-  // Very-round era (55pt) - 14 Pro through the non-Pro 16. Note the 390x844 collision below.
+  // Very-round (55pt). 390x844 collides with the rounder era, split by minIOS.
   { w: 390, h: 844, dpr: 3, minIOS: 17, radius: 55, tier: "very-round", confidence: "low", note: "15 / 16 (shares 390x844 with 12/13/14)" },
   { w: 393, h: 852, dpr: 3, radius: 55, tier: "very-round", confidence: "high", note: "14 Pro / 15 / 15 Pro / 16" },
   { w: 430, h: 932, dpr: 3, radius: 55, tier: "very-round", confidence: "high", note: "14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus" },
 
-  // Most-round era (62pt) - 16 Pro and the 17 line.
+  // Most-round (62pt)
   { w: 402, h: 874, dpr: 3, radius: 62, tier: "most-round", confidence: "high", note: "16 Pro / 17 / 17 Pro" },
   { w: 440, h: 956, dpr: 3, radius: 62, tier: "most-round", confidence: "high", note: "16 Pro Max / 17 Pro Max / 17 Air" },
 ];
@@ -87,14 +85,14 @@ const TIER_SCALE: Record<RadiusTier, { sm: number; md: number }> = {
 function getViewport(): { w: number; h: number; dpr: number } {
   const sim = typeof window !== "undefined" ? window.__simulatedViewport : undefined;
   if (sim) return { w: Math.min(sim.w, sim.h), h: Math.max(sim.w, sim.h), dpr: sim.dpr };
-  // Orientation-agnostic: always treat the shorter dimension as width.
+  // Orientation-agnostic: shorter dimension is always width.
   const sw = screen.width;
   const sh = screen.height;
   return { w: Math.min(sw, sh), h: Math.max(sw, sh), dpr: window.devicePixelRatio || 1 };
 }
 
 function iosInRange(ios: number | null, e: Entry): boolean {
-  if (ios == null) return true; // unknown iOS can't narrow; lean conservative downstream
+  if (ios == null) return true;
   if (e.minIOS != null && ios < e.minIOS) return false;
   if (e.maxIOS != null && ios > e.maxIOS) return false;
   return true;
@@ -139,7 +137,7 @@ function compute(): DeviceRadiusResult {
     return { isIphone: true, screenCornerRadius: best.radius, confidence, tier: best.tier, iosVersion, viewport: vp, note: best.note };
   }
 
-  // Ambiguous: viewport + iOS still map to differing radii. Take the conservative lower value.
+  // Ambiguous: still maps to differing radii. Take the lower value.
   const min = Math.min(...radii);
   const lowest = candidates.find((c) => c.radius === min)!;
   const models = candidates.map((c) => c.note).filter(Boolean).join("; ");
@@ -164,18 +162,12 @@ export function detectDeviceRadius(): DeviceRadiusResult {
   return cached;
 }
 
-/**
- * Border-radius for a UI element inset from the screen edge, so its curve stays concentric with
- * the screen's. `innerRadius(55, 16)` -> 39.
- */
+/** Inset border-radius that stays concentric with the screen's. `innerRadius(55, 16)` -> 39. */
 export function innerRadius(screenRadius: number, inset: number): number {
   return Math.max(0, screenRadius - inset);
 }
 
-/**
- * Write the radius tokens onto `root` (default <html>). Safe to call in <head> before paint to
- * avoid a flash of the wrong radius. `--device-radius-drawer` subtracts an optional `--drawer-inset`.
- */
+/** Write the radius tokens onto `root`. Safe to call in <head> before paint to avoid a flash. */
 export function applyRadiusTokens(root: HTMLElement = document.documentElement): void {
   const r = detectDeviceRadius();
   const scale = TIER_SCALE[r.tier] ?? TIER_SCALE.unknown;

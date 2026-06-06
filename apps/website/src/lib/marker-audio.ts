@@ -1,10 +1,6 @@
-// Web Audio for the docs demo. Two effects:
-//   - a looping "scribble" that swells while a slider is scrubbed and fades when it stops
-//   - a one-shot "pop" when a colour swatch is picked
-// Clips are MP3 (decodeAudioData-safe on every browser, Safari included), decoded once and cached
-// (primed during idle or on hover). The context is created without resuming and only resumed inside
-// a real gesture, so it never trips the autoplay warning; on iOS it claims the playback audio
-// session so effects survive the silent switch.
+// Web Audio for the docs demo: a looping scribble swelling while a slider scrubs, and a one-shot pop
+// on colour pick. MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached.
+// Context is created without resuming and only resumed inside a gesture (else the autoplay warning).
 
 type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
@@ -20,16 +16,16 @@ const SHORT_URLS = [
 
 const SCRIBBLE_GAIN = 0.02;
 const POP_GAIN = 0.025;
-const FADE_IN = 0.015; // seconds: scribble swell-in (short so it doesn't open on a dead ramp)
-const FADE_OUT = 0.2; // seconds: scribble fade-out after the scrub stops
-const IDLE_MS = 150; // no scrub feed for this long => fade out
+const FADE_IN = 0.015; // s, scribble swell-in
+const FADE_OUT = 0.2; // s, fade-out after scrub stops
+const IDLE_MS = 150; // no feed for this long => fade out
 const NEAR_SILENT = 0.0001; // exponential ramps can't reach 0
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 
-// Create (but never resume) the context. Resuming outside a gesture is what triggers the
-// autoplay warning, so prime/decode use this and only the gesture handlers call ensureRunning.
+// Create but never resume: resuming outside a gesture trips the autoplay warning, so only the
+// gesture handlers call ensureRunning.
 function createCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
@@ -43,7 +39,7 @@ function createCtx(): AudioContext | null {
       try {
         nav.audioSession.type = "playback"; // iOS: survive the silent switch
       } catch {
-        /* setter can throw on some iOS versions */
+        // setter can throw on some iOS versions
       }
     }
   }
@@ -90,16 +86,16 @@ export function primeMarkerAudio(): void {
   for (const u of SHORT_URLS) void decode(u);
 }
 
-// --- colour pick: one-shot, never the same clip three times in a row ---
+// Colour pick: one-shot, never the same clip three times in a row.
 
 const popHistory: number[] = [];
 
 function nextPopIndex(): number {
   const n = SHORT_URLS.length;
-  if (n < 2) return 0; // nothing to vary; also avoids the block-the-only-index infinite loop
+  if (n < 2) return 0; // also avoids the block-the-only-index infinite loop
   const last = popHistory[popHistory.length - 1];
   const prev = popHistory[popHistory.length - 2];
-  const blocked = last !== undefined && last === prev ? last : -1; // two in a row already => block a third
+  const blocked = last !== undefined && last === prev ? last : -1; // two in a row => block a third
   let i = Math.floor(Math.random() * n);
   while (i === blocked) i = Math.floor(Math.random() * n);
   popHistory.push(i);
@@ -114,7 +110,7 @@ export function playMarkerPop(): void {
     if (!buf || !ctx || !master) return;
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    src.playbackRate.value = 0.97 + Math.random() * 0.06; // subtle pitch variance
+    src.playbackRate.value = 0.97 + Math.random() * 0.06; // pitch variance
     const g = ctx.createGain();
     g.gain.value = POP_GAIN;
     src.connect(g).connect(master);
@@ -126,12 +122,12 @@ export function playMarkerPop(): void {
   });
 }
 
-// --- slider scrub: one looping voice that swells with movement, fades when it stops ---
+// Slider scrub: one looping voice that swells with movement, fades when it stops.
 
 let scribSrc: AudioBufferSourceNode | null = null;
 let scribGain: GainNode | null = null;
-let scribStarting = false; // a decode is in flight for the current burst
-let active = false; // the user is currently scrubbing
+let scribStarting = false; // decode in flight for the current burst
+let active = false; // user is scrubbing
 let lastScrib = -1;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let stopTimer: ReturnType<typeof setTimeout> | undefined;
@@ -153,8 +149,8 @@ function rampScribbleTo(target: number, seconds: number): void {
   g.exponentialRampToValueAtTime(Math.max(target, NEAR_SILENT), now + seconds);
 }
 
-// Per-buffer list of offsets (seconds) where a stroke is actually sounding, so a scribble never
-// opens or loops onto one of the silent gaps between strokes. Scanned once per decoded buffer.
+// Per-buffer offsets (seconds) where a stroke is sounding, so a scribble never opens or loops onto a
+// silent gap between strokes. Scanned once per decoded buffer.
 const strokeOffsetCache = new WeakMap<AudioBuffer, number[]>();
 function strokeOffsets(buf: AudioBuffer): number[] {
   const cached = strokeOffsetCache.get(buf);
@@ -168,7 +164,7 @@ function strokeOffsets(buf: AudioBuffer): number[] {
       const a = Math.abs(data[j]);
       if (a > peak) peak = a;
     }
-    if (peak > 0.3) offs.push(i / buf.sampleRate); // a window carrying a stroke, not a gap
+    if (peak > 0.3) offs.push(i / buf.sampleRate); // window carrying a stroke, not a gap
   }
   const result = offs.length ? offs : [buf.duration * 0.1];
   strokeOffsetCache.set(buf, result);
@@ -181,9 +177,9 @@ function startScribble(buf: AudioBuffer): void {
   const src = ctx.createBufferSource();
   src.buffer = buf;
   src.loop = true;
-  src.loopStart = offs[0]; // hold the loop between the first and last stroke, skipping dead lead/tail
+  src.loopStart = offs[0]; // loop between first and last stroke, skipping dead lead/tail
   src.loopEnd = Math.max(offs[offs.length - 1] + 0.05, offs[0] + 0.2);
-  src.playbackRate.value = 0.92 + Math.random() * 0.16; // each burst pitched a little differently
+  src.playbackRate.value = 0.92 + Math.random() * 0.16; // each burst pitched differently
   const g = ctx.createGain();
   g.gain.value = NEAR_SILENT;
   src.connect(g).connect(master);
@@ -198,13 +194,13 @@ function fadeOutScribble(): void {
   const dyingSrc = scribSrc;
   const dyingGain = scribGain;
   clearTimeout(stopTimer);
-  // A feed arriving before this fires cancels it (the same source ramps back up, seamless).
+  // A feed arriving before this fires cancels it (same source ramps back up, seamless).
   stopTimer = setTimeout(
     () => {
       try {
         dyingSrc.stop();
       } catch {
-        /* already stopped */
+        // already stopped
       }
       dyingSrc.disconnect();
       dyingGain.disconnect();
@@ -237,7 +233,7 @@ export function feedScribbleSound(): void {
   scribStarting = true;
   void decode(SCRIBBLE_URLS[pickScribble()]).then((buf) => {
     scribStarting = false;
-    if (!buf || !active || scribSrc || !ctx || !master) return; // released mid-decode, or already live
+    if (!buf || !active || scribSrc || !ctx || !master) return; // released mid-decode or already live
     startScribble(buf);
     rampScribbleTo(SCRIBBLE_GAIN, FADE_IN);
   });

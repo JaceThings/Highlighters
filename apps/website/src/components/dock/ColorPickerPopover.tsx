@@ -4,7 +4,7 @@ import { SmoothCorners } from "@lisse/react";
 import { hexToHsl, hslToHex } from "./oklch.ts";
 import { HslSlider } from "./HslSlider.tsx";
 
-// Lisse ShadowConfig (not box-shadow) so the lift traces the squircle clip-path.
+// Lisse ShadowConfig, not box-shadow, so the lift traces the squircle clip-path.
 const POPOVER_SHADOW: ShadowConfig = {
   offsetX: 0, offsetY: 6, blur: 14, spread: -6, color: "#73574A", opacity: 0.15,
 };
@@ -20,11 +20,9 @@ export function ColorPickerPopover({
   color: string;
   onChange: (hex: string) => void;
 }) {
-  // Hold H/S/L locally: dragging lightness to 0 or 100 makes the hex pure black/white,
-  // which has no hue to read back - keeping our own H/S/L preserves it across the extremes.
+  // Hold H/S/L locally: pure black/white hex has no hue to read back, so our own H/S/L preserves it at the extremes.
   const [{ h, s, l }, setHsl] = useState(() => hexToHsl(color));
-  // Re-sync only on an OUTSIDE change (a preset/swatch); our own edits already match, so the
-  // round-trip can't clobber the hue mid-drag.
+  // Re-sync only on an outside change; our own edits already match (no hue clobber mid-drag).
   useEffect(() => {
     if (hslToHex({ h, s, l }) !== color) setHsl(hexToHsl(color));
   }, [color]); // eslint-disable-line react-hooks/exhaustive-deps -- only re-sync on an external color change, not our own edits
@@ -36,10 +34,8 @@ export function ColorPickerPopover({
     onChange(hslToHex(merged));
   };
 
-  // Saturation runs grey -> full chroma at a FIXED mid lightness, so the track never collapses
-  // to black/white when the actual lightness sits at an extreme.
+  // Saturation runs grey -> full chroma at a FIXED mid lightness, so the track never collapses at extremes.
   const satGradient = `linear-gradient(to right, hsl(${h} 0% 50%), hsl(${h} 100% 50%))`;
-  // Lightness runs black -> the pure hue at this saturation -> white.
   const lightGradient = `linear-gradient(to right, hsl(${h} ${s}% 0%), hsl(${h} ${s}% 50%), hsl(${h} ${s}% 100%))`;
 
   return (

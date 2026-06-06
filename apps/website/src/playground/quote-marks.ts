@@ -1,13 +1,11 @@
-// What part of a quote each demo highlights, and how. Strategy picks the shape (ends for
-// overshoot/caps, a central phrase for most, a clause with doubled sub-spans for overlap); CURATED
-// picks WHERE per quote, since a positional slice often cuts mid-thought. Positional is the fallback.
+// What part of a quote each demo highlights, and how. Strategy picks the shape; CURATED picks WHERE
+// per quote (a positional slice often cuts mid-thought). Positional is the fallback.
 
 import { QUOTES, shuffle, type Quote } from "./quotes.ts";
 
 export type MarkStrategy = "central" | "ends" | "stack";
 
-// Keyed by demo title. Anything absent is "central". Overshoot/jitter/cap show their ends, so
-// they get two (or one) end bands; corner radius reads best on one clean band, so it's central.
+// Keyed by demo title; anything absent is "central".
 const STRATEGY: Record<string, MarkStrategy> = {
   "tip.overshoot": "ends",
   "tip.overshootJitter": "ends",
@@ -21,25 +19,18 @@ export function strategyFor(title: string): MarkStrategy {
 
 export interface MarkPlan {
   ranges: [number, number][]; // [start, end) word indices to highlight
-  doubles?: [number, number][]; // sub-ranges (within a band) painted a second time (overlap optics)
+  doubles?: [number, number][]; // sub-ranges painted a second time (overlap optics)
 }
 
-/**
- * The hand-picked mark for one quote.
- * - `central`: the single phrase to band for most demos (and corner radius).
- * - `ends`: one or two [opening, closing] phrases for the boundary demos.
- * - `stack`: a `band` clause plus the `doubles` sub-spans inside it painted twice - the darker
- *   overlap. Each is matched against the quote's words by text (ignoring surrounding punctuation
- *   and case), so a typo just falls back to the positional algorithm.
- */
+// Hand-picked mark per quote. Phrases match the quote's words by text (ignoring punctuation/case),
+// so a typo falls back to the positional algorithm.
 interface CuratedPlan {
   central?: string;
   ends?: string[];
   stack?: { band: string; doubles: string[] };
 }
 
-// Indexed into QUOTES (trailing comment names the speaker). Each phrase is the part of the quote
-// that carries the line, so the mark reads as a deliberate highlight rather than an arithmetic slice.
+// Indexed into QUOTES (trailing comment names the speaker).
 const CURATED: Record<number, CuratedPlan> = {
   0: { central: "never cruel", ends: ["Helly was never cruel"], stack: { band: "Helly was never cruel", doubles: ["cruel"] } }, // Bailiff
   1: { central: "advertisements on my eyelids", ends: ["the air I breathe"], stack: { band: "advertisements on my eyelids", doubles: ["advertisements", "eyelids"] } }, // Davis
@@ -68,7 +59,7 @@ const CURATED: Record<number, CuratedPlan> = {
   25: { central: "Would you post about it", ends: ["What would happen", "post about it"], stack: { band: "Would you post about it", doubles: ["post about it"] } }, // Keenan
 };
 
-/** Normalize a word for phrase matching: strip surrounding punctuation, lowercase, keep internals. */
+/** Normalize for phrase matching: strip surrounding punctuation, lowercase. */
 function norm(word: string): string {
   return word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").toLowerCase();
 }
@@ -90,23 +81,20 @@ function rangeOf(words: string[], phrase: string, from = 0, to = words.length): 
   return null;
 }
 
-// A word too slight to stand alone as a mark on its own line ("if", "a", "to", …).
+// A word too slight to stand alone as a mark ("if", "a", "to", …).
 function isSlight(word: string): boolean {
   return word.replace(/[^\p{L}\p{N}]/gu, "").length <= 2;
 }
 
-/**
- * Word ranges to highlight for a quote under a strategy. Prefers the quote's curated phrase
- * (CURATED); falls back to a positional slice that sits on word boundaries and never begins or
- * ends on a slight word, so a mark is never a lone "if" on a line.
- */
+// Word ranges to highlight for a quote. Prefers CURATED; falls back to a positional slice that sits
+// on word boundaries and never begins/ends on a slight word.
 export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy): MarkPlan {
   const n = words.length;
   const curated = CURATED[QUOTES.indexOf(quote)];
 
   if (strategy === "ends") {
     if (curated?.ends) {
-      // Resolve each band after the previous one, so two ends stay ordered with a gap between.
+      // Resolve each band after the previous, so two ends stay ordered with a gap.
       const ranges: [number, number][] = [];
       let from = 0;
       let ok = true;
@@ -148,7 +136,7 @@ export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy)
         return { ranges: [band], doubles };
       }
     }
-    // Positional fallback: a compact band on the first line, one doubled word.
+    // Positional fallback: compact band on the first line, one doubled word.
     const end = Math.min(n, 4);
     let m = 0;
     while (m < end - 1 && isSlight(words[m])) m++;
@@ -168,10 +156,8 @@ export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy)
   return { ranges: [[a, b]] };
 }
 
-// Quotes hand-picked to read well under each demo's strategy (indices into QUOTES),
-// keyed by demo title. A section randomly draws one per load; titles absent fall back
-// to any quote. Ends-marked sections (overshoot, caps, radius) get quotes with strong
-// opening AND closing phrases; the rest get quotes with a strong middle.
+// Quotes (indices into QUOTES) that read well per demo, keyed by title. A section draws one per load;
+// absent titles fall back to any quote.
 export const SECTION_QUOTES: Record<string, number[]> = {
   markType: [7, 15, 16, 23],
   color: [18, 22, 13, 14],
@@ -196,11 +182,7 @@ export const SECTION_QUOTES: Record<string, number[]> = {
   snap: [6, 5, 15, 18],
 };
 
-/**
- * One quote per demo (titles in order). Each draws from its curated candidates,
- * preferring one not yet shown on the page and whose author hasn't appeared in the
- * last two, so the page stays varied. Sections with no curated list take any unused quote.
- */
+// One quote per demo (titles in order), preferring an unused quote whose author isn't in the last two.
 export function buildCuratedQuotes(titles: string[]): Quote[] {
   const used = new Set<Quote>();
   const out: Quote[] = [];

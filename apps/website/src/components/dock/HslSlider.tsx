@@ -8,9 +8,7 @@ import {
   CapsuleKnob,
 } from "./capsuleSlider.tsx";
 
-/** One HSL channel: a gradient ramp clipped to the capsule with a draggable knob. A tap
- *  glides the value (and the knob) to the target; a drag follows the pointer directly; arrows
- *  glide a nudge of `step` (or 10x `step` with Shift). The knob is filled with the current colour. */
+/** One HSL channel: a gradient ramp clipped to the capsule, with a draggable knob filled with the current colour. */
 export function HslSlider({
   label,
   value,
@@ -28,7 +26,7 @@ export function HslSlider({
   step: number;
   /** CSS background painting the channel across the track, left = min, right = max. */
   gradient: string;
-  /** The picked colour, shown inside the knob's white ring. */
+  /** Picked colour, shown inside the knob's white ring. */
   knobColor: string;
   onChange: (next: number) => void;
 }) {
@@ -40,7 +38,7 @@ export function HslSlider({
       : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    // Shift jumps by 10x the step (the coarse stride); glide so the knob eases across.
+    // Shift = 10x step (coarse stride).
     const s = e.shiftKey ? step * 10 : step;
     drag.glideTo(clamp(value + dir * s, min, max));
   };

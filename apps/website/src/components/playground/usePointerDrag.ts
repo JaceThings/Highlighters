@@ -18,17 +18,13 @@ interface UsePointerDragOptions {
   min: number;
   max: number;
   step: number;
-  /** Enforced lower bound. X still maps over the full min→max track, but the committed
-   *  value can't drop below this - dragging into the floor region parks at the floor. */
+  /** Enforced lower bound. X maps over the full min->max track, but the committed value can't drop below this. */
   floor?: number;
   onChange: (next: number, fromDrag?: boolean) => void;
   reported: MotionValue<number>;
-  /** Stops any in-flight prop-change tween before the pointer takes over.
-   *  Owned by the parent so its prop-change effect stays the sole writer
-   *  of that tween's ref. */
+  /** Stops any in-flight prop-change tween before the pointer takes over (parent owns that tween's ref). */
   stopPropAnim: () => void;
-  /** Fired on each real (post-threshold) drag move, then once when the drag ends. Lets the
-   *  consumer drive scrub feedback such as a scribble sound. */
+  /** Fired on each real (post-threshold) drag move, then once on drag end; drives scrub feedback. */
   onScrub?: () => void;
   onScrubEnd?: () => void;
 }
@@ -49,23 +45,18 @@ export function usePointerDrag({
   const lo = lowerBound(min, floor);
   const pointerIdRef = useRef<number | null>(null);
   const draggingRef = useRef(false);
-  // Separate from the parent's prop-change tween ref: that effect's cleanup fires when
-  // `value` updates from this same pointerdown, and wiping the tap-to-jump tween would
-  // freeze the fill at its pre-tap position.
+  // Separate from the parent's prop-change tween ref: that effect's cleanup fires when `value`
+  // updates from this same pointerdown, and wiping the tap-to-jump tween would freeze the fill pre-tap.
   const pointerAnimRef = useRef<ReturnType<typeof animate> | null>(null);
-  // Eases the fill into the freshly-stepped integer. Separate from the click-tween so a
-  // mid-drag crossing can replace just the snap without killing the rest.
+  // Eases the fill into the stepped integer. Separate from the click-tween so a mid-drag crossing replaces just the snap.
   const stepAnimRef = useRef<ReturnType<typeof animate> | null>(null);
-  // Last integer the drag committed to. null between drags so a fresh drag's first crossing
-  // doesn't tick against a stale baseline.
+  // Last integer the drag committed to; null between drags so a fresh drag doesn't tick against a stale baseline.
   const lastDragSteppedRef = useRef<number | null>(null);
-  // Tap vs drag: a pointerdown begins as a click; the first pointermove past CLICK_THRESHOLD
-  // flips it to a drag. Until then the click-tween from pointerdown keeps playing.
+  // Tap vs drag: pointerdown begins as a click; the first pointermove past CLICK_THRESHOLD flips it to a drag.
   const pointerDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const isClickRef = useRef(true);
 
-  // Committing a value rebuilds every quote overlay on the page; coalesce writes to one per
-  // frame so a fast drag can't thrash all of them.
+  // Committing rebuilds every quote overlay; coalesce writes to one per frame so a fast drag can't thrash them.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const pendingRef = useRef<number | null>(null);
@@ -96,9 +87,7 @@ export function usePointerDrag({
       lastDragSteppedRef.current = stepped;
 
       if (stepAnimRef.current) stepAnimRef.current.stop();
-      // Slow drag (one detent crossed): magnetic circOut snap. Fast drag
-      // (multi-detent): hard set so the bar tracks the cursor instead of
-      // trailing through an 80 ms tween it can't keep up with.
+      // Slow drag (one detent): magnetic circOut snap. Fast drag (multi-detent): hard set so the bar tracks the cursor.
       if (prefersReducedMotion() || stepsCrossed > 1) {
         reported.set(stepped);
       } else {
@@ -137,8 +126,7 @@ export function usePointerDrag({
     isClickRef.current = true;
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
 
-    // Tween toward the tapped position. If the user drags, onPointerMove cancels this and
-    // switches to direct tracking; otherwise it plays out as a tap-to-jump. Seeding
+    // Tween toward the tapped position; a drag cancels this in onPointerMove. Seeding
     // lastDragSteppedRef here means the first crossing only ticks if it advances past the tap.
     const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
     const raw = ratio * range + min;
@@ -155,7 +143,7 @@ export function usePointerDrag({
     }
     if (targetValue !== value) {
       onChange(targetValue, false);
-      onScrub?.(); // tap-to-jump draws to the tapped value; sound a brief scribble (idle fades it)
+      onScrub?.(); // tap-to-jump: brief scribble, idle fades it
     }
   };
 
@@ -166,7 +154,7 @@ export function usePointerDrag({
       const downPos = pointerDownPosRef.current;
       if (!downPos) return;
       if (Math.abs(e.clientX - downPos.x) < CLICK_THRESHOLD) return;
-      // Promote to a drag - kill the click-tween so `applyPointer` is the sole writer.
+      // Promote to a drag: kill the click-tween so `applyPointer` is the sole writer.
       if (pointerAnimRef.current) {
         pointerAnimRef.current.stop();
         pointerAnimRef.current = null;
@@ -174,11 +162,10 @@ export function usePointerDrag({
       isClickRef.current = false;
     }
     applyPointer(e.clientX);
-    onScrub?.(); // reached only once the drag is real (isClick is false here)
+    onScrub?.(); // only once the drag is real
   };
 
-  // Capture-release, not pointerup: also covers the pointer leaving the element and OS
-  // forced-release - the finger-flies-off-the-track case a pointerup handler misses.
+  // Capture-release, not pointerup: also covers the pointer leaving the element and OS forced-release.
   const onLostPointerCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     if (pointerIdRef.current !== e.pointerId) return;
     draggingRef.current = false;
@@ -192,9 +179,8 @@ export function usePointerDrag({
       onChangeRef.current(pendingRef.current, true);
       pendingRef.current = null;
     }
-    // After a real drag `reported` may hold a sub-step fraction; tween it to the stepped
-    // value so signed sliders don't leave a sliver at the crossover. A click already
-    // animated to the stepped target, so it needs no follow-up.
+    // After a real drag `reported` may hold a sub-step fraction; tween it to the stepped value so
+    // signed sliders don't leave a sliver at the crossover. A click already animated there.
     if (!isClickRef.current) {
       onScrubEnd?.();
       if (pointerAnimRef.current) {

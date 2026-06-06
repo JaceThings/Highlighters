@@ -7,8 +7,7 @@ export const READOUT_TRANSITION = { duration: 300 };
 
 export const CLICK_THRESHOLD = 3;
 
-// Magnetic circOut snap to the next integer; the tick lands inside the deceleration so
-// buffer latency hides under motion.
+// Magnetic circOut snap to the next integer; the tick lands inside the deceleration.
 export const STEP_SNAP_DURATION = 0.08;
 export const STEP_SNAP_EASE: [number, number, number, number] = [0.0, 0.55, 0.45, 1.0];
 
@@ -21,13 +20,11 @@ export const clamp = (n: number, lo: number, hi: number) =>
 export const snap = (n: number, step: number) =>
   step > 0 ? Math.round(n / step) * step : n;
 
-// The committed-value floor: the track still spans min..max, but values clamp up to
-// `floor`. Shared so the display (Slider) and the drag (usePointerDrag) never disagree.
+// Committed-value floor: the track spans min..max, but values clamp up to `floor`. Shared so Slider and usePointerDrag agree.
 export const lowerBound = (min: number, floor?: number) =>
   floor != null ? Math.max(min, floor) : min;
 
-// Widest legal display, so the readout column reserves a stable width and a
-// digit-count change (99→100) doesn't tug the label sideways.
+// Widest legal display, so the readout column reserves a stable width (a 99->100 jump doesn't tug the label).
 export const reservedChars = (
   min: number,
   max: number,

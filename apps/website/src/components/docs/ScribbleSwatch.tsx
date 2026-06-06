@@ -5,15 +5,14 @@ import { makeBlobScribble, makeLassoStroke, linePath } from "./scribble-render.t
 import { toPath } from "./freehand.ts";
 import { IS_WEBKIT } from "./is-webkit.ts";
 
-// The colour swatch as a hand-drawn marker scribble, and the lasso that rings the selected one.
-// Both share the site's hand-drawn language: a seeded scribble fill for the blob, and a Perfect
-// Freehand stroke drawn on along a loop for the lasso (the pen visibly circling the swatch).
+// The colour swatch as a hand-drawn marker scribble, plus the lasso that rings the selected one:
+// a seeded scribble fill for the blob, and a Perfect Freehand stroke drawn on along a loop for the lasso.
 
 const VIEW = 40; // square authoring viewBox for the blob
 const BLOB_STROKE = 5.4;
 const LASSO_INK = "#73574a";
 
-// Subtle paper-wobble on the blob edges, matching the design's turbulence displacement.
+// Subtle paper-wobble on the blob edges.
 function BlobFilter({ id }: { id: string }) {
   return (
     <filter id={id} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
@@ -23,8 +22,7 @@ function BlobFilter({ id }: { id: string }) {
   );
 }
 
-// Memoized: each blob takes only stable primitive props, so a committed option change
-// elsewhere on the page won't re-reconcile the 6 SVG + filter subtrees.
+// Memoized on stable primitive props, so an option change elsewhere won't re-reconcile the SVG + filter subtrees.
 export const ScribbleSwatch = memo(function ScribbleSwatch({ hex, seed, size }: { hex: string; seed: number; size: number }) {
   const filterId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const d = useMemo(() => linePath(makeBlobScribble({ size: VIEW, seed })), [seed]);
@@ -34,8 +32,7 @@ export const ScribbleSwatch = memo(function ScribbleSwatch({ hex, seed, size }: 
       aria-hidden
       style={{ display: "block", width: size, height: size, overflow: "visible" }}
     >
-      {/* The paper-wobble filter is skipped on WebKit (turbulence is too slow there); the
-          scribble shape carries the look without it. */}
+      {/* Paper-wobble filter skipped on WebKit (slow turbulence); the scribble shape carries the look. */}
       {!IS_WEBKIT && (
         <defs>
           <BlobFilter id={filterId} />
@@ -54,22 +51,20 @@ export const ScribbleSwatch = memo(function ScribbleSwatch({ hex, seed, size }: 
   );
 });
 
-// Two prebuilt stroke configs (getStroke never mutates them) so the rAF loop allocates none.
-// They differ only by `last`, which flips true on the final settled frame.
+// Two prebuilt stroke configs so the rAF loop allocates none; they differ only by `last`.
 const LASSO_CAP = { cap: true, taper: 0 };
 const LASSO_OPTS_DRAW = { size: 3, thinning: 0.62, smoothing: 0.7, streamline: 0.62, simulatePressure: false, start: LASSO_CAP, end: LASSO_CAP, last: false };
 const LASSO_OPTS_LAST = { ...LASSO_OPTS_DRAW, last: true };
 const SPREAD_MS = 80;
 const SPREAD_POW = 2.5;
 
-/** The selection ring: a hand-drawn loop drawn on along its path, or finished instantly under
- *  reduced motion. `seed` varies the wobble so each selection rings a fresh circle. Pass
- *  `draw={false}` for a static ring (no draw-on) - used for the faded keyboard-focus preview. */
+/** The selection ring: a hand-drawn loop drawn on along its path (instant under reduced motion).
+ *  `seed` varies the wobble per selection; `draw={false}` for a static ring (keyboard-focus preview). */
 export function ScribbleLasso({ seed, size, draw = true }: { seed: number; size: number; draw?: boolean }) {
   const pathRef = useRef<SVGPathElement>(null);
   const pts = useMemo(() => makeLassoStroke(size, seed), [seed, size]);
   const staticD = useMemo(() => toPath(getStroke(pts, LASSO_OPTS_LAST)), [pts]);
-  // Vary the draw speed per pick (100ms +/- 50ms) so they don't all ring at an identical rate.
+  // Vary the draw speed per pick so they don't all ring at an identical rate.
   const drawMs = useMemo(() => 50 + mulberry(seed + 9277)() * 100, [seed]);
 
   useEffect(() => {
@@ -83,7 +78,7 @@ export function ScribbleLasso({ seed, size, draw = true }: { seed: number; size:
     const n = pts.length;
     let raf = 0;
     const t0 = performance.now();
-    el.setAttribute("d", ""); // nib hasn't touched down yet
+    el.setAttribute("d", ""); // nib hasn't touched down
     const tick = (now: number) => {
       const e = now - t0;
       const head = Math.min(1, e / drawMs);

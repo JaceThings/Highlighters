@@ -8,15 +8,12 @@ import {
 } from "../selection-style.tsx";
 import { useAnimatedColor } from "../hooks/useAnimatedColor.ts";
 
-// Document-global live selection marker: paints selectable text with the marker instead
-// of the native blue band; the dock drives colour/pen/opacity/mark via update(). The
-// READY_CLASS gates the native-selection suppression in global.css, so the blue band
-// survives if JS never loads.
+// Document-global live selection marker: paints selectable text instead of the native blue band;
+// the dock drives colour/pen/opacity/mark via update(). READY_CLASS gates the native-selection
+// suppression in global.css, so the blue band survives if JS never loads.
 const READY_CLASS = "selection-marker-ready";
 
-// Glide the ink in OKLCH so a swatch swap morphs the live selection in place instead of
-// snapping, matching the docs preview (see useAnimatedColor). Same feel as the docs'
-// STATE_CHANGE_EASE; the renderer recolours each frame with no geometry reseed.
+// Glide the ink in OKLCH (useAnimatedColor) so a swatch swap morphs the selection in place; the renderer recolours each frame, no geometry reseed.
 const COLOR_TWEEN = { duration: 0.35, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] };
 
 export function SelectionMarker(): null {

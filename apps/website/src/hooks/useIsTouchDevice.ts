@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 
-// A touch device with no precise pointer: phones and most tablets. Not a width check, so a narrow
-// desktop window is never treated as mobile.
+// Touch with no precise pointer (phones, most tablets); not a width check, so a narrow desktop isn't mobile.
 const TOUCH_QUERY = "(hover: none) and (pointer: coarse)";
 
 function readMatch(): boolean {
   return typeof window !== "undefined" && window.matchMedia(TOUCH_QUERY).matches;
 }
 
-/** True on touch devices. Resolved synchronously at mount (SPA), then kept in sync. */
+/** True on touch devices. */
 export function useIsTouchDevice(): boolean {
   const [touch, setTouch] = useState(readMatch);
   useEffect(() => {

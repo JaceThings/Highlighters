@@ -11,10 +11,10 @@ import { useSelectionStyle, type PenTip } from "../../selection-style.tsx";
 import { useDockEntrance } from "../../dock-entrance.tsx";
 import { DOCK_H } from "./constants.ts";
 
-// Start the tray fully below the viewport so it rises in from the bottom.
+// Start fully below the viewport so the tray rises in from the bottom.
 const ENTER_FROM = DOCK_H + 96;
 
-// Both popovers are this wide; used to keep them clamped inside the tray.
+// Both popovers are this wide; clamps them inside the tray.
 const POPOVER_W = 320;
 
 const ENTRANCE = {
@@ -22,24 +22,21 @@ const ENTRANCE = {
   shown: { y: 0, scale: 1, opacity: 1, filter: "blur(0px)" },
 } as const;
 
-/** The tool tray. The outer layer is pointer-events:none so only the capsule is
- *  interactive. */
+/** The tool tray. The outer layer is pointer-events:none so only the capsule is interactive. */
 export function Dock() {
   const { style, setColor, setPen, setOpacity, setMarkType } = useSelectionStyle();
   // Hold the entrance until the page's text cascade has landed.
   const { ready } = useDockEntrance();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  // `popover` = which control is open and its centre relative to the tray (null =
-  // closed). The marker popover rises from a pen; the colour picker from the swatch.
+  // `popover` = which control is open and its centre relative to the tray (null = closed).
   const trayRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{ kind: "marker" | "color"; x: number } | null>(null);
   const open = popover !== null;
-  // The last custom ink, so reopening the picker returns to it from a preset swatch.
+  // Last custom ink, so reopening the picker returns to it from a preset swatch.
   const lastCustom = useRef("#a855f7");
 
-  // Centre of `button` relative to the tray, clamped so the (centred) popover stays
-  // inside the tray - the rightmost swatch would otherwise overflow.
+  // Centre of `button` relative to the tray, clamped so the centred popover stays inside it.
   const centerX = useCallback((button: HTMLButtonElement) => {
     const tray = trayRef.current;
     if (!tray) return null;
@@ -89,7 +86,7 @@ export function Dock() {
     [setPen],
   );
 
-  // A preset swatch closes the picker - it replaces the custom ink.
+  // A preset swatch closes the picker; it replaces the custom ink.
   const handleSelectColor = useCallback(
     (color: string) => {
       setColor(color);
@@ -98,8 +95,7 @@ export function Dock() {
     [setColor],
   );
 
-  // Close on Escape or a press outside the tray. The popover is a DOM child of the
-  // tray, so clicks on it (or the palette) keep it open.
+  // Close on Escape or a press outside the tray. The popover is a tray DOM child, so clicks on it keep it open.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {

@@ -7,7 +7,7 @@ export interface Excerpt {
   text: string;
 }
 
-/** "Title by Author", or whichever single part exists, or "Unknown" if neither. */
+/** "Title by Author", or whichever single part exists, else "Unknown". */
 export function creditLine(e: Excerpt): string {
   if (e.title && e.author) return `${e.title} by ${e.author}`;
   return e.title ?? e.author ?? "Unknown";
@@ -82,13 +82,13 @@ export const EXCERPTS: Excerpt[] = [
   },
 ];
 
-// The bag survives in localStorage so "no repeats" holds across full page reloads.
+// localStorage so "no repeats" holds across reloads.
 const BAG_KEY = "highlighters:excerpt-bag";
 
 interface BagState {
   /** Indices still in the bag, next drawn from the end. */
   order: number[];
-  /** The index shown last load, so a fresh bag never repeats it first. */
+  /** Index shown last load, so a fresh bag never repeats it first. */
   last: number;
 }
 
@@ -112,7 +112,7 @@ function readBag(): BagState | null {
       parsed.last >= 0 && parsed.last < EXCERPTS.length ? parsed.last : -1;
     return { order, last };
   } catch {
-    return null; // disabled/corrupt storage: fall through to a fresh bag.
+    return null; // disabled/corrupt storage
   }
 }
 
@@ -124,17 +124,13 @@ function writeBag(state: BagState): void {
   }
 }
 
-/**
- * Draw the next passage from a shuffle bag: every excerpt shown once before any
- * repeats, the refill nudged so it never repeats the passage shown last load.
- * Called once on mount, so each page load advances the bag by one.
- */
+/** Draw the next passage from a shuffle bag, never repeating the one shown last load. */
 export function pickNextExcerpt(): Excerpt {
   const { order, last } = readBag() ?? { order: [], last: -1 };
 
   if (order.length === 0) {
     order.push(...shuffledIndices(EXCERPTS.length));
-    // If the refill's next draw would repeat the last passage, swap it to the front.
+    // If the next draw would repeat the last passage, swap it to the front.
     const lastOut = order.length - 1;
     if (order.length > 1 && order[lastOut] === last) {
       [order[0], order[lastOut]] = [order[lastOut], order[0]];

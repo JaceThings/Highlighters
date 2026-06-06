@@ -7,8 +7,7 @@ interface SectionProps {
 }
 
 export function Section({ title, description, children }: SectionProps) {
-  // Everything sits on the 24px ruled grid: each text line is one 24px row, the title and
-  // description stack as consecutive rows, and a full row separates the copy from the paper.
+  // Everything sits on the 24px ruled grid: each text line is one row.
   return (
     <section className="flex w-full flex-col gap-6">
       <div className="flex w-full flex-col px-[4px] text-text-primary">

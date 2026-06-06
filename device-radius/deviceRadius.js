@@ -1,31 +1,31 @@
-// device-radius: device-aware screen corner radius for iPhones. Plain ESM, zero dependencies.
-// This is the hand-written JS mirror of deviceRadius.ts. See README.md.
+// device-radius: device-aware iPhone screen corner radius. Plain ESM, zero deps. JS mirror of
+// deviceRadius.ts; see README.md.
 
-// Plain data, grouped by radius era. `w` is always the SHORTER side (portrait-normalized).
+// Grouped by radius era. `w` is always the SHORTER side (portrait-normalized).
 const TABLE = [
-  // Flat era (0pt) - square display edge: SE (all), 6, 7, 8.
+  // Flat (0pt)
   { w: 320, h: 568, dpr: 2, radius: 0, tier: "flat", confidence: "exact", note: "SE (1st gen)" },
   { w: 375, h: 667, dpr: 2, radius: 0, tier: "flat", confidence: "exact", note: "6 / 7 / 8 / SE 2 / SE 3" },
   { w: 414, h: 736, dpr: 3, radius: 0, tier: "flat", confidence: "exact", note: "6+ / 7+ / 8+" },
 
-  // Rounded era (~39pt) - the X generation.
+  // Rounded (~39pt)
   { w: 375, h: 812, dpr: 3, maxIOS: 16, radius: 39, tier: "rounded", confidence: "high", note: "X / XS / 11 Pro" },
   { w: 414, h: 896, dpr: 2, radius: 39, tier: "rounded", confidence: "exact", note: "XR / 11" },
   { w: 414, h: 896, dpr: 3, radius: 39, tier: "rounded", confidence: "exact", note: "XS Max / 11 Pro Max" },
 
-  // Rounder era (47.33pt) - 12/13/14, the minis, and 16e.
+  // Rounder (47.33pt)
   { w: 375, h: 812, dpr: 3, minIOS: 14, radius: 47.33, tier: "rounder", confidence: "high", note: "12 mini / 13 mini" },
   { w: 390, h: 844, dpr: 3, radius: 47.33, tier: "rounder", confidence: "high", note: "12 / 13 / 14 / 16e" },
 
-  // Rounder-max era (53.33pt) - the older Plus / Pro Max bodies.
+  // Rounder-max (53.33pt)
   { w: 428, h: 926, dpr: 3, radius: 53.33, tier: "rounder-max", confidence: "exact", note: "12 / 13 Pro Max, 14 Plus" },
 
-  // Very-round era (55pt) - 14 Pro through the non-Pro 16. Note the 390x844 collision below.
+  // Very-round (55pt). 390x844 collides with the rounder era, split by minIOS.
   { w: 390, h: 844, dpr: 3, minIOS: 17, radius: 55, tier: "very-round", confidence: "low", note: "15 / 16 (shares 390x844 with 12/13/14)" },
   { w: 393, h: 852, dpr: 3, radius: 55, tier: "very-round", confidence: "high", note: "14 Pro / 15 / 15 Pro / 16" },
   { w: 430, h: 932, dpr: 3, radius: 55, tier: "very-round", confidence: "high", note: "14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus" },
 
-  // Most-round era (62pt) - 16 Pro and the 17 line.
+  // Most-round (62pt)
   { w: 402, h: 874, dpr: 3, radius: 62, tier: "most-round", confidence: "high", note: "16 Pro / 17 / 17 Pro" },
   { w: 440, h: 956, dpr: 3, radius: 62, tier: "most-round", confidence: "high", note: "16 Pro Max / 17 Pro Max / 17 Air" },
 ];

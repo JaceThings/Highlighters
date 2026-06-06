@@ -3,23 +3,15 @@ import { animate, useMotionValue, useMotionValueEvent } from "framer-motion";
 import { hexToOklch, mixOklch, oklchToRgb, type Oklch } from "../components/dock/oklch.ts";
 import { prefersReducedMotion, type SpringNumberOptions } from "./useSpringNumber.ts";
 
-// The shared OKLCH mix, plus a transition-only easing of the vivid "false" mid-hue a wide
-// opposite-hue swap crosses (yellow->blue through green): dip chroma at the midpoint in
-// proportion to the hue distance. Narrow swaps barely dip; endpoints are exact (sin0=sinπ=0).
-// The dip lives here, not in mixOklch, so a one-off mix stays fully saturated.
+// OKLCH mix with a midpoint chroma dip scaled to hue distance, so a wide opposite-hue swap
+// doesn't cross a vivid false mid-hue. Dip lives here, not in mixOklch, to keep one-off mixes saturated.
 function morph(a: Oklch, b: Oklch, t: number): Oklch {
   const c = mixOklch(a, b, t);
   const dH = Math.abs(((b.H - a.H + 540) % 360) - 180);
   return { ...c, C: c.C * (1 - 0.5 * (dH / 180) * Math.sin(Math.PI * t)) };
 }
 
-/**
- * Tween an ink colour toward `targetHex` and return the current colour as an `rgb()`
- * string. Interpolating in OKLCH (not sRGB) keeps chroma up so a swap glides through
- * a saturated hue instead of dipping toward grey; the renderer recolours the mark in
- * place each frame, so this reads like the dock's smooth tip colour - no second copy,
- * no flash. Drags and reduced-motion snap straight to the target.
- */
+/** Tween an ink colour toward `targetHex` in OKLCH, returned as an `rgb()` string. Drags and reduced-motion snap. */
 export function useAnimatedColor(
   targetHex: string,
   { duration, ease, fromDrag = false }: SpringNumberOptions,
@@ -42,12 +34,11 @@ export function useAnimatedColor(
   const [e0, e1, e2, e3] = ease;
   const key = `${target.L.toFixed(4)},${target.C.toFixed(4)},${target.H.toFixed(2)}`;
   useEffect(() => {
-    // First mount already shows the target; nothing to animate.
     if (first.current) {
       first.current = false;
       return;
     }
-    // Restart from wherever the last tween had reached, toward the new target.
+    // Restart from wherever the last tween reached, toward the new target.
     fromRef.current = morph(fromRef.current, toRef.current, t.get());
     toRef.current = target;
     if (fromDragRef.current || prefersReducedMotion()) {

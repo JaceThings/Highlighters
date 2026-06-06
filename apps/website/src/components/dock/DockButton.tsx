@@ -8,8 +8,7 @@ const FOLLOW_URL = "https://ja.mt";
 const CLASSES =
   "flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#efeeed] text-[#7e756c] transition-[background-color,transform] duration-200 ease-out-quint hover:bg-[#e6e4e1] active:scale-[0.96]";
 
-/** Tool-tray button: `to` renders a router Link, `href` an external anchor, else a
- *  plain button - all share one style. The dock groups below are the public surface. */
+/** Tool-tray button: `to` -> router Link, `href` -> external anchor, else a plain button, all one style. */
 function DockButton({
   children,
   label,
@@ -76,7 +75,7 @@ function DockButton({
   );
 }
 
-/** The Home / Docs route buttons, shared by the desktop and mobile docks. */
+/** Home / Docs route buttons, shared by the desktop and mobile docks. */
 export function DockNav({ pathname, className }: { pathname: string; className?: string }) {
   return (
     <nav className={`flex items-center gap-[12px] ${className ?? ""}`}>
@@ -90,7 +89,7 @@ export function DockNav({ pathname, className }: { pathname: string; className?:
   );
 }
 
-/** The GitHub / follow external-link buttons, shared by the desktop and mobile docks. */
+/** GitHub / follow external-link buttons, shared by the desktop and mobile docks. */
 export function DockLinks({ className }: { className?: string }) {
   return (
     <div className={`flex items-center gap-[12px] ${className ?? ""}`}>

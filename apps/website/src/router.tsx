@@ -24,7 +24,7 @@ const docsRoute = createRoute({
   component: Docs,
 });
 
-// Catch-all: unknown paths redirect home (beforeLoad throws, so no 404 flashes).
+// Catch-all: unknown paths redirect home (beforeLoad throws, so no 404 flash).
 const catchAllRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "$",
@@ -35,8 +35,7 @@ const catchAllRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([indexRoute, docsRoute, catchAllRoute]);
 
-// Page cross-fade lives in React (PageFade.tsx), not the View Transitions API, so
-// the shell never gets snapshot-animated and the dock can't flicker.
+// Page cross-fade lives in React (PageFade.tsx), not View Transitions, so the shell never gets snapshot-animated and the dock can't flicker.
 export const router = createRouter({ routeTree });
 
 declare module "@tanstack/react-router" {

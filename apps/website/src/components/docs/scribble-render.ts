@@ -3,12 +3,12 @@ import { mulberry } from "@highlighters/core";
 // Scribble geometry for the slider fill: a hand-jittered zigzag, stroked as a smooth spline.
 
 interface ZigzagParams {
-  width: number; // authoring viewBox width (the slider stretches this to the track)
-  height: number; // authoring viewBox height
-  meanStep: number; // average horizontal gap between teeth (smaller = denser)
-  toothHeight: number; // peak-to-peak tooth height in viewBox units
-  jitterX: number; // random spacing variance
-  jitterY: number; // random peak-height variance
+  width: number;
+  height: number;
+  meanStep: number; // avg horizontal gap between teeth (smaller = denser)
+  toothHeight: number; // peak-to-peak, viewBox units
+  jitterX: number; // spacing variance
+  jitterY: number; // peak-height variance
   seed: number;
 }
 
@@ -32,30 +32,29 @@ export function makeZigzag(p: ZigzagParams): [number, number][] {
 interface BlobParams {
   size: number; // square authoring viewBox (size x size)
   seed: number;
-  passes?: number; // diagonal back-and-forth chords (more = denser fill)
-  fill?: number; // 0..1 how far each chord reaches toward the circle edge
-  jitter?: number; // hand-wobble amplitude in viewBox units
+  passes?: number; // diagonal chords (more = denser fill)
+  fill?: number; // 0..1 reach toward the circle edge
+  jitter?: number; // hand-wobble amplitude, viewBox units
 }
 
-// A colour swatch as a hand-scribbled fill: diagonal chords marching corner-to-corner, each
-// chord's length following the circle so the blob is round (short chords at the corners, long
-// through the middle). Rendered as a round-capped polyline, it reads like a marker scribble.
+// A colour swatch as a hand-scribbled fill: diagonal chords corner-to-corner, each chord's length
+// following the circle so the blob is round. Rendered as a round-capped polyline, it reads like a marker scribble.
 export function makeBlobScribble(p: BlobParams): [number, number][] {
   const r = mulberry(p.seed);
-  const passes = p.passes ?? 11; // dense enough to read as a filled circle, not a sparse hatch
+  const passes = p.passes ?? 11;
   const fill = p.fill ?? 0.95;
   const jit = p.jitter ?? 1.2;
   const c = p.size / 2;
   const R = p.size / 2;
-  // ~45deg sweep, wobbled per seed so no two swatches hatch the same way.
+  // ~45deg sweep, wobbled per seed so no two swatches hatch alike.
   const angle = Math.PI / 4 + (r() * 2 - 1) * 0.22;
   const dir = [Math.cos(angle), Math.sin(angle)];
   const perp = [-Math.sin(angle), Math.cos(angle)];
-  const span = R * 0.82; // keep the chord ends inside the circle
+  const span = R * 0.82; // keep chord ends inside the circle
   const pts: [number, number][] = [];
   for (let i = 0; i <= passes; i++) {
     const t = -span + (2 * span * i) / passes + (r() * 2 - 1) * jit * 0.5;
-    const half = Math.sqrt(Math.max(0, R * R - t * t)); // circle chord half-length at t
+    const half = Math.sqrt(Math.max(0, R * R - t * t)); // chord half-length at t
     const reach = half * fill * (0.88 + r() * 0.24);
     const side = i % 2 === 0 ? 1 : -1;
     pts.push([
@@ -67,23 +66,22 @@ export function makeBlobScribble(p: BlobParams): [number, number][] {
 }
 
 // A hand-drawn lasso loop (centreline + per-point pressure) for circling the selected swatch.
-// Everything is jittered per seed - size, ovalness, tilt, where it crosses - so no two
-// selections ring the same circle. The loop runs a bit past a full turn and both ends splay
-// radially outward, so they overshoot and cross into a little tailed knot near the top, like a
-// real pen circle that didn't quite close. Tapered ends draw on like the nib lifting.
+// Everything jitters per seed (size, ovalness, tilt, crossing) so no two selections ring the same
+// circle. It runs past a full turn with both ends splayed outward into a tailed knot near the top,
+// like a real pen circle that didn't quite close. Tapered ends draw on like the nib lifting.
 export function makeLassoStroke(size: number, seed: number): [number, number, number][] {
   const r = mulberry(seed);
-  const N = 80; // dense sampling -> a smooth curve, not a jagged one
+  const N = 80; // dense -> smooth curve
   const c = size / 2;
   const rx = size * (0.355 + r() * 0.035);
-  const ry = rx * (0.92 + r() * 0.14); // varying ovalness
-  const tilt = (r() * 2 - 1) * 0.4; // rotate the oval's axes
-  const cross = -Math.PI / 2 + (r() * 2 - 1) * 0.4; // the crossing sits near the top
-  const tailAng = 0.45 + r() * 0.18; // how far the two tails splay from the crossing
-  const tailOut = 0.18 + r() * 0.08; // how far the tail ends stick out past the ring
+  const ry = rx * (0.92 + r() * 0.14); // ovalness
+  const tilt = (r() * 2 - 1) * 0.4;
+  const cross = -Math.PI / 2 + (r() * 2 - 1) * 0.4; // crossing near the top
+  const tailAng = 0.45 + r() * 0.18; // tail splay from the crossing
+  const tailOut = 0.18 + r() * 0.08; // tail reach past the ring
   const a0 = cross - tailAng;
   const a1 = cross + Math.PI * 2 + tailAng; // past a full turn, so the ends overshoot and cross
-  // One gentle low-frequency swell (no per-point noise) keeps the ring smooth, not jagged.
+  // One gentle low-frequency swell (no per-point noise) keeps the ring smooth.
   const wobAmp = 0.025 + r() * 0.02;
   const wobFreq = 2 + Math.floor(r() * 2);
   const cosT = Math.cos(tilt);
@@ -92,12 +90,12 @@ export function makeLassoStroke(size: number, seed: number): [number, number, nu
   for (let i = 0; i < N; i++) {
     const u = i / (N - 1);
     const a = a0 + u * (a1 - a0);
-    // Splay the first and last stretch outward into the crossing tails.
+    // Splay the first and last stretch into the crossing tails.
     const tail = u < 0.12 ? (0.12 - u) / 0.12 : u > 0.88 ? (u - 0.88) / 0.12 : 0;
     const rad = (1 + tail * tailOut) * (1 + Math.sin(a * wobFreq + seed) * wobAmp);
     const ex = Math.cos(a) * rx * rad;
     const ey = Math.sin(a) * ry * rad;
-    const pressure = 0.22 + 0.62 * Math.sin(Math.PI * u); // thin tapered ends, fuller middle
+    const pressure = 0.22 + 0.62 * Math.sin(Math.PI * u); // tapered ends, fuller middle
     pts.push([c + ex * cosT - ey * sinT, c + ex * sinT + ey * cosT, pressure]);
   }
   return pts;
@@ -110,7 +108,7 @@ export function linePath(pts: [number, number][]): string {
   return pts.map((p, i) => `${i === 0 ? "M" : "L"}${f(p[0])} ${f(p[1])}`).join("");
 }
 
-/** Points up to fraction `f` (0..1), interpolating the leading point so the head moves smoothly. */
+/** Points up to fraction `f` (0..1), interpolating the lead point so the head moves smoothly. */
 export function pointsUpTo(pts: [number, number][], f: number): [number, number][] {
   const frac = Math.max(0, Math.min(1, f));
   const exact = frac * (pts.length - 1);
@@ -125,9 +123,8 @@ export function pointsUpTo(pts: [number, number][], f: number): [number, number]
   return sub;
 }
 
-// SVG `d` for a smooth stroke (caller strokes it, no fill). A Catmull-Rom spline as cubic
-// Béziers - passes THROUGH every tooth tip so it keeps full amplitude, unlike midpoint
-// corner-cutting which would halve the height.
+// SVG `d` for a smooth stroke. A Catmull-Rom spline as cubic Beziers: passes THROUGH every tooth
+// tip so it keeps full amplitude, unlike midpoint corner-cutting which would halve the height.
 export function smoothStrokePath(pts: [number, number][]): string {
   const n = pts.length;
   if (n < 2) return "";
