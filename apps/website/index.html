@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Preload the body font: it's render-critical but otherwise only discovered after CSS
+         parses, so this starts the fetch ~1 RTT earlier and shrinks the swap window. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/InterVariable.woff2" crossorigin />
     <!-- Dark-mode variants come last: browsers use the last matching icon, so the
          bright-ink set wins under prefers-color-scheme: dark. -->
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />

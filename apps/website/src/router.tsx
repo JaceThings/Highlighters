@@ -8,9 +8,12 @@ import {
 import { RootLayout } from "./RootLayout.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Docs } from "./pages/Docs.tsx";
-import { Squiggles } from "./pages/Squiggles.tsx";
 
-// Dev review page; lazy so the playground it pulls in stays out of the main bundle.
+// Secondary pages, lazy so the perfect-freehand / playground deps they pull in stay out of the
+// eager home bundle.
+const Squiggles = lazy(() =>
+  import("./pages/Squiggles.tsx").then((m) => ({ default: m.Squiggles })),
+);
 const QuoteReview = lazy(() =>
   import("./pages/QuoteReview.tsx").then((m) => ({ default: m.QuoteReview })),
 );
@@ -34,7 +37,11 @@ const docsRoute = createRoute({
 const squigglesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/squiggles",
-  component: Squiggles,
+  component: () => (
+    <Suspense fallback={null}>
+      <Squiggles />
+    </Suspense>
+  ),
 });
 
 const quoteReviewRoute = createRoute({
