@@ -2,11 +2,10 @@ import { hexToOklch, lightenOklch, oklchToRgb } from "../components/dock/oklch.t
 import { TIPS } from "../components/dock/PenSvg.tsx";
 import type { PenTip } from "../selection-style.tsx";
 
-// Live favicon built from the brand marker artwork (Marker.svg / Marker-1.svg): the barrel
-// contrasts the browser theme (dark barrel in light mode, light barrel in dark mode, switched by
-// prefers-color-scheme) so the marker stays legible against the tab, with the nib + ink band painted
-// in the user's current colour. Drop shadows/inner shadows are omitted (invisible at favicon size,
-// and they bloat the data-URL we swap on every colour change).
+// Live favicon: the brand marker with its nib + ink band painted in the user's current colour. The
+// barrel contrasts the browser theme so the marker stays legible against the tab (light/dark rules
+// below). Drop shadows are omitted: invisible at favicon size, and they bloat the data-URL we swap
+// on every colour change.
 
 const FUNNEL =
   "M13.9258 79.0329V99.3356H59.4419V79.0329C59.4419 74.7124 58.3143 70.4666 56.1707 66.7153L54.4373 63.6819C52.2937 59.9306 51.1662 55.6848 51.1662 51.3642V26.9237H22.2014V51.3642C22.2014 55.6848 21.0739 59.9306 18.9303 63.6819L17.1969 66.7153C15.0533 70.4666 13.9258 74.7124 13.9258 79.0329Z";
@@ -34,7 +33,7 @@ const DARK_BARREL =
   '<stop stop-color="#2E2E2E"/><stop offset=".047" stop-color="#393939"/><stop offset=".146" stop-color="#212121"/><stop offset=".734" stop-color="#373737"/><stop offset=".906" stop-color="#2C2C2C"/><stop offset="1" stop-color="#363636"/>';
 
 /** SVG markup (not a data-URL) for the marker in `color` with `tip`, theme-aware via prefers-color-scheme. */
-export function buildFaviconSvg(color: string, tip: PenTip): string {
+function buildFaviconSvg(color: string, tip: PenTip): string {
   const ok = hexToOklch(color);
   const ink = oklchToRgb(ok);
   const inkTop = oklchToRgb(lightenOklch(ok, 0.06)); // nib gradient top
