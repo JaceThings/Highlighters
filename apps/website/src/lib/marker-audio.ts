@@ -96,6 +96,7 @@ const popHistory: number[] = [];
 
 function nextPopIndex(): number {
   const n = SHORT_URLS.length;
+  if (n < 2) return 0; // nothing to vary; also avoids the block-the-only-index infinite loop
   const last = popHistory[popHistory.length - 1];
   const prev = popHistory[popHistory.length - 2];
   const blocked = last !== undefined && last === prev ? last : -1; // two in a row already => block a third
