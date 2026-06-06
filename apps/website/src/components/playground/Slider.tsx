@@ -21,6 +21,7 @@ import {
 } from "./slider-utils.ts";
 import { useEditableValue } from "./useEditableValue.ts";
 import { usePointerDrag } from "./usePointerDrag.ts";
+import { feedScribbleSound, primeMarkerAudio, stopScribbleSound } from "../../lib/marker-audio.ts";
 
 // Track geometry. (Formerly a PlaygroundTuning context whose provider was never mounted,
 // so these defaults were the only values it ever yielded.)
@@ -57,6 +58,8 @@ interface SliderProps {
    *  scribble), painted inside the rounded track. Receives the live `reported`
    *  motion value so it can reveal itself by the slider fraction. */
   renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number; floor?: number }) => ReactNode;
+  /** Play the marker scribble sound while the slider is scrubbed (drag or arrow keys). */
+  scrubSound?: boolean;
 }
 
 // Isolates the per-frame readout state so digit morphing re-renders only this node, not the
@@ -80,6 +83,7 @@ export function Slider({
   formatSamples,
   description,
   renderFill,
+  scrubSound,
 }: SliderProps) {
   const id = useId();
   const trackHeight = TRACK_HEIGHT;
@@ -127,6 +131,11 @@ export function Slider({
     return format ? format(stepped) : String(stepped);
   });
 
+  // Marker scrub sound, gated once: each is undefined (a no-op) when scrubSound is off.
+  const scrubFeed = scrubSound ? feedScribbleSound : undefined;
+  const scrubPrime = scrubSound ? primeMarkerAudio : undefined;
+  const scrubStop = scrubSound ? stopScribbleSound : undefined;
+
   const drag = usePointerDrag({
     trackRef,
     value,
@@ -142,7 +151,12 @@ export function Slider({
         propAnimRef.current = null;
       }
     },
+    onScrub: scrubFeed,
+    onScrubEnd: scrubStop,
   });
+
+  // Stop any scribble this slider started if it unmounts mid-scrub.
+  useEffect(() => scrubStop, [scrubStop]);
 
   // Tween `reported` toward the controlled prop on non-drag changes (preset, keyboard).
   // During a drag the drag is the source of truth - skip the tween.
@@ -167,7 +181,10 @@ export function Slider({
   const handleKeyboardInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (drag.isDraggingRef.current) return;
     const next = clamp(Number(e.currentTarget.value), lo, max);
-    if (next !== value) onChange(next, false);
+    if (next !== value) {
+      onChange(next, false);
+      scrubFeed?.(); // arrow nudge: a brief scribble that fades on idle
+    }
   };
 
   // Shift + Arrow on the hidden native range jumps 10×step. Plain arrows
@@ -180,7 +197,10 @@ export function Slider({
     if (dir === 0) return;
     e.preventDefault();
     const next = clamp(snap(value + dir * step * 10, step), lo, max);
-    if (next !== value) onChange(next, false);
+    if (next !== value) {
+      onChange(next, false);
+      scrubFeed?.();
+    }
   };
 
   const handleLabelDoubleClick = () => {
@@ -230,7 +250,11 @@ export function Slider({
           label's double-click area. */}
       <div
         className="w-full touch-none select-none pt-2 pb-4 -mt-2 -mb-4"
-        onPointerDown={drag.onPointerDown}
+        onPointerEnter={scrubPrime}
+        onPointerDown={(e) => {
+          scrubPrime?.();
+          drag.onPointerDown(e);
+        }}
         onPointerMove={drag.onPointerMove}
         onLostPointerCapture={drag.onLostPointerCapture}
       >

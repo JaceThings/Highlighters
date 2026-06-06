@@ -60,6 +60,18 @@ export function RootLayout() {
     return () => clearTimeout(t);
   }, []);
 
+  // Decode the marker sounds while the browser is idle, on any route, so the first press anywhere
+  // is instant. The engine is a singleton, so the decoded buffers carry across client-side nav.
+  useEffect(() => {
+    const prime = () => void import("./lib/marker-audio.ts").then((m) => m.primeMarkerAudio()).catch(() => {});
+    const hasIdle = typeof window.requestIdleCallback === "function";
+    const id = hasIdle ? window.requestIdleCallback(prime, { timeout: 3000 }) : window.setTimeout(prime, 1500);
+    return () => {
+      if (hasIdle) window.cancelIdleCallback(id);
+      else clearTimeout(id);
+    };
+  }, []);
+
   return (
     <MotionConfig reducedMotion="user">
       <LazyMotion features={loadMotionFeatures} strict>

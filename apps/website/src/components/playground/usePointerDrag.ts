@@ -27,6 +27,10 @@ interface UsePointerDragOptions {
    *  Owned by the parent so its prop-change effect stays the sole writer
    *  of that tween's ref. */
   stopPropAnim: () => void;
+  /** Fired on each real (post-threshold) drag move, then once when the drag ends. Lets the
+   *  consumer drive scrub feedback such as a scribble sound. */
+  onScrub?: () => void;
+  onScrubEnd?: () => void;
 }
 
 export function usePointerDrag({
@@ -39,6 +43,8 @@ export function usePointerDrag({
   onChange,
   reported,
   stopPropAnim,
+  onScrub,
+  onScrubEnd,
 }: UsePointerDragOptions) {
   const lo = lowerBound(min, floor);
   const pointerIdRef = useRef<number | null>(null);
@@ -147,7 +153,10 @@ export function usePointerDrag({
         ease: PROP_CHANGE_EASE,
       });
     }
-    if (targetValue !== value) onChange(targetValue, false);
+    if (targetValue !== value) {
+      onChange(targetValue, false);
+      onScrub?.(); // tap-to-jump draws to the tapped value; sound a brief scribble (idle fades it)
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -165,6 +174,7 @@ export function usePointerDrag({
       isClickRef.current = false;
     }
     applyPointer(e.clientX);
+    onScrub?.(); // reached only once the drag is real (isClick is false here)
   };
 
   // Capture-release, not pointerup: also covers the pointer leaving the element and OS
@@ -186,6 +196,7 @@ export function usePointerDrag({
     // value so signed sliders don't leave a sliver at the crossover. A click already
     // animated to the stepped target, so it needs no follow-up.
     if (!isClickRef.current) {
+      onScrubEnd?.();
       if (pointerAnimRef.current) {
         pointerAnimRef.current.stop();
         pointerAnimRef.current = null;

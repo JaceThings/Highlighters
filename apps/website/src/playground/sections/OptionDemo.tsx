@@ -13,6 +13,7 @@ import { StaticQuote } from "../quote-render.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
+import { playMarkerPop, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
 // Defer each Preview until its section nears the viewport. One-way latch: once
 // painted it never unmounts, so its marks persist and update in place.
@@ -116,7 +117,12 @@ function SwatchPicker() {
   const [lassoSeed, setLassoSeed] = useState(() => SWATCH_CHIPS[0].seed * 31);
 
   return (
-    <div role="radiogroup" aria-label="Color swatch" className="flex items-center gap-2 px-4 py-5">
+    <div
+      role="radiogroup"
+      aria-label="Color swatch"
+      className="flex items-center gap-2 px-4 py-5"
+      onPointerEnter={primeMarkerAudio}
+    >
       {SWATCH_CHIPS.map(({ id, label, seed, hex }) => {
         const selected = hex.toLowerCase() === activeHex;
         return (
@@ -132,6 +138,7 @@ function SwatchPicker() {
               if (selected) return;
               set("color", hex);
               setLassoSeed((s) => s + 1);
+              playMarkerPop(); // a random marker tap as the lasso draws in
             }}
             className={`relative flex flex-1 select-none items-center justify-center ${selected ? "cursor-default" : "cursor-pointer"}`}
           >
@@ -203,6 +210,7 @@ function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" 
         format={FORMAT[demo.unit]}
         onChange={onNum}
         renderFill={(ctx) => <ScribbleFill seed={seed} {...ctx} />}
+        scrubSound
       />
     </div>
   );
