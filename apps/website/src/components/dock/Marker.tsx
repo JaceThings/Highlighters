@@ -16,6 +16,7 @@ const REST_TOP = FRAME_H - 95.45; // resting offset above the tray floor
 const GAP = 71 - SVG_W; // pen centres sit 71px apart
 const STEP = SVG_W + GAP; // 71px between pen slots
 const SELECTED_RISE = 24; // a selected pen lifts this much (see global.css)
+const HOVER_RISE = 6; // a hovered pen lifts this much (see global.css .dock-pen:hover)
 
 // --- Traveling keyboard focus outline -------------------------------------------------
 // One designed outline (pen-outlines.ts) traces the focused pen and springs between pens
@@ -38,7 +39,7 @@ const INSTANT = { duration: 0 } as const;
  *  pen and lifted to its nib height, with the three designed nib silhouettes stacked and
  *  crossfaded to match the tip. `idx` is the keyboard-focused pen (null = hidden); it
  *  parks at its last slot while fading so it never flies in from slot 0. */
-function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: number }) {
+function MarkerOutline({ idx, selectedIdx, hoveredIdx }: { idx: number | null; selectedIdx: number; hoveredIdx: number | null }) {
   const { tips, preview } = useOutlineTuning();
   // A previewed tip (dev tuning) force-shows its outline; otherwise follow keyboard focus.
   const previewIdx = preview ? PENS.findIndex((p) => p.id === preview) : null;
@@ -47,7 +48,10 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
   // Park at the last focused slot while fading out.
   const slot = activeIdx ?? lastIdx.current;
   const focusedTip = PENS[slot].id;
+  // Match the pen art's lift so the outline stays glued: selected (-24) wins over hover (-6),
+  // mirroring the .dock-pen CSS, so a focused pen's outline rises with it on hover too.
   const risen = slot === selectedIdx;
+  const liftY = risen ? -SELECTED_RISE : slot === hoveredIdx ? -HOVER_RISE : 0;
   // The outline only travels/crossfades while it stays visible (pen to pen). When it
   // reappears after being hidden, it would otherwise fly across from wherever it parked
   // and morph from the stale tip - so snap position, rise, and tip on that first frame
@@ -73,7 +77,7 @@ function MarkerOutline({ idx, selectedIdx }: { idx: number | null; selectedIdx: 
         className="absolute"
         style={{ left: OUTLINE_LEFT, top: REST_TOP - OUTLINE_LIFT, width: OUTLINE_W }}
         initial={false}
-        animate={{ y: risen ? -SELECTED_RISE : 0 }}
+        animate={{ y: liftY }}
         transition={appearing ? INSTANT : OUTLINE_RISE}
       >
         {PENS.map((p) => {
@@ -183,6 +187,8 @@ export function MarkerRow({
   // with :focus-visible because one shared outline animates between the pens; the same
   // useNavModality the global focus ring uses gates keyboard vs pointer.
   const [focusIdx, setFocusIdx] = useState<number | null>(null);
+  // The hovered pen, so the keyboard outline can rise with the pen art on hover (not just select).
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const keyboard = useNavModality();
 
   const selectedIdx = PENS.findIndex((p) => p.id === selected);
@@ -200,14 +206,16 @@ export function MarkerRow({
             aria-label={p.label}
             aria-pressed={isSelected}
             onClick={(e) => (isSelected ? onActivate(e.currentTarget) : onSelect(p.id))}
-            onFocus={() => {
-              if (keyboard.current) setFocusIdx(i);
-            }}
+            // Keyboard focus shows the outline on this pen; a pointer focus (click) clears it, so
+            // it can't strand on a stale pen when the next Tab moves focus out of the row.
+            onFocus={() => setFocusIdx(keyboard.current ? i : null)}
+            onPointerEnter={() => setHoveredIdx(i)}
+            onPointerLeave={() => setHoveredIdx((h) => (h === i ? null : h))}
             onBlur={(e) => {
-              // Keep the outline alive while focus hops to a sibling pen, so it travels
-              // instead of blinking off and on.
+              // Keep the outline alive only while focus hops to a sibling pen (so it travels
+              // instead of blinking); clear it whenever focus leaves the pen row.
               if (!(e.relatedTarget as HTMLElement | null)?.closest(".dock-pen")) {
-                setFocusIdx((prev) => (prev === i ? null : prev));
+                setFocusIdx(null);
               }
             }}
             className="dock-pen relative block shrink-0 overflow-hidden"
@@ -239,7 +247,7 @@ export function MarkerRow({
           </button>
         );
       })}
-      <MarkerOutline idx={focusIdx} selectedIdx={selectedIdx} />
+      <MarkerOutline idx={focusIdx} selectedIdx={selectedIdx} hoveredIdx={hoveredIdx} />
     </div>
   );
 }
