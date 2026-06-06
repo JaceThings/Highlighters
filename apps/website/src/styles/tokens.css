@@ -1,16 +1,5 @@
 @import "tailwindcss";
 
-/* License note: Apple's SF font EULA restricts use to Apple-platform UI; self-hosting here is a grey
- * area, so the `--font-mono` fallback chain keeps the page correct if this file is pulled. */
-@font-face {
-  font-family: "SF Mono";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/sf-mono-medium.woff2") format("woff2");
-  unicode-range: U+0020-007E, U+00A0-00FF, U+2000-206F;
-}
-
 /* Official Inter v4.1, not the Google Fonts repackage (it drops the cv/ss features; we need cv05). */
 @font-face {
   font-family: "Inter Variable";
@@ -41,8 +30,6 @@
   /* Type */
   --font-sans: "Inter Variable", system-ui, -apple-system, BlinkMacSystemFont,
     sans-serif;
-  --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
 
   /* Shared easing for short UI transitions. Quint ease-out; Tailwind maps it to `ease-out-quint`. */
   --ease-out-quint: cubic-bezier(0.2, 0, 0, 1);

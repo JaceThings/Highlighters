@@ -229,9 +229,9 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
         title={
           <>
             {demo.name}{" "}
-            {/* leading-none: the smaller mono font would otherwise inflate the h2 line box to 26px
-                (mixed-font baseline metrics), drifting every section 2px off the 24px grid. */}
-            <span className="font-mono text-[0.8em] leading-none font-normal tracking-normal text-text-secondary">
+            {/* leading-none: this smaller inline span inherits the 24px line-height and would
+                otherwise inflate the h2 line box to 26px, drifting every section 2px off the grid. */}
+            <span className="text-[0.8em] leading-none font-normal text-text-secondary">
               ({demo.title})
             </span>
           </>
