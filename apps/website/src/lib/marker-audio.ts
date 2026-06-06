@@ -14,8 +14,8 @@ const SHORT_URLS = [
   "/audio/marker-short-6.mp3",
 ];
 
-const SCRIBBLE_GAIN = 0.02;
-const POP_GAIN = 0.025;
+const SCRIBBLE_GAIN = 0.01;
+const POP_GAIN = 0.0125;
 const FADE_IN = 0.015; // s, scribble swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
