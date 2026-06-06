@@ -1,21 +1,28 @@
-// Web Audio for the docs demo: a looping scribble swelling while a slider scrubs, and a one-shot pop
-// on colour pick. MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached.
-// Context is created without resuming and only resumed inside a gesture (else the autoplay warning).
+// Web Audio for the docs demo: a looping scribble swelling while a slider scrubs, and a one-shot zig
+// clip on option pick. MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and
+// cached. Context is created without resuming and only resumed inside a gesture (else the autoplay warning).
 
 type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
 const SCRIBBLE_URLS = ["/audio/marker-scribble-1.mp3", "/audio/marker-scribble-2.mp3"];
-const SHORT_URLS = [
-  "/audio/marker-short-1.mp3",
-  "/audio/marker-short-2.mp3",
-  "/audio/marker-short-3.mp3",
-  "/audio/marker-short-4.mp3",
-  "/audio/marker-short-5.mp3",
-  "/audio/marker-short-6.mp3",
+const ZIG_URLS = [
+  "/audio/marker-zig-1.mp3",
+  "/audio/marker-zig-2.mp3",
+  "/audio/marker-zig-3.mp3",
+  "/audio/marker-zig-4.mp3",
+  "/audio/marker-zig-5.mp3",
+  "/audio/marker-zig-6.mp3",
+  "/audio/marker-zig-7.mp3",
+  "/audio/marker-zig-8.mp3",
+  "/audio/marker-zig-9.mp3",
+  "/audio/marker-zig-10.mp3",
+  "/audio/marker-zig-11.mp3",
+  "/audio/marker-zig-12.mp3",
+  "/audio/marker-zig-13.mp3",
 ];
 
 const SCRIBBLE_GAIN = 0.01;
-const POP_GAIN = 0.0125;
+const ZIG_GAIN = 0.0125;
 const FADE_IN = 0.015; // s, scribble swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
@@ -83,36 +90,36 @@ function decode(url: string): Promise<AudioBuffer | null> {
 export function primeMarkerAudio(): void {
   if (!createCtx()) return;
   for (const u of SCRIBBLE_URLS) void decode(u);
-  for (const u of SHORT_URLS) void decode(u);
+  for (const u of ZIG_URLS) void decode(u);
 }
 
-// Colour pick: one-shot, never the same clip three times in a row.
+// Option pick (the zig-zag swatch): one random clip, never the same one three times in a row.
 
-const popHistory: number[] = [];
+const zigHistory: number[] = [];
 
-function nextPopIndex(): number {
-  const n = SHORT_URLS.length;
+function nextZigIndex(): number {
+  const n = ZIG_URLS.length;
   if (n < 2) return 0; // also avoids the block-the-only-index infinite loop
-  const last = popHistory[popHistory.length - 1];
-  const prev = popHistory[popHistory.length - 2];
+  const last = zigHistory[zigHistory.length - 1];
+  const prev = zigHistory[zigHistory.length - 2];
   const blocked = last !== undefined && last === prev ? last : -1; // two in a row => block a third
   let i = Math.floor(Math.random() * n);
   while (i === blocked) i = Math.floor(Math.random() * n);
-  popHistory.push(i);
-  if (popHistory.length > 3) popHistory.shift();
+  zigHistory.push(i);
+  if (zigHistory.length > 3) zigHistory.shift();
   return i;
 }
 
-export function playMarkerPop(): void {
+export function playZigSound(): void {
   if (!ensureRunning()) return;
-  const url = SHORT_URLS[nextPopIndex()];
+  const url = ZIG_URLS[nextZigIndex()];
   void decode(url).then((buf) => {
     if (!buf || !ctx || !master) return;
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.playbackRate.value = 0.97 + Math.random() * 0.06; // pitch variance
     const g = ctx.createGain();
-    g.gain.value = POP_GAIN;
+    g.gain.value = ZIG_GAIN;
     src.connect(g).connect(master);
     src.onended = () => {
       src.disconnect();
