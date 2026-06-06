@@ -23,9 +23,9 @@ export function DynamicFavicon() {
     // Coalesce to one swap per frame: a rapid colour drag re-runs this effect, cancelling the
     // pending frame and scheduling the latest. The SVG handles light/dark itself via @media.
     const raf = requestAnimationFrame(() => {
-      link.href = buildFaviconDataUrl(style.color);
+      link.href = buildFaviconDataUrl(style.color, style.pen);
     });
     return () => cancelAnimationFrame(raf);
-  }, [style.color]);
+  }, [style.color, style.pen]);
   return null;
 }

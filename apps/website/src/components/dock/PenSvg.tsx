@@ -1,9 +1,10 @@
 import { useId, type CSSProperties } from "react";
 import { lightenOklch, oklchToRgb, parseOklch } from "./oklch.ts";
 
-// The three nib shapes, each in its own 0-15 space. TX centres the nib; per-tip `ty` drops its base onto the funnel top.
+// The three nib shapes, each in its own 0-15 space. TX centres the nib; per-tip `ty` drops its base
+// onto the funnel top. Exported so the favicon can paint the same selected nib (see favicon-svg.ts).
 const TX = 13.943;
-const TIPS = {
+export const TIPS = {
   slant: {
     d: "M0 8.90395V8.90755V14.6331H14.2627L14.2627 2.31478C14.2627 1.28051 14.2625 0.762792 14.0449 0.454428C13.9929 0.380825 13.944 0.325003 13.8662 0.255209C13.1837 -0.357086 12.1504 0.280438 11.4834 0.627279L2.04883 5.53353L2.04642 5.53478C1.30365 5.92102 0.931451 6.11457 0.660156 6.39779C0.420078 6.6485 0.2376 6.94898 0.125977 7.27767C0 7.64881 0 8.06767 0 8.90395Z",
     ty: 1.37,
