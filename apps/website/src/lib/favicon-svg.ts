@@ -1,9 +1,10 @@
 import { hexToOklch, lightenOklch, oklchToRgb } from "../components/dock/oklch.ts";
 
-// Live favicon built from the brand marker artwork (Marker.svg / Marker-1.svg): a light or dark
-// barrel (switched by prefers-color-scheme, so it suits the browser theme) with the nib + ink band
-// painted in the user's current colour. Drop shadows/inner shadows are omitted (invisible at favicon
-// size, and they bloat the data-URL we swap on every colour change).
+// Live favicon built from the brand marker artwork (Marker.svg / Marker-1.svg): the barrel
+// contrasts the browser theme (dark barrel in light mode, light barrel in dark mode, switched by
+// prefers-color-scheme) so the marker stays legible against the tab, with the nib + ink band painted
+// in the user's current colour. Drop shadows/inner shadows are omitted (invisible at favicon size,
+// and they bloat the data-URL we swap on every colour change).
 
 const FUNNEL =
   "M13.9258 79.0329V99.3356H59.4419V79.0329C59.4419 74.7124 58.3143 70.4666 56.1707 66.7153L54.4373 63.6819C52.2937 59.9306 51.1662 55.6848 51.1662 51.3642V26.9237H22.2014V51.3642C22.2014 55.6848 21.0739 59.9306 18.9303 63.6819L17.1969 66.7153C15.0533 70.4666 13.9258 74.7124 13.9258 79.0329Z";
@@ -23,12 +24,14 @@ export function buildFaviconSvg(color: string): string {
   const ok = hexToOklch(color);
   const ink = oklchToRgb(ok);
   const inkTop = oklchToRgb(lightenOklch(ok, 0.06)); // nib gradient top
-  const inkDark = oklchToRgb(lightenOklch(ok, 0.18)); // lifted so it reads on the dark barrel
-  const inkDarkTop = oklchToRgb(lightenOklch(ok, 0.24));
+  const inkLift = oklchToRgb(lightenOklch(ok, 0.18)); // lifted so it reads on the dark (light-mode) barrel
+  const inkLiftTop = oklchToRgb(lightenOklch(ok, 0.24));
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 0 62 124">` +
-    `<style>.barrel{fill:url(#bl)}.ink{fill:${ink}}.nt{stop-color:${inkTop}}.nb{stop-color:${ink}}` +
-    `@media(prefers-color-scheme:dark){.barrel{fill:url(#bd)}.ink{fill:${inkDark}}.nt{stop-color:${inkDarkTop}}.nb{stop-color:${inkDark}}}</style>` +
+    // Light mode: dark barrel + lifted ink. Dark mode: light barrel + true ink. Either way the barrel
+    // contrasts the tab so the marker reads.
+    `<style>.barrel{fill:url(#bd)}.ink{fill:${inkLift}}.nt{stop-color:${inkLiftTop}}.nb{stop-color:${inkLift}}` +
+    `@media(prefers-color-scheme:dark){.barrel{fill:url(#bl)}.ink{fill:${ink}}.nt{stop-color:${inkTop}}.nb{stop-color:${ink}}}</style>` +
     `<defs>` +
     `<linearGradient id="bl" x1="13.93" y1="0" x2="59.44" y2="0" gradientUnits="userSpaceOnUse">${LIGHT_BARREL}</linearGradient>` +
     `<linearGradient id="bd" x1="13.93" y1="0" x2="59.44" y2="0" gradientUnits="userSpaceOnUse">${DARK_BARREL}</linearGradient>` +
