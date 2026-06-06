@@ -2,9 +2,9 @@ import { Children, useLayoutEffect, useRef, type CSSProperties, type ReactNode }
 
 // A single-column CSS grid on a 24px baseline. Each child is wrapped in a grid cell that a
 // ResizeObserver snaps to a whole number of 24px rows (grid-row: span N), so the column always lands
-// on the ruled 24px grid whatever the content height, no per-block height math. Pair with a content
-// origin on the grid (a 24px-multiple top pad) so the rows register with the ruled-paper background.
-export const ROW = 24;
+// on the ruled 24px grid whatever the content height, no per-block height math. The rows register with
+// the ruled-paper background because Layout's top padding puts the content on the same phase.
+const ROW = 24;
 
 export function RowGrid({
   children,

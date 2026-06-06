@@ -9,9 +9,9 @@ body {
 /* content-visibility skips painting off-screen demo cards (each holds filtered live marks). Its paint
    clip would cut the paper shadow (~26px), so the card breaks out and pads it back. Breakout only holds
    with no overflow:hidden/clip ancestor.
-   Every block is a whole number of 24px rows: text (each line 24) + 24 gap + 288 card + 48 bottom pad,
-   so the column is a continuous 24px grid. contain-intrinsic-size is row-aligned (432 = 18 rows) too,
-   so a skipped card reserves a row-multiple and the grid stays registered whether painted or skipped. */
+   The block already totals whole 24px rows (text + 24 gap + 288 card + 48 bottom pad) and the intrinsic
+   size is row-aligned (432 = 18 rows), so RowGrid's snap adds ~0 slack and a skipped card still reserves
+   whole rows. */
 .cv-demo {
   content-visibility: auto;
   contain-intrinsic-size: auto 432px;
