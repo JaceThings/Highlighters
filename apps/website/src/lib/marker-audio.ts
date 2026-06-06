@@ -1,9 +1,7 @@
-// Web Audio for the marker UI: a looping SLIDER scribble that swells while a slider scrubs, a one-shot
-// CIRCLE pop on a docs colour-swatch pick, a one-shot ZIG-ZAG clip on a legend pick, a one-shot BLOOP
-// on a dock colour pick, a one-shot SELECT click on a dock pen pick, a fixed NAV click per Home/Docs
-// button, and a MENU bloop when a popover opens. MP3 clips (decodeAudioData-safe everywhere incl.
-// Safari), decoded once and cached. The context is created without resuming and only resumed inside a
-// gesture (else the autoplay warning).
+// Web Audio for the marker UI: a looping SLIDER scribble while a slider scrubs, plus one-shot clicks
+// for the docs swatch, legend, dock colour, dock pen, nav buttons, popover-open, and pen-menu option.
+// MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached. The context is
+// created without resuming and only resumed inside a gesture (else the autoplay warning).
 
 type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
@@ -47,7 +45,9 @@ const SELECT_URLS = [
 const NAV_HOME_URL = "/audio/nav-home.mp3";
 const NAV_DOCS_URL = "/audio/nav-docs.mp3";
 const MENU_OPEN_URL = "/audio/menu-open.mp3";
-const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS, NAV_HOME_URL, NAV_DOCS_URL, MENU_OPEN_URL];
+const MENU_CLOSE_URL = "/audio/menu-close.mp3"; // the open clip reversed
+const OPTION_CLICK_URL = "/audio/option-click.mp3";
+const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS, NAV_HOME_URL, NAV_DOCS_URL, MENU_OPEN_URL, MENU_CLOSE_URL, OPTION_CLICK_URL];
 
 const SLIDER_GAIN = 0.01;
 const CIRCLE_GAIN = 0.0125;
@@ -55,7 +55,8 @@ const ZIGZAG_GAIN = 0.0125;
 const BLOOP_GAIN = 0.025;
 const SELECT_GAIN = 0.1;
 const NAV_GAIN = 0.05;
-const MENU_GAIN = 0.05;
+const MENU_GAIN = 0.025;
+const OPTION_GAIN = 0.025;
 const FADE_IN = 0.015; // s, slider swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
@@ -201,6 +202,12 @@ export function playNavDocs(): void {
 }
 export function playMenuOpen(): void {
   if (ensureRunning()) playClip(MENU_OPEN_URL, MENU_GAIN, false);
+}
+export function playMenuClose(): void {
+  if (ensureRunning()) playClip(MENU_CLOSE_URL, MENU_GAIN, false);
+}
+export function playOptionClick(): void {
+  if (ensureRunning()) playClip(OPTION_CLICK_URL, OPTION_GAIN, false);
 }
 
 // Slider scrub: one looping voice that swells with movement, fades when it stops.
