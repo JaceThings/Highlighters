@@ -150,10 +150,11 @@ function playClip(url: string, gain: number, vary = true): number {
   return buf ? buf.duration / rate : 0;
 }
 
-// A no-repeat index picker over n items: random, never the same one three times in a row.
-function noRepeatPicker(n: number): () => number {
+// One random clip per call, never the same one three times in a row. Returns the played clip's length (s).
+function makeOneShot(urls: string[], gain: number): () => number {
   const history: number[] = [];
-  return () => {
+  const nextIndex = (): number => {
+    const n = urls.length;
     if (n < 2) return 0; // also avoids the block-the-only-index infinite loop
     const last = history[history.length - 1];
     const prev = history[history.length - 2];
@@ -164,12 +165,7 @@ function noRepeatPicker(n: number): () => number {
     if (history.length > 3) history.shift();
     return i;
   };
-}
-
-// One random clip per call (no clip three times in a row). Returns the played clip's length in seconds.
-function makeOneShot(urls: string[], gain: number): () => number {
-  const pick = noRepeatPicker(urls.length);
-  return () => (ensureRunning() ? playClip(urls[pick()], gain) : 0);
+  return () => (ensureRunning() ? playClip(urls[nextIndex()], gain) : 0);
 }
 
 // Shuffle bag: play through a shuffled copy of `urls`, then reshuffle. Every clip plays once per bag
