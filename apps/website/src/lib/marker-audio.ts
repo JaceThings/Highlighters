@@ -127,11 +127,11 @@ export function primeMarkerAudio(): void {
   for (const u of ALL_URLS) void decode(u);
 }
 
-// Play a clip once at `gain`. `vary` adds slight pitch variance (off for the fixed nav clicks); `speed`
-// scales the playback rate (>1 faster/higher, <1 slower/lower). Returns the clip's playing length in
-// seconds when it's already decoded (so a caller can match an animation to it), else 0.
-function playClip(url: string, gain: number, vary = true, speed = 1): number {
-  const rate = (vary ? 0.97 + Math.random() * 0.06 : 1) * speed;
+// Play a clip once at `gain`. `vary` adds slight pitch variance (off for the fixed nav clicks). Returns
+// the clip's playing length in seconds when it's already decoded (so a caller can match an animation to
+// it), else 0.
+function playClip(url: string, gain: number, vary = true): number {
+  const rate = vary ? 0.97 + Math.random() * 0.06 : 1;
   void decode(url).then((buf) => {
     if (!buf || !ctx || !master) return;
     const src = ctx.createBufferSource();
@@ -200,25 +200,7 @@ function makeFixed(url: string, gain: number): () => number {
   return () => (ensureRunning() ? playClip(url, gain, false) : 0);
 }
 
-// Circle pop, dev-tunable via DialKit (?dials): speed scales the matched ring-draw length, pitch scales
-// the audio rate. Decoupled live (rate can't time-stretch); a chosen pair gets baked with atempo + asetrate.
-let circleSpeed = 1;
-let circlePitch = 1;
-export function setCircleSpeed(s: number): void {
-  circleSpeed = s;
-}
-export function setCirclePitch(p: number): void {
-  circlePitch = p;
-}
-const pickCircle = noRepeatPicker(CIRCLE_URLS.length);
-/** Docs swatch pop: plays at the dialed pitch, returns the ring-draw length (seconds) at the dialed speed. */
-export function playCircleSound(): number {
-  if (!ensureRunning()) return 0;
-  const url = CIRCLE_URLS[pickCircle()];
-  playClip(url, CIRCLE_GAIN, true, circlePitch);
-  const buf = buffers.get(url);
-  return buf ? buf.duration / circleSpeed : 0;
-}
+export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN);
 export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
 export const playColorBloop = makeShuffleBag(BLOOP_URLS, BLOOP_GAIN);
 export const playMarkerSelect = makeShuffleBag(SELECT_URLS, SELECT_GAIN);
