@@ -48,8 +48,8 @@ const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS,
 const SLIDER_GAIN = 0.01;
 const CIRCLE_GAIN = 0.0125;
 const ZIGZAG_GAIN = 0.0125;
-const BLOOP_GAIN = 0.0125;
-const SELECT_GAIN = 0.0125;
+const BLOOP_GAIN = 0.025; // dock sounds sit louder than the docs cues
+const SELECT_GAIN = 0.025;
 const FADE_IN = 0.015; // s, slider swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
