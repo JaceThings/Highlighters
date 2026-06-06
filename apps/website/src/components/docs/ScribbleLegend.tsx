@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { MarkUnderline } from "./MarkUnderline.tsx";
 import { SQUIGGLES, nextSquiggle } from "./squiggles.ts";
-import { playZigSound, primeMarkerAudio } from "../../lib/marker-audio.ts";
+import { playZigZagSound, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
 // A row of labels where the active one is underlined by a hand-drawn marker scribble (fresh per
 // selection). Keyboard: a Tab-focused option previews its underline at half opacity; Enter draws it solid.
@@ -28,7 +28,7 @@ export function ScribbleLegend({
     if (next === value) return;
     onChange(next);
     setSquiggle(nextSquiggle());
-    playZigSound();
+    playZigZagSound();
   };
 
   // Padding sizes this row to ~75px, matching the slider/swatch controls so the quote area is the same height on every card.
