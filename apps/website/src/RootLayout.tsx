@@ -10,6 +10,7 @@ import { Layout } from "./components/Layout.tsx";
 import { MobileNotice, isNoticeDismissed } from "./components/MobileNotice.tsx";
 import { PageFade } from "./components/PageFade.tsx";
 import { SelectionMarker } from "./components/SelectionMarker.tsx";
+import { DynamicFavicon } from "./components/DynamicFavicon.tsx";
 import { SelectionStyleProvider } from "./selection-style.tsx";
 import { DockEntranceContext } from "./dock-entrance.tsx";
 import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
@@ -76,6 +77,7 @@ export function RootLayout() {
             </Layout>
             <FocusRingOverlay />
             <SelectionMarker />
+            <DynamicFavicon />
             {!isTouch && <Dock />}
             <MobileNotice onDismissed={() => setMobileDockShown(true)} />
             {isTouch && mobileDockShown && <MobileDock />}
