@@ -6,6 +6,7 @@ import { PEN_OUTLINES } from "./pen-outlines.ts";
 import { useOutlineTuning } from "./outline-tuning.ts";
 import { hexToOklch, oklchToCss } from "./oklch.ts";
 import { useNavModality } from "../../hooks/useNavModality.ts";
+import { playMarkerSelect, primeMarkerAudio } from "../../lib/marker-audio.ts";
 import type { PenTip } from "../../selection-style.tsx";
 
 // Render wider so the body (26.1475 of the 43-unit viewBox) lands at 27px.
@@ -182,7 +183,7 @@ export function MarkerRow({
   const selectedIdx = PENS.findIndex((p) => p.id === selected);
 
   return (
-    <div className="relative flex items-end" style={{ gap: GAP }}>
+    <div className="relative flex items-end" style={{ gap: GAP }} onPointerEnter={primeMarkerAudio}>
       {PENS.map((p, i) => {
         const isSelected = p.id === selected;
         const pct = Math.round(opacityByPen[p.id] * 100);
@@ -193,7 +194,15 @@ export function MarkerRow({
             type="button"
             aria-label={p.label}
             aria-pressed={isSelected}
-            onClick={(e) => (isSelected ? onActivate(e.currentTarget) : onSelect(p.id))}
+            // Select a new pen plays a marker-select click; re-clicking the selected pen opens the popover.
+            onClick={(e) => {
+              if (isSelected) {
+                onActivate(e.currentTarget);
+              } else {
+                playMarkerSelect();
+                onSelect(p.id);
+              }
+            }}
             // Keyboard focus shows the outline; a pointer focus clears it, so it can't strand on a stale pen.
             onFocus={() => setFocusIdx(keyboard.current ? i : null)}
             onPointerEnter={() => setHoveredIdx(i)}

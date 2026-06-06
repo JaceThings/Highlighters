@@ -1,8 +1,8 @@
-// Web Audio for the marker UI, four sound sets: a looping SLIDER scribble that swells while a slider
+// Web Audio for the marker UI, five sound sets: a looping SLIDER scribble that swells while a slider
 // scrubs, a one-shot CIRCLE pop on a docs colour-swatch pick, a one-shot ZIG-ZAG clip on a legend
-// pick, and a one-shot BLOOP on a dock colour pick. MP3 clips (decodeAudioData-safe everywhere incl.
-// Safari), decoded once and cached. The context is created without resuming and only resumed inside a
-// gesture (else the autoplay warning).
+// pick, a one-shot BLOOP on a dock colour pick, and a one-shot SELECT click on a dock pen pick. MP3
+// clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached. The context is created
+// without resuming and only resumed inside a gesture (else the autoplay warning).
 
 type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
@@ -37,12 +37,19 @@ const BLOOP_URLS = [
   "/audio/paint-bloop-4.mp3",
   "/audio/paint-bloop-5.mp3",
 ];
-const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS];
+const SELECT_URLS = [
+  "/audio/marker-select-1.mp3",
+  "/audio/marker-select-2.mp3",
+  "/audio/marker-select-3.mp3",
+  "/audio/marker-select-4.mp3",
+];
+const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS];
 
 const SLIDER_GAIN = 0.01;
 const CIRCLE_GAIN = 0.0125;
 const ZIGZAG_GAIN = 0.0125;
 const BLOOP_GAIN = 0.0125;
+const SELECT_GAIN = 0.0125;
 const FADE_IN = 0.015; // s, slider swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
@@ -182,6 +189,8 @@ export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN);
 export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
 /** Dock colour pick: a paint bloop, drawn from a shuffle bag. */
 export const playColorBloop = makeShuffleBag(BLOOP_URLS, BLOOP_GAIN);
+/** Dock pen pick: a marker-select click, drawn from a shuffle bag. */
+export const playMarkerSelect = makeShuffleBag(SELECT_URLS, SELECT_GAIN);
 
 // Slider scrub: one looping voice that swells with movement, fades when it stops.
 
