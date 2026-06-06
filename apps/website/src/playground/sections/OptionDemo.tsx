@@ -13,7 +13,7 @@ import { StaticQuote } from "../quote-render.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
-import { playMarkerPop, primeMarkerAudio } from "../../lib/marker-audio.ts";
+import { playCircleSound, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
 // Defer each Preview until its section nears the viewport. One-way latch: once painted it never unmounts.
 function useSeen(rootMargin = "350px") {
@@ -144,7 +144,7 @@ function SwatchPicker() {
               if (selected) return;
               set("color", hex);
               setLassoSeed((s) => s + 1);
-              playMarkerPop();
+              playCircleSound();
             }}
             className={`relative flex flex-1 select-none items-center justify-center outline-none ${selected ? "cursor-default" : "cursor-pointer"}`}
           >
@@ -229,7 +229,9 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
         title={
           <>
             {demo.name}{" "}
-            <span className="font-mono text-[0.8em] font-normal tracking-normal text-text-secondary">
+            {/* leading-none: this smaller inline span inherits the 24px line-height and would
+                otherwise inflate the h2 line box to 26px, drifting every section 2px off the grid. */}
+            <span className="text-[0.8em] leading-none font-normal text-text-secondary">
               ({demo.title})
             </span>
           </>

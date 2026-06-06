@@ -1,18 +1,20 @@
 import { useMemo } from "react";
 import { Stagger } from "../components/Stagger.tsx";
+import { RowGrid } from "../components/RowGrid.tsx";
 import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
 import { buildCuratedQuotes } from "./quote-marks.ts";
 
 // One live demo per visual option, all writing one shared options object. Lazy-loaded by Docs.
+// RowGrid snaps every demo to whole 24px rows, so the column rides the ruled grid no matter how tall
+// a card or its quote turns out to be (the .cv-demo's own 24px-multiple sizing just keeps slack ~0).
 export function DocsPlayground() {
   const quotes = useMemo(() => buildCuratedQuotes(OPTION_DEMOS.map((d) => d.title)), []);
 
   return (
     <PlaygroundOptionsProvider>
-      {/* Small gap: each .cv-demo pads ~32px below itself, so 12 + 32 keeps the ~48px rhythm. */}
-      <div className="flex w-full flex-col" style={{ gap: 12 }}>
+      <RowGrid className="w-full">
         {OPTION_DEMOS.map((demo, i) => (
           <Stagger key={demo.title} index={1 + i}>
             <OptionDemo demo={demo} quote={quotes[i]} />
@@ -21,7 +23,7 @@ export function DocsPlayground() {
         <Stagger index={1 + OPTION_DEMOS.length}>
           <MoreSection />
         </Stagger>
-      </div>
+      </RowGrid>
     </PlaygroundOptionsProvider>
   );
 }

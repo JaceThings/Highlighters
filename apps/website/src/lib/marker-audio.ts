@@ -1,22 +1,40 @@
-// Web Audio for the docs demo: a looping scribble swelling while a slider scrubs, and a one-shot pop
-// on colour pick. MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached.
-// Context is created without resuming and only resumed inside a gesture (else the autoplay warning).
+// Web Audio for the docs demo, three sound sets: a looping SLIDER scribble that swells while a slider
+// scrubs, a one-shot CIRCLE pop on a colour-swatch pick, and a one-shot ZIG-ZAG clip on a legend pick.
+// MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached. The context is
+// created without resuming and only resumed inside a gesture (else the autoplay warning).
 
 type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
-const SCRIBBLE_URLS = ["/audio/marker-scribble-1.mp3", "/audio/marker-scribble-2.mp3"];
-const SHORT_URLS = [
-  "/audio/marker-short-1.mp3",
-  "/audio/marker-short-2.mp3",
-  "/audio/marker-short-3.mp3",
-  "/audio/marker-short-4.mp3",
-  "/audio/marker-short-5.mp3",
-  "/audio/marker-short-6.mp3",
+const SLIDER_URLS = ["/audio/marker-slider-1.mp3", "/audio/marker-slider-2.mp3"];
+const CIRCLE_URLS = [
+  "/audio/marker-circle-1.mp3",
+  "/audio/marker-circle-2.mp3",
+  "/audio/marker-circle-3.mp3",
+  "/audio/marker-circle-4.mp3",
+  "/audio/marker-circle-5.mp3",
+  "/audio/marker-circle-6.mp3",
 ];
+const ZIGZAG_URLS = [
+  "/audio/marker-zigzag-1.mp3",
+  "/audio/marker-zigzag-2.mp3",
+  "/audio/marker-zigzag-3.mp3",
+  "/audio/marker-zigzag-4.mp3",
+  "/audio/marker-zigzag-5.mp3",
+  "/audio/marker-zigzag-6.mp3",
+  "/audio/marker-zigzag-7.mp3",
+  "/audio/marker-zigzag-8.mp3",
+  "/audio/marker-zigzag-9.mp3",
+  "/audio/marker-zigzag-10.mp3",
+  "/audio/marker-zigzag-11.mp3",
+  "/audio/marker-zigzag-12.mp3",
+  "/audio/marker-zigzag-13.mp3",
+];
+const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS];
 
-const SCRIBBLE_GAIN = 0.01;
-const POP_GAIN = 0.0125;
-const FADE_IN = 0.015; // s, scribble swell-in
+const SLIDER_GAIN = 0.01;
+const CIRCLE_GAIN = 0.0125;
+const ZIGZAG_GAIN = 0.0125;
+const FADE_IN = 0.015; // s, slider swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
 const NEAR_SILENT = 0.0001; // exponential ramps can't reach 0
@@ -79,77 +97,81 @@ function decode(url: string): Promise<AudioBuffer | null> {
   return p;
 }
 
-/** Warm the context and decode every clip before the first real trigger. */
+/** Warm the context and decode every clip before the first real trigger. Idempotent (cached/inflight),
+ *  so callers can fire it on any early opportunity (idle, first interaction, control hover). */
 export function primeMarkerAudio(): void {
   if (!createCtx()) return;
-  for (const u of SCRIBBLE_URLS) void decode(u);
-  for (const u of SHORT_URLS) void decode(u);
+  for (const u of ALL_URLS) void decode(u);
 }
 
-// Colour pick: one-shot, never the same clip three times in a row.
-
-const popHistory: number[] = [];
-
-function nextPopIndex(): number {
-  const n = SHORT_URLS.length;
-  if (n < 2) return 0; // also avoids the block-the-only-index infinite loop
-  const last = popHistory[popHistory.length - 1];
-  const prev = popHistory[popHistory.length - 2];
-  const blocked = last !== undefined && last === prev ? last : -1; // two in a row => block a third
-  let i = Math.floor(Math.random() * n);
-  while (i === blocked) i = Math.floor(Math.random() * n);
-  popHistory.push(i);
-  if (popHistory.length > 3) popHistory.shift();
-  return i;
+// A one-shot picker over `urls`: one random clip per call, never the same one three times in a row.
+// Circle and zig-zag each get their own, so their histories stay independent.
+function makeOneShot(urls: string[], gain: number): () => void {
+  const history: number[] = [];
+  const nextIndex = (): number => {
+    const n = urls.length;
+    if (n < 2) return 0; // also avoids the block-the-only-index infinite loop
+    const last = history[history.length - 1];
+    const prev = history[history.length - 2];
+    const blocked = last !== undefined && last === prev ? last : -1; // two in a row => block a third
+    let i = Math.floor(Math.random() * n);
+    while (i === blocked) i = Math.floor(Math.random() * n);
+    history.push(i);
+    if (history.length > 3) history.shift();
+    return i;
+  };
+  return () => {
+    if (!ensureRunning()) return;
+    void decode(urls[nextIndex()]).then((buf) => {
+      if (!buf || !ctx || !master) return;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.playbackRate.value = 0.97 + Math.random() * 0.06; // pitch variance
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      src.connect(g).connect(master);
+      src.onended = () => {
+        src.disconnect();
+        g.disconnect();
+      };
+      src.start();
+    });
+  };
 }
 
-export function playMarkerPop(): void {
-  if (!ensureRunning()) return;
-  const url = SHORT_URLS[nextPopIndex()];
-  void decode(url).then((buf) => {
-    if (!buf || !ctx || !master) return;
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.playbackRate.value = 0.97 + Math.random() * 0.06; // pitch variance
-    const g = ctx.createGain();
-    g.gain.value = POP_GAIN;
-    src.connect(g).connect(master);
-    src.onended = () => {
-      src.disconnect();
-      g.disconnect();
-    };
-    src.start();
-  });
-}
+/** Colour swatch pick: a short pop. */
+export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN);
+/** Legend option pick (the zig-zag underline): a zig-zag clip. */
+export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
 
 // Slider scrub: one looping voice that swells with movement, fades when it stops.
 
-let scribSrc: AudioBufferSourceNode | null = null;
-let scribGain: GainNode | null = null;
-let scribStarting = false; // decode in flight for the current burst
+let sliderSrc: AudioBufferSourceNode | null = null;
+let sliderGain: GainNode | null = null;
+let sliderStarting = false; // decode in flight for the current burst
 let active = false; // user is scrubbing
-let lastScrib = -1;
+let lastSlider = -1;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let stopTimer: ReturnType<typeof setTimeout> | undefined;
 
-function pickScribble(): number {
-  if (SCRIBBLE_URLS.length < 2) return 0;
-  let i = Math.floor(Math.random() * SCRIBBLE_URLS.length);
-  if (i === lastScrib) i = (i + 1) % SCRIBBLE_URLS.length; // alternate so a burst rarely repeats
-  lastScrib = i;
+function pickSlider(): number {
+  if (SLIDER_URLS.length < 2) return 0;
+  let i = Math.floor(Math.random() * SLIDER_URLS.length);
+  if (i === lastSlider) i = (i + 1) % SLIDER_URLS.length; // alternate so a burst rarely repeats
+  lastSlider = i;
   return i;
 }
 
-function rampScribbleTo(target: number, seconds: number): void {
-  if (!ctx || !scribGain) return;
+function rampSliderTo(target: number, seconds: number): void {
+  if (!ctx || !sliderGain) return;
   const now = ctx.currentTime;
-  const g = scribGain.gain;
+  const g = sliderGain.gain;
   g.cancelScheduledValues(now);
   g.setValueAtTime(Math.max(g.value, NEAR_SILENT), now);
   g.exponentialRampToValueAtTime(Math.max(target, NEAR_SILENT), now + seconds);
 }
 
-// Per-buffer offsets (seconds) where a stroke is sounding, so a scribble never opens or loops onto a
+// Per-buffer offsets (seconds) where a stroke is sounding, so the loop never opens or wraps onto a
 // silent gap between strokes. Scanned once per decoded buffer.
 const strokeOffsetCache = new WeakMap<AudioBuffer, number[]>();
 function strokeOffsets(buf: AudioBuffer): number[] {
@@ -171,7 +193,7 @@ function strokeOffsets(buf: AudioBuffer): number[] {
   return result;
 }
 
-function startScribble(buf: AudioBuffer): void {
+function startSlider(buf: AudioBuffer): void {
   if (!ctx || !master) return;
   const offs = strokeOffsets(buf);
   const src = ctx.createBufferSource();
@@ -184,15 +206,15 @@ function startScribble(buf: AudioBuffer): void {
   g.gain.value = NEAR_SILENT;
   src.connect(g).connect(master);
   src.start(0, offs[Math.floor(Math.random() * offs.length)]); // open on a stroke, not a gap
-  scribSrc = src;
-  scribGain = g;
+  sliderSrc = src;
+  sliderGain = g;
 }
 
-function fadeOutScribble(): void {
-  if (!scribSrc || !scribGain) return;
-  rampScribbleTo(NEAR_SILENT, FADE_OUT);
-  const dyingSrc = scribSrc;
-  const dyingGain = scribGain;
+function fadeOutSlider(): void {
+  if (!sliderSrc || !sliderGain) return;
+  rampSliderTo(NEAR_SILENT, FADE_OUT);
+  const dyingSrc = sliderSrc;
+  const dyingGain = sliderGain;
   clearTimeout(stopTimer);
   // A feed arriving before this fires cancels it (same source ramps back up, seamless).
   stopTimer = setTimeout(
@@ -204,9 +226,9 @@ function fadeOutScribble(): void {
       }
       dyingSrc.disconnect();
       dyingGain.disconnect();
-      if (scribSrc === dyingSrc) {
-        scribSrc = null;
-        scribGain = null;
+      if (sliderSrc === dyingSrc) {
+        sliderSrc = null;
+        sliderGain = null;
       }
     },
     FADE_OUT * 1000 + 80,
@@ -214,7 +236,7 @@ function fadeOutScribble(): void {
 }
 
 /** Call repeatedly while a slider is being scrubbed; the voice fades itself out once feeds stop. */
-export function feedScribbleSound(): void {
+export function feedSliderSound(): void {
   if (!ensureRunning() || !master) return;
   active = true;
   clearTimeout(stopTimer);
@@ -222,27 +244,27 @@ export function feedScribbleSound(): void {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
     active = false;
-    fadeOutScribble();
+    fadeOutSlider();
   }, IDLE_MS);
 
-  if (scribSrc) {
-    rampScribbleTo(SCRIBBLE_GAIN, FADE_IN); // swell the live (or fading) voice back up
+  if (sliderSrc) {
+    rampSliderTo(SLIDER_GAIN, FADE_IN); // swell the live (or fading) voice back up
     return;
   }
-  if (scribStarting) return;
-  scribStarting = true;
-  void decode(SCRIBBLE_URLS[pickScribble()]).then((buf) => {
-    scribStarting = false;
-    if (!buf || !active || scribSrc || !ctx || !master) return; // released mid-decode or already live
-    startScribble(buf);
-    rampScribbleTo(SCRIBBLE_GAIN, FADE_IN);
+  if (sliderStarting) return;
+  sliderStarting = true;
+  void decode(SLIDER_URLS[pickSlider()]).then((buf) => {
+    sliderStarting = false;
+    if (!buf || !active || sliderSrc || !ctx || !master) return; // released mid-decode or already live
+    startSlider(buf);
+    rampSliderTo(SLIDER_GAIN, FADE_IN);
   });
 }
 
-/** Force the scribble to fade now (e.g. on drag release or unmount). */
-export function stopScribbleSound(): void {
+/** Force the slider voice to fade now (e.g. on drag release or unmount). */
+export function stopSliderSound(): void {
   active = false;
   clearTimeout(idleTimer);
   idleTimer = undefined;
-  fadeOutScribble();
+  fadeOutSlider();
 }

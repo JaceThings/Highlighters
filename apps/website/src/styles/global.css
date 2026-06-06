@@ -7,13 +7,16 @@ body {
 }
 
 /* content-visibility skips painting off-screen demo cards (each holds filtered live marks). Its paint
-   clip would cut the paper shadow (~26px), so the card breaks out and pads it back; contain-intrinsic-size
-   keeps the scrollbar stable. Breakout only holds with no overflow:hidden/clip ancestor. */
+   clip would cut the paper shadow (~26px), so the card breaks out and pads it back. Breakout only holds
+   with no overflow:hidden/clip ancestor.
+   The block already totals whole 24px rows (text + 24 gap + 288 card + 48 bottom pad) and the intrinsic
+   size is row-aligned (432 = 18 rows), so RowGrid's snap adds ~0 slack and a skipped card still reserves
+   whole rows. */
 .cv-demo {
   content-visibility: auto;
-  contain-intrinsic-size: auto 440px;
+  contain-intrinsic-size: auto 432px;
   margin-inline: -32px;
-  padding: 4px 32px 32px;
+  padding: 0 32px 48px;
 }
 
 /* Animatable ink colour: registering as <color> lets `transition: --ink` crossfade gradient ink in one element. */

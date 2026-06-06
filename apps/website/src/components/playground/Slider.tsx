@@ -21,7 +21,7 @@ import {
 } from "./slider-utils.ts";
 import { useEditableValue } from "./useEditableValue.ts";
 import { usePointerDrag } from "./usePointerDrag.ts";
-import { feedScribbleSound, primeMarkerAudio, stopScribbleSound } from "../../lib/marker-audio.ts";
+import { feedSliderSound, primeMarkerAudio, stopSliderSound } from "../../lib/marker-audio.ts";
 
 // Track geometry.
 const TRACK_HEIGHT = 14;
@@ -117,9 +117,9 @@ export function Slider({
   });
 
   // Marker scrub sound, gated once: each is undefined when scrubSound is off.
-  const scrubFeed = scrubSound ? feedScribbleSound : undefined;
+  const scrubFeed = scrubSound ? feedSliderSound : undefined;
   const scrubPrime = scrubSound ? primeMarkerAudio : undefined;
-  const scrubStop = scrubSound ? stopScribbleSound : undefined;
+  const scrubStop = scrubSound ? stopSliderSound : undefined;
 
   const drag = usePointerDrag({
     trackRef,

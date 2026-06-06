@@ -1,26 +1,27 @@
 import { Section } from "../../components/playground/Section.tsx";
 
-const DOCS_URL = "https://github.com/JaceThings/Highlighters#readme";
+const DOCS_URL = "https://github.com/JaceThings/Highlighters/wiki/Options-Reference";
 
-const Mono = ({ children }: { children: string }) => (
-  <span className="font-mono text-[13px] text-text-primary">{children}</span>
+// API names, set apart from the muted body by the darker primary ink (no monospace, no bold).
+const Term = ({ children }: { children: string }) => (
+  <span className="text-text-primary">{children}</span>
 );
 
 export function MoreSection() {
   return (
     <Section
       title="More settings"
-      description="The rest of the API, not wired to live controls here."
+      description="The sliders above cover the essentials. There's plenty more in the box."
     >
       <div className="flex w-full flex-col px-[4px]">
         <p className="text-[14px] leading-[24px] font-medium tracking-[-0.25px] text-wrap-pretty text-text-secondary">
-          Beyond the controls above, the library has more: <Mono>gradient</Mono>{" "}
-          colour ramps, additive <Mono>glow</Mono>, the full <Mono>animation</Mono>{" "}
-          group, <Mono>speed</Mono>-reactive ink, semantic <Mono>{"<mark>"}</Mono>{" "}
-          output, <Mono>renderer</Mono> tiers, and a handful more like{" "}
-          <Mono>seed</Mono>, <Mono>fadeOnClear</Mono> and{" "}
-          <Mono>ink.startEndBuildup</Mono>. None of them are wired to live controls
-          here, but they all ship in the box.
+          Dig a little deeper and you'll find <Term>gradient</Term> colour ramps, an
+          additive <Term>glow</Term>, the whole <Term>animation</Term> group,{" "}
+          <Term>speed</Term>-reactive ink, semantic <Term>{"<mark>"}</Term> output,
+          swappable <Term>renderer</Term> tiers, and smaller touches like{" "}
+          <Term>seed</Term>, <Term>fadeOnClear</Term> and{" "}
+          <Term>ink.startEndBuildup</Term>. None have a knob on this page, but every
+          one of them is yours to use.
         </p>
         <a
           href={DOCS_URL}
@@ -29,7 +30,7 @@ export function MoreSection() {
           data-focus-ring
           className="w-fit text-[14px] leading-[24px] font-medium tracking-[-0.25px] text-text-primary underline underline-offset-2 hover:opacity-70"
         >
-          See them all in the full reference →
+          See every option in the reference →
         </a>
       </div>
     </Section>

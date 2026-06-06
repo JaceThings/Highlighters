@@ -55,14 +55,26 @@ export function RootLayout() {
     return () => clearTimeout(t);
   }, []);
 
-  // Decode marker sounds while idle so the first press is instant; the engine singleton carries the buffers across nav.
+  // Decode every marker sound at the first opportunity, browser idle or the first user interaction,
+  // whichever lands first, so the first press is instant; the engine singleton carries buffers across nav.
   useEffect(() => {
-    const prime = () => void import("./lib/marker-audio.ts").then((m) => m.primeMarkerAudio()).catch(() => {});
+    let primed = false;
+    const events = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel"] as const;
+    const opts = { passive: true, capture: true } as const;
+    const stop = () => events.forEach((e) => window.removeEventListener(e, prime, opts));
+    function prime() {
+      if (primed) return;
+      primed = true;
+      stop();
+      void import("./lib/marker-audio.ts").then((m) => m.primeMarkerAudio()).catch(() => {});
+    }
+    events.forEach((e) => window.addEventListener(e, prime, opts));
     const hasIdle = typeof window.requestIdleCallback === "function";
     const id = hasIdle ? window.requestIdleCallback(prime, { timeout: 3000 }) : window.setTimeout(prime, 1500);
     return () => {
-      if (hasIdle) window.cancelIdleCallback(id);
-      else clearTimeout(id);
+      stop();
+      if (hasIdle) window.cancelIdleCallback(id as number);
+      else clearTimeout(id as number);
     };
   }, []);
 
