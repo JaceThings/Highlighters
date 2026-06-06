@@ -18,7 +18,7 @@ A flat `<mark>` background looks like a CSS rectangle, not ink. Sketch-annotatio
 
 `highlighters` draws a **realistic highlighter-pen mark** over any web text - wet-ink colour, organic frayed edges, lengthwise streaking, and true multiplicative ink optics (`mix-blend-mode: multiply`, so overlapping marks darken and dark text stays legible). It scales from one word to an entire page with named exclusions, handles wrapped lines as one continuous swipe, repositions on reflow and web-font load, and never touches your text - so selection and find-in-page keep working.
 
-The mark is tuned in the **vocabulary of real highlighters**: tip type, ink flow ("juiciness"), viscosity, feathering/bleed, streaking, dry-out, end pooling, fluorescence, paper, and a single `colorant` dye↔pigment knob. Pick a one-word preset for the 90% case, or reach all the way down.
+The mark is tuned in the **vocabulary of real highlighters**: tip type, ink flow ("juiciness"), viscosity, feathering/bleed, streaking, dry-out, and end build-up, plus fluorescence, paper, blend mode, and curated colour palettes. Lean on the sensible defaults for the 90% case, name a palette swatch, or reach all the way down to every knob.
 
 ## Why it looks right (and never stretches)
 
@@ -35,18 +35,23 @@ npm install @highlighters/core
 ```ts
 import { highlight } from "@highlighters/core";
 
-// Highlight an element with the default "mild" look.
+// Highlight an element with the default mild look.
 const handle = highlight("#intro");
 
-// Tune it in real highlighter vocabulary, or just name a preset.
-highlight(".key-point", { preset: "wet", color: { palette: "fluorescent", swatch: "pink" } });
+// Tune it in real highlighter vocabulary, or just name a palette swatch.
+highlight(".key-point", {
+  color: { palette: "fluorescent", swatch: "pink" },
+  ink: { flow: 0.7, feathering: 0.4 }, // juicier, softer edges
+});
 
 // The handle controls the mark's lifecycle.
 handle.hide();
 handle.show();
-handle.update({ preset: "premium" });
+handle.update({ color: { palette: "mild", swatch: "blue" } });
 handle.remove(); // restores the DOM to its pre-highlight state
 ```
+
+Other front doors: `highlightAll()` marks the whole page (honouring `data-highlight` and include/exclude), and `highlightSelection()` paints the user's live selection in real time.
 
 ### React
 
@@ -61,7 +66,7 @@ function Article() {
   return (
     <p>
       The part that matters most is{" "}
-      <Highlight preset="mild" color={{ palette: "fluorescent", swatch: "yellow" }}>
+      <Highlight options={{ color: { palette: "fluorescent", swatch: "yellow" } }}>
         this exact sentence
       </Highlight>
       .
@@ -70,16 +75,61 @@ function Article() {
 }
 ```
 
-For Vue, Svelte, or the framework-agnostic core, see the [packages](#packages) below.
+There is also a `useHighlight(ref, options)` hook for highlighting an existing element by ref.
+
+### Vue
+
+```sh
+npm install @highlighters/vue
+```
+
+```vue
+<script setup>
+import { Highlight } from "@highlighters/vue";
+</script>
+
+<template>
+  <p>
+    The part that matters most is
+    <Highlight :options="{ color: { palette: 'fluorescent', swatch: 'yellow' } }">
+      this exact sentence
+    </Highlight>.
+  </p>
+</template>
+```
+
+A `useHighlight(elRef, options)` composable is exported too.
+
+### Svelte
+
+```sh
+npm install @highlighters/svelte
+```
+
+```svelte
+<script>
+  import { highlight } from "@highlighters/svelte";
+</script>
+
+<p>
+  The part that matters most is
+  <span use:highlight={{ color: { palette: "fluorescent", swatch: "yellow" } }}>
+    this exact sentence
+  </span>.
+</p>
+```
+
+Every framework package re-exports the core types and depends on `@highlighters/core`, so you do not install it separately.
 
 ## Mark types
 
-All three share one band primitive and the full physics model - they differ only in vertical position and thickness.
+They all share one band primitive and the full physics model - they differ only in vertical position and thickness.
 
 | Type | Description |
 |---|---|
 | `highlight` *(default)* | A tall band over the text. Tip: `chisel` (default), `bullet`, or `fine`. |
 | `underline` | A thin, low band beneath the text. |
+| `overline` | A thin band above the text. |
 | `strike-through` | A thin, centred band across the text. |
 
 Box, circle/encircle, and bracket annotations are out of v1 scope.
@@ -96,8 +146,8 @@ Box, circle/encircle, and bracket annotations are out of v1 scope.
 ## Features
 
 - **Target anything** - an element or selector, a `Range` or the live `Selection`, every match of a string/`RegExp`, or the whole page with named exclusions (exclusion always wins over inclusion).
-- **Real-highlighter parameter model** - `tip`, `ink` (flow/viscosity/saturation), `feathering`, `streakiness`, `dryout`, bidirectional `startEndBuildup` (pool *or* anti-pool guardrails), `paper`, plus a single `colorant` dye↔pigment master axis.
-- **Curated palettes** - harmonized `fluorescent`, `mild`, `vintage`/`neutral`, and `calm` families designed for legible colour-coding; default is fluorescent **yellow**.
+- **Real-highlighter parameter model** - `tip` (type/angle/overshoot), `ink` (flow, viscosity, feathering, streakiness, dryout, bidirectional `startEndBuildup` for pooling *or* anti-pool guardrails, directional `flowFade`), `edge` (waviness/roughness/cap/radius), and `paper` absorbency.
+- **Curated palettes** - harmonized `fluorescent`, `mild`, `vintage`, `neutral`, and `calm` families designed for legible colour-coding; default is **mild yellow**. Pass a `{ palette, swatch }` reference, any CSS colour string, or a gradient.
 - **True ink optics** - `mix-blend-mode: multiply` by default; optional additive fluorescence/glow that reads brighter than the page.
 - **Multiline as one swipe** - one band per visual line, shared noise field and seed, wrap edges that overshoot to connect.
 - **Three renderer tiers behind one API** - SVG (realistic, default), CSS gradient (lightweight), and the native Custom Highlight API (flat, maximally safe), with principled auto-degrade and a pinnable tier.
@@ -110,10 +160,21 @@ Box, circle/encircle, and bracket annotations are out of v1 scope.
 
 ## Documentation
 
+Full guides and reference live in the [**Highlighters Wiki**](https://github.com/JaceThings/Highlighters/wiki):
+
+- [Getting Started](https://github.com/JaceThings/Highlighters/wiki/Getting-Started): install and quick start for vanilla, React, Vue, and Svelte
+- [Which API Should I Use](https://github.com/JaceThings/Highlighters/wiki/Which-API-Should-I-Use): element vs selection vs page, and picking a renderer tier
+- [Options Reference](https://github.com/JaceThings/Highlighters/wiki/Options-Reference): every option, its default, and what it does
+- [Ink and Optics](https://github.com/JaceThings/Highlighters/wiki/Ink-and-Optics) and [Color and Palettes](https://github.com/JaceThings/Highlighters/wiki/Color-and-Palettes): the real-highlighter parameter model
+- [API Reference](https://github.com/JaceThings/Highlighters/wiki/API-Reference): exported functions, handles, and framework bindings
+- [How It Works](https://github.com/JaceThings/Highlighters/wiki/How-It-Works), [Performance](https://github.com/JaceThings/Highlighters/wiki/Performance), and [SSR Support](https://github.com/JaceThings/Highlighters/wiki/SSR-Support)
+- [Recipes](https://github.com/JaceThings/Highlighters/wiki/Recipes): common patterns in every framework
+
+Design essays in this repo:
+
 - [How highlighters work](./docs/how-highlighters-work.md): the real-world physics and engineering the model is grounded in
 - [The anchored-grid method](./docs/the-anchored-grid-method.md): why the marks look hand-made but never stretch or swim
 - [Buying guide](./docs/buying-guide.md): the best real highlighters to actually buy, by use case
-- [Blueprint](./blueprint.md): the full requirements, architecture decisions, and verification plan
 
 ## Contributing
 
