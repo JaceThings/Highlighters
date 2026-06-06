@@ -160,7 +160,8 @@ function SwatchPicker() {
                   </m.span>
                 ) : isPreview ? (
                   <m.span key={`preview-${id}`} className={LASSO_WRAP} style={LASSO_WRAP_STYLE} initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={LASSO_EXIT}>
-                    <ScribbleLasso seed={seed} size={LASSO_PX} draw={false} />
+                    {/* Preview the exact ring Enter will draw (lassoSeed + 1), distinct from the selected one. */}
+                    <ScribbleLasso seed={lassoSeed + 1} size={LASSO_PX} draw={false} />
                   </m.span>
                 ) : null}
               </AnimatePresence>
