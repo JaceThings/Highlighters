@@ -7,6 +7,7 @@ import { ColorPickerPopover } from "./ColorPickerPopover.tsx";
 import { DockNav, DockLinks } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
 import { MarkerPopover } from "./MarkerPopover.tsx";
+import { playMenuOpen } from "../../lib/marker-audio.ts";
 import { useSelectionStyle, type PenTip } from "../../selection-style.tsx";
 import { useDockEntrance } from "../../dock-entrance.tsx";
 import { DOCK_H } from "./constants.ts";
@@ -33,6 +34,14 @@ export function Dock() {
   const trayRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{ kind: "marker" | "color"; x: number } | null>(null);
   const open = popover !== null;
+
+  // Bloop when a popover appears (opened or switched kind), not on close.
+  const prevPopoverKind = useRef<string | null>(null);
+  useEffect(() => {
+    const kind = popover?.kind ?? null;
+    if (kind && kind !== prevPopoverKind.current) playMenuOpen();
+    prevPopoverKind.current = kind;
+  }, [popover]);
   // Last custom ink, so reopening the picker returns to it from a preset swatch.
   const lastCustom = useRef("#a855f7");
 

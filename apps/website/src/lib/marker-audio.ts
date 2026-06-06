@@ -1,8 +1,9 @@
 // Web Audio for the marker UI: a looping SLIDER scribble that swells while a slider scrubs, a one-shot
 // CIRCLE pop on a docs colour-swatch pick, a one-shot ZIG-ZAG clip on a legend pick, a one-shot BLOOP
-// on a dock colour pick, a one-shot SELECT click on a dock pen pick, and a fixed NAV click per Home/
-// Docs button. MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached. The
-// context is created without resuming and only resumed inside a gesture (else the autoplay warning).
+// on a dock colour pick, a one-shot SELECT click on a dock pen pick, a fixed NAV click per Home/Docs
+// button, and a MENU bloop when a popover opens. MP3 clips (decodeAudioData-safe everywhere incl.
+// Safari), decoded once and cached. The context is created without resuming and only resumed inside a
+// gesture (else the autoplay warning).
 
 type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
@@ -45,7 +46,8 @@ const SELECT_URLS = [
 ];
 const NAV_HOME_URL = "/audio/nav-home.mp3";
 const NAV_DOCS_URL = "/audio/nav-docs.mp3";
-const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS, NAV_HOME_URL, NAV_DOCS_URL];
+const MENU_OPEN_URL = "/audio/menu-open.mp3";
+const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS, ...SELECT_URLS, NAV_HOME_URL, NAV_DOCS_URL, MENU_OPEN_URL];
 
 const SLIDER_GAIN = 0.01;
 const CIRCLE_GAIN = 0.0125;
@@ -53,6 +55,7 @@ const ZIGZAG_GAIN = 0.0125;
 const BLOOP_GAIN = 0.025;
 const SELECT_GAIN = 0.1;
 const NAV_GAIN = 0.05;
+const MENU_GAIN = 0.05;
 const FADE_IN = 0.015; // s, slider swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
@@ -195,6 +198,9 @@ export function playNavHome(): void {
 }
 export function playNavDocs(): void {
   if (ensureRunning()) playClip(NAV_DOCS_URL, NAV_GAIN, false);
+}
+export function playMenuOpen(): void {
+  if (ensureRunning()) playClip(MENU_OPEN_URL, MENU_GAIN, false);
 }
 
 // Slider scrub: one looping voice that swells with movement, fades when it stops.
