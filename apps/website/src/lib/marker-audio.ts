@@ -1,7 +1,8 @@
-// Web Audio for the docs demo, three sound sets: a looping SLIDER scribble that swells while a slider
-// scrubs, a one-shot CIRCLE pop on a colour-swatch pick, and a one-shot ZIG-ZAG clip on a legend pick.
-// MP3 clips (decodeAudioData-safe everywhere incl. Safari), decoded once and cached. The context is
-// created without resuming and only resumed inside a gesture (else the autoplay warning).
+// Web Audio for the marker UI, four sound sets: a looping SLIDER scribble that swells while a slider
+// scrubs, a one-shot CIRCLE pop on a docs colour-swatch pick, a one-shot ZIG-ZAG clip on a legend
+// pick, and a one-shot BLOOP on a dock colour pick. MP3 clips (decodeAudioData-safe everywhere incl.
+// Safari), decoded once and cached. The context is created without resuming and only resumed inside a
+// gesture (else the autoplay warning).
 
 type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
 
@@ -29,11 +30,19 @@ const ZIGZAG_URLS = [
   "/audio/marker-zigzag-12.mp3",
   "/audio/marker-zigzag-13.mp3",
 ];
-const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS];
+const BLOOP_URLS = [
+  "/audio/paint-bloop-1.mp3",
+  "/audio/paint-bloop-2.mp3",
+  "/audio/paint-bloop-3.mp3",
+  "/audio/paint-bloop-4.mp3",
+  "/audio/paint-bloop-5.mp3",
+];
+const ALL_URLS = [...SLIDER_URLS, ...CIRCLE_URLS, ...ZIGZAG_URLS, ...BLOOP_URLS];
 
 const SLIDER_GAIN = 0.01;
 const CIRCLE_GAIN = 0.0125;
 const ZIGZAG_GAIN = 0.0125;
+const BLOOP_GAIN = 0.0125;
 const FADE_IN = 0.015; // s, slider swell-in
 const FADE_OUT = 0.2; // s, fade-out after scrub stops
 const IDLE_MS = 150; // no feed for this long => fade out
@@ -104,8 +113,25 @@ export function primeMarkerAudio(): void {
   for (const u of ALL_URLS) void decode(u);
 }
 
-// A one-shot picker over `urls`: one random clip per call, never the same one three times in a row.
-// Circle and zig-zag each get their own, so their histories stay independent.
+// Play a clip once at `gain` with slight pitch variance; the picker factories below choose the clip.
+function playClip(url: string, gain: number): void {
+  void decode(url).then((buf) => {
+    if (!buf || !ctx || !master) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = 0.97 + Math.random() * 0.06; // pitch variance
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g).connect(master);
+    src.onended = () => {
+      src.disconnect();
+      g.disconnect();
+    };
+    src.start();
+  });
+}
+
+// One random clip per call, never the same one three times in a row. Each caller keeps its own history.
 function makeOneShot(urls: string[], gain: number): () => void {
   const history: number[] = [];
   const nextIndex = (): number => {
@@ -121,28 +147,41 @@ function makeOneShot(urls: string[], gain: number): () => void {
     return i;
   };
   return () => {
-    if (!ensureRunning()) return;
-    void decode(urls[nextIndex()]).then((buf) => {
-      if (!buf || !ctx || !master) return;
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.playbackRate.value = 0.97 + Math.random() * 0.06; // pitch variance
-      const g = ctx.createGain();
-      g.gain.value = gain;
-      src.connect(g).connect(master);
-      src.onended = () => {
-        src.disconnect();
-        g.disconnect();
-      };
-      src.start();
-    });
+    if (ensureRunning()) playClip(urls[nextIndex()], gain);
   };
 }
 
-/** Colour swatch pick: a short pop. */
+// Shuffle bag: play through a shuffled copy of `urls`, then reshuffle. Every clip plays once per bag
+// (no in-bag repeats), and a fresh bag never opens on the clip the previous bag closed on.
+function makeShuffleBag(urls: string[], gain: number): () => void {
+  let bag: number[] = [];
+  let last = -1;
+  const nextIndex = (): number => {
+    if (bag.length === 0) {
+      bag = urls.map((_, i) => i);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      // We pop from the end; if that first pick repeats the last bag's final clip, swap it to the front.
+      if (urls.length > 1 && bag[bag.length - 1] === last) {
+        [bag[bag.length - 1], bag[0]] = [bag[0], bag[bag.length - 1]];
+      }
+    }
+    last = bag.pop() ?? 0;
+    return last;
+  };
+  return () => {
+    if (ensureRunning()) playClip(urls[nextIndex()], gain);
+  };
+}
+
+/** Docs colour swatch pick: a short pop. */
 export const playCircleSound = makeOneShot(CIRCLE_URLS, CIRCLE_GAIN);
 /** Legend option pick (the zig-zag underline): a zig-zag clip. */
 export const playZigZagSound = makeOneShot(ZIGZAG_URLS, ZIGZAG_GAIN);
+/** Dock colour pick: a paint bloop, drawn from a shuffle bag. */
+export const playColorBloop = makeShuffleBag(BLOOP_URLS, BLOOP_GAIN);
 
 // Slider scrub: one looping voice that swells with movement, fades when it stops.
 

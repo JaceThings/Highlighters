@@ -1,4 +1,5 @@
 import colorPickerUrl from "./color-picker.svg";
+import { playColorBloop, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
 // `ring` is the selected outline, solid since box-shadow can't take a gradient.
 interface Swatch {
@@ -33,7 +34,10 @@ export function ColorPalette({
 }) {
   const customActive = !PRESET_COLORS.has(value);
   return (
-    <div className="grid grid-cols-3 gap-x-[14px] gap-y-[14px]">
+    <div
+      className="grid grid-cols-3 gap-x-[14px] gap-y-[14px]"
+      onPointerEnter={primeMarkerAudio}
+    >
       {SWATCHES.map((s) => (
         <Disc
           key={s.id}
@@ -41,7 +45,11 @@ export function ColorPalette({
           ring={s.ring}
           fill={s.color}
           selected={s.color === value}
-          onClick={() => onChange(s.color)}
+          // A paint bloop on every circle click (random, no repeats), independent of the colour change.
+          onClick={() => {
+            playColorBloop();
+            onChange(s.color);
+          }}
         />
       ))}
       <CustomDisc active={customActive} color={value} onClick={onActivateCustom} />
