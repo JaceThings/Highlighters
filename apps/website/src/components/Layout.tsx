@@ -5,9 +5,10 @@ import { DOCK_H } from "./dock/constants.ts";
 // Bottom clearance so the footer clears the fixed dock (DOCK_H + 24px rest + ~7px).
 const FOOTER_CLEARANCE_PX = DOCK_H + 24 + 7;
 
-// `@container/column` exposes the column width as `100cqi`. Top padding is a 1.5rem multiple so text lands on the ruled grid.
+// `@container/column` exposes the column width as `100cqi`. Top padding (66px) seats the first text
+// line where it should sit against the ruled grid; the column flows on 24px rows from there.
 const ARTICLE_BASE =
-  "@container/column relative flex w-[510px] max-w-full flex-col items-stretch pt-[4.5rem] pb-20 max-[560px]:w-[calc(100vw-32px)] max-[560px]:pt-6 max-[560px]:pb-16";
+  "@container/column relative flex w-[510px] max-w-full flex-col items-stretch pt-[66px] pb-20 max-[560px]:w-[calc(100vw-32px)] max-[560px]:pt-6 max-[560px]:pb-16";
 
 export function Layout({
   children,
