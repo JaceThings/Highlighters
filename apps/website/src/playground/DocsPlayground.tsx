@@ -11,8 +11,9 @@ export function DocsPlayground() {
 
   return (
     <PlaygroundOptionsProvider>
-      {/* Each .cv-demo pads 32px below itself; the 16px gap completes a 48px (2-row) rhythm on the 24px grid. */}
-      <div className="flex w-full flex-col" style={{ gap: 16 }}>
+      {/* No gap: each .cv-demo is already a whole number of 24px rows (incl. its 48px bottom pad), so
+          the column flows as a continuous 24px grid. */}
+      <div className="flex w-full flex-col">
         {OPTION_DEMOS.map((demo, i) => (
           <Stagger key={demo.title} index={1 + i}>
             <OptionDemo demo={demo} quote={quotes[i]} />
