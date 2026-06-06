@@ -8,12 +8,13 @@ body {
 
 /* content-visibility skips painting off-screen demo cards (each holds filtered live marks). Its paint
    clip would cut the paper shadow (~26px), so the card breaks out and pads it back; contain-intrinsic-size
-   keeps the scrollbar stable. Breakout only holds with no overflow:hidden/clip ancestor. */
+   keeps the scrollbar stable. Breakout only holds with no overflow:hidden/clip ancestor.
+   Top pad is 0 so each section lands on the 24px grid; the 32px bottom + the demo gap make a 48px rhythm. */
 .cv-demo {
   content-visibility: auto;
   contain-intrinsic-size: auto 440px;
   margin-inline: -32px;
-  padding: 4px 32px 32px;
+  padding: 0 32px 32px;
 }
 
 /* Animatable ink colour: registering as <color> lets `transition: --ink` crossfade gradient ink in one element. */
