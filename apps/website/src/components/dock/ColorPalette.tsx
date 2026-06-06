@@ -45,7 +45,6 @@ export function ColorPalette({
           ring={s.ring}
           fill={s.color}
           selected={s.color === value}
-          // A paint bloop on every circle click (random, no repeats), independent of the colour change.
           onClick={() => {
             playColorBloop();
             onChange(s.color);

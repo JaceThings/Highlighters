@@ -194,7 +194,6 @@ export function MarkerRow({
             type="button"
             aria-label={p.label}
             aria-pressed={isSelected}
-            // Select a new pen plays a marker-select click; re-clicking the selected pen opens the popover.
             onClick={(e) => {
               if (isSelected) {
                 onActivate(e.currentTarget);
