@@ -16,12 +16,15 @@ function DockButton({
   active,
   href,
   to,
+  clickSound,
 }: {
   children: ReactNode;
   label: string;
   active?: boolean;
   href?: string;
   to?: "/" | "/docs";
+  /** Played on click (route links skip it when already active); primed on hover. */
+  clickSound?: () => void;
 }) {
   const glyph = (
     <span
@@ -43,9 +46,7 @@ function DockButton({
         className={CLASSES}
         onPointerEnter={primeMarkerAudio}
         onClick={() => {
-          if (active) return; // already here, no navigation -> no sound
-          if (to === "/") playNavHome();
-          else playNavDocs();
+          if (!active) clickSound?.(); // already here -> no navigation, no sound
         }}
       >
         {glyph}
@@ -63,6 +64,8 @@ function DockButton({
         data-focus-ring
         data-focus-radius="full"
         className={CLASSES}
+        onPointerEnter={primeMarkerAudio}
+        onClick={() => clickSound?.()}
       >
         {glyph}
       </a>
@@ -86,10 +89,10 @@ function DockButton({
 export function DockNav({ pathname, className }: { pathname: string; className?: string }) {
   return (
     <nav className={`flex items-center gap-[12px] ${className ?? ""}`}>
-      <DockButton to="/" label="Home" active={pathname === "/"}>
+      <DockButton to="/" label="Home" active={pathname === "/"} clickSound={playNavHome}>
         <HomeIcon />
       </DockButton>
-      <DockButton to="/docs" label="Docs" active={pathname === "/docs"}>
+      <DockButton to="/docs" label="Docs" active={pathname === "/docs"} clickSound={playNavDocs}>
         <BookIcon />
       </DockButton>
     </nav>
@@ -100,10 +103,10 @@ export function DockNav({ pathname, className }: { pathname: string; className?:
 export function DockLinks({ className }: { className?: string }) {
   return (
     <div className={`flex items-center gap-[12px] ${className ?? ""}`}>
-      <DockButton label="Star" href={GITHUB_URL}>
+      <DockButton label="Star" href={GITHUB_URL} clickSound={playNavHome}>
         <StarIcon />
       </DockButton>
-      <DockButton label="Follow" href={FOLLOW_URL}>
+      <DockButton label="Follow" href={FOLLOW_URL} clickSound={playNavDocs}>
         <PersonIcon />
       </DockButton>
     </div>
