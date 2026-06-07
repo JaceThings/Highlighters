@@ -14,7 +14,7 @@ export interface HighlightAction {
  * <script>
  *   import { highlight } from "@highlighters/svelte";
  * </script>
- * <p use:highlight={{ preset: "mild", color: "gold" }}>Highlight me</p>
+ * <p use:highlight={{ color: { palette: "mild", swatch: "yellow" } }}>Highlight me</p>
  * ```
  */
 export function highlight(node: Element, options?: HighlightOptions): HighlightAction {

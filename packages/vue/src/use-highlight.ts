@@ -26,7 +26,7 @@ function resolveTarget(target: HighlightTarget): Target | null {
  * import { ref } from "vue";
  * import { useHighlight } from "@highlighters/vue";
  * const el = ref(null);
- * useHighlight(el, { preset: "mild" });
+ * useHighlight(el, { color: { palette: "mild", swatch: "yellow" } });
  * </script>
  * <template><p ref="el">Highlight me</p></template>
  * ```

@@ -28,7 +28,7 @@ export type HighlightProps<E extends ElementType = "span"> = HighlightOwnProps &
  *
  * @example
  * ```tsx
- * <Highlight as="p" options={{ preset: "wet", color: "pink" }}>
+ * <Highlight as="p" options={{ color: { palette: "fluorescent", swatch: "pink" } }}>
  *   Highlight this paragraph
  * </Highlight>
  * ```
