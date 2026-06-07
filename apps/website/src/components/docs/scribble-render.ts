@@ -123,6 +123,29 @@ export function pointsUpTo(pts: [number, number][], f: number): [number, number]
   return sub;
 }
 
+/** Points between fractions `from` and `to` (0..1), interpolating both ends. Empty when `to <= from`. */
+export function pointsBetween(pts: [number, number][], from: number, to: number): [number, number][] {
+  const n = pts.length - 1;
+  if (n < 1) return [];
+  const lo = Math.max(0, Math.min(1, from));
+  const hi = Math.max(0, Math.min(1, to));
+  if (hi <= lo) return [];
+  const at = (frac: number): [number, number] => {
+    const w = Math.min(Math.floor(frac * n), n - 1);
+    const t = frac * n - w;
+    const a = pts[w];
+    const b = pts[w + 1];
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  };
+  const out: [number, number][] = [at(lo)];
+  for (let i = 0; i <= n; i++) {
+    const fi = i / n;
+    if (fi > lo && fi < hi) out.push(pts[i]);
+  }
+  out.push(at(hi));
+  return out;
+}
+
 // SVG `d` for a smooth stroke. A Catmull-Rom spline as cubic Beziers: passes THROUGH every tooth
 // tip so it keeps full amplitude, unlike midpoint corner-cutting which would halve the height.
 export function smoothStrokePath(pts: [number, number][]): string {
