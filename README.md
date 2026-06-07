@@ -3,7 +3,7 @@
 <h1>Highlighters</h1>
 
 Realistic, deeply customizable highlighter-pen marks for web text.
-From a single word to a whole page with surgical exclusions - multiline, deterministic, SSR-safe.
+From a single word to a whole page: multiline, deterministic, and SSR-safe.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)](https://www.typescriptlang.org/)
@@ -12,17 +12,13 @@ From a single word to a whole page with surgical exclusions - multiline, determi
 
 </div>
 
-## What is this?
+## What it is
 
-A flat `<mark>` background looks like a CSS rectangle, not ink. Sketch-annotation libraries draw the wrong aesthetic. And rolling your own gets you a React-only, selection-only one-off with no blend optics.
+Real highlighters lay down wet ink: the colour pools and bleeds, the edges fray, and going over the same spot twice makes it darker. A plain `<mark>` on the web gives you a flat coloured box instead. This library draws the real thing.
 
-`highlighters` draws a **realistic highlighter-pen mark** over any web text - wet-ink colour, organic frayed edges, lengthwise streaking, and true multiplicative ink optics (`mix-blend-mode: multiply`, so overlapping marks darken and dark text stays legible). It scales from one word to an entire page with named exclusions, handles wrapped lines as one continuous swipe, repositions on reflow and web-font load, and never touches your text - so selection and find-in-page keep working.
+Point it at any text on the page, from a single word to the whole document, and it paints a highlighter stroke over the top. It never touches your actual text, so selecting, copying, and find-in-page all keep working. Wrapped lines join into one continuous swipe, marks redraw themselves when the layout shifts, and everything renders the same on the server as in the browser.
 
-The mark is tuned in the **vocabulary of real highlighters**: tip type, ink flow ("juiciness"), viscosity, feathering/bleed, streaking, dry-out, and end build-up, plus fluorescence, paper, blend mode, and curated colour palettes. Lean on the sensible defaults for the 90% case, name a palette swatch, or reach all the way down to every knob.
-
-## Why it looks right (and never stretches)
-
-Everything is anchored to an **absolute pixel coordinate space**, never normalized to the mark's current size: the noise texture is a fixed-px stitched tile sampled by offset (not scaled), wavy-edge vertices live on a fixed grid seeded by index, and caps/radii are clamped px. Widening a mark adds more of the same - it doesn't stretch what's there - and a mark that's already down stays byte-identical as it grows. All randomness is deterministic from a seed (no `Math.random`), so marks are stable across scroll, reflow, reload, and server rendering. See [the anchored-grid method](./docs/the-anchored-grid-method.md).
+Reach for the defaults and one line of code gives you a tasteful mark. Want more control? Tune it like a real pen: tip shape, ink flow, bleed, streaking, dry-out, paper texture, blend mode, and a set of curated colour palettes.
 
 ## Quick start
 
