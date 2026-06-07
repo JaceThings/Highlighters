@@ -1,9 +1,23 @@
 name: Release
 
-# Manual-only. A real release needs npm publish auth: OIDC trusted publishing
-# configured on npmjs, or an NPM_TOKEN secret. Until that is set up, dispatch this
-# by hand so a push to main can never trigger a premature/accidental publish.
+# Automated publishing via Changesets + npm OIDC trusted publishing (no tokens).
+#
+# Flow (see CONTRIBUTING.md > Release flow):
+#   1. A merged PR carries a changeset. On push to main this action opens or
+#      updates a "chore: version packages" PR that bumps versions + CHANGELOGs.
+#   2. Merging that PR pushes to main with no changesets left, so this action
+#      runs `changeset publish` and releases to npm with provenance.
+# A push with no changesets and nothing unpublished is a no-op, so a normal
+# merge to main never triggers an accidental publish.
+#
+# One-time setup on npmjs: each @highlighters/* package needs a Trusted Publisher
+# (package Settings > Trusted Publisher > GitHub Actions; repo
+# JaceThings/Highlighters, workflow release.yml). The id-token: write permission
+# and provenance below are what npm's OIDC exchange checks for. workflow_dispatch
+# stays so a release can also be run by hand.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
@@ -23,10 +37,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Node 24 ships with npm >=11.5.1, which supports OIDC trusted
-          # publishing natively. Keeps CI on Node 22 for compat testing.
           node-version: 24
           cache: pnpm
+
+      # OIDC trusted publishing needs npm >=11.5.1; pin to latest so it works
+      # regardless of which npm the resolved Node 24 minor happens to ship.
+      - run: npm install -g npm@latest
 
       - run: pnpm install --frozen-lockfile
 
