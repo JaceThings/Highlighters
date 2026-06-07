@@ -342,10 +342,12 @@ let rumbleGain: GainNode | null = null;
 let rumbleIdle: ReturnType<typeof setTimeout> | undefined;
 let rumbleStopTimer: ReturnType<typeof setTimeout> | undefined;
 
-let rumbleCutoff = 220; // lowpass Hz, lower = deeper
-let rumbleQ = 0.7;
-let rumbleLevel = 0.06; // swell-target gain
-export function setRumble(cfg: { cutoff?: number; q?: number; gain?: number }): void {
+let rumbleCutoff = 160; // lowpass Hz, lower = deeper
+let rumbleQ = 0.9;
+let rumbleLevel = 0.015; // swell-target gain
+let rumbleFadeIn = 0.25; // s, gentle swell-in
+let rumbleFadeOut = 0.4; // s, gentle fade-out
+export function setRumble(cfg: { cutoff?: number; q?: number; gain?: number; fadeIn?: number; fadeOut?: number }): void {
   const now = ctx?.currentTime ?? 0;
   if (cfg.cutoff !== undefined) {
     rumbleCutoff = cfg.cutoff;
@@ -359,6 +361,8 @@ export function setRumble(cfg: { cutoff?: number; q?: number; gain?: number }): 
     rumbleLevel = cfg.gain;
     if (rumbleSrc) rampRumble(rumbleLevel, 0.05);
   }
+  if (cfg.fadeIn !== undefined) rumbleFadeIn = cfg.fadeIn;
+  if (cfg.fadeOut !== undefined) rumbleFadeOut = cfg.fadeOut;
 }
 
 // Brown noise: a leaky-integrated random walk (normalized ~unit), built once and looped seamlessly.
@@ -405,7 +409,7 @@ function startRumble(): void {
 
 function fadeOutRumble(): void {
   if (!rumbleSrc || !rumbleGain) return;
-  rampRumble(NEAR_SILENT, FADE_OUT);
+  rampRumble(NEAR_SILENT, rumbleFadeOut);
   const dyingSrc = rumbleSrc;
   const dyingFilter = rumbleFilter;
   const dyingGain = rumbleGain;
@@ -426,7 +430,7 @@ function fadeOutRumble(): void {
         rumbleGain = null;
       }
     },
-    FADE_OUT * 1000 + 80,
+    rumbleFadeOut * 1000 + 80,
   );
 }
 
@@ -438,5 +442,5 @@ export function feedRumble(): void {
   clearTimeout(rumbleIdle);
   rumbleIdle = setTimeout(fadeOutRumble, IDLE_MS);
   if (!rumbleSrc) startRumble();
-  rampRumble(rumbleLevel, FADE_IN);
+  rampRumble(rumbleLevel, rumbleFadeIn);
 }

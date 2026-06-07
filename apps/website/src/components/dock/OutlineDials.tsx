@@ -19,17 +19,19 @@ export function OutlineDials() {
     chisel: { x: nudge(slant.dx), y: nudge(slant.dy), scale: scaleDial(slant.scale) },
     bullet: { x: nudge(round.dx), y: nudge(round.dy), scale: scaleDial(round.scale) },
     fine: { x: nudge(fine.dx), y: nudge(fine.dy), scale: scaleDial(fine.scale) },
-    // Popup-slider brown-noise rumble: lowpass cutoff (Hz), resonance, swell level.
+    // Popup-slider brown-noise rumble: lowpass cutoff (Hz), resonance, level, swell-in/out (s).
     rumble: {
-      cutoff: [220, 40, 1500, 10] as [number, number, number, number],
-      q: [0.7, 0.1, 8, 0.1] as [number, number, number, number],
-      gain: [0.06, 0, 0.2, 0.005] as [number, number, number, number],
+      cutoff: [160, 40, 1500, 10] as [number, number, number, number],
+      q: [0.9, 0.1, 8, 0.1] as [number, number, number, number],
+      gain: [0.015, 0, 0.2, 0.005] as [number, number, number, number],
+      fadeIn: [0.25, 0, 1, 0.02] as [number, number, number, number],
+      fadeOut: [0.4, 0, 1.5, 0.02] as [number, number, number, number],
     },
   });
 
   useEffect(() => {
-    setRumble({ cutoff: p.rumble.cutoff, q: p.rumble.q, gain: p.rumble.gain });
-  }, [p.rumble.cutoff, p.rumble.q, p.rumble.gain]);
+    setRumble({ cutoff: p.rumble.cutoff, q: p.rumble.q, gain: p.rumble.gain, fadeIn: p.rumble.fadeIn, fadeOut: p.rumble.fadeOut });
+  }, [p.rumble.cutoff, p.rumble.q, p.rumble.gain, p.rumble.fadeIn, p.rumble.fadeOut]);
 
   useEffect(() => {
     setTipTune("slant", { dx: p.chisel.x, dy: p.chisel.y, scale: p.chisel.scale });
