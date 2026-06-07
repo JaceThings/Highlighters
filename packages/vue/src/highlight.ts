@@ -15,7 +15,7 @@ import type { HighlightOptions } from "@highlighters/core";
  *
  * @example
  * ```vue
- * <Highlight :options="{ preset: 'wet', color: 'pink' }">
+ * <Highlight :options="{ color: { palette: 'fluorescent', swatch: 'pink' } }">
  *   Highlight this
  * </Highlight>
  * ```

@@ -2,7 +2,7 @@
   "name": "highlighters-consumer-smoke",
   "private": true,
   "version": "0.0.0",
-  "description": "Installs highlighters tarballs and runs ESM/CJS/subpath/SSR import smokes. @highlighters/* deps are added at install time by scripts/consumer-smoke.sh against the just-packed tarballs (do not pin them in dependencies). The pnpm.overrides below point each @highlighters/* at its packed tarball so a wrapper's transitive @highlighters/core dep resolves to the sibling tarball instead of the (unpublished) registry — update the 0.0.0 filenames here if the package version bumps.",
+  "description": "Installs highlighters tarballs and runs ESM/CJS/subpath/SSR import smokes. @highlighters/* deps are added at install time by scripts/consumer-smoke.sh against the just-packed tarballs (do not pin them in dependencies). The pnpm.overrides below point each @highlighters/* at its packed tarball so a wrapper's transitive @highlighters/core dep resolves to the sibling tarball instead of the (unpublished) registry. The script renames each tarball to a version-less filename, so these stay correct across version bumps.",
   "type": "module",
   "scripts": {
     "smoke": "node esm-smoke.mjs && node cjs-smoke.cjs && node subpath-smoke.mjs && node ssr-smoke.mjs"
@@ -15,10 +15,10 @@
   },
   "pnpm": {
     "overrides": {
-      "@highlighters/core": "file:./vendor/highlighters-core-0.0.0.tgz",
-      "@highlighters/react": "file:./vendor/highlighters-react-0.0.0.tgz",
-      "@highlighters/vue": "file:./vendor/highlighters-vue-0.0.0.tgz",
-      "@highlighters/svelte": "file:./vendor/highlighters-svelte-0.0.0.tgz"
+      "@highlighters/core": "file:./vendor/highlighters-core.tgz",
+      "@highlighters/react": "file:./vendor/highlighters-react.tgz",
+      "@highlighters/vue": "file:./vendor/highlighters-vue.tgz",
+      "@highlighters/svelte": "file:./vendor/highlighters-svelte.tgz"
     }
   }
 }

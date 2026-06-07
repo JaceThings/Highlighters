@@ -18,8 +18,8 @@ export default defineConfig({
       output: {
         // Split stable, large vendors into their own long-cache chunks so the
         // browser cache survives app-code changes. The heavy /playground route
-        // is code-split via lazyRouteComponent in router.tsx, so its chunk —
-        // and the playground-only libs folded into it — stays off the "/"
+        // is code-split via lazyRouteComponent in router.tsx, so its chunk -
+        // and the playground-only libs folded into it - stays off the "/"
         // critical path.
         manualChunks(id) {
           // @highlighters/core is a workspace package, so its symlink resolves to
@@ -42,8 +42,8 @@ export default defineConfig({
           // Only the workspace libs actually mounted on "/" go in the eager
           // vendor chunk: @highlighters/core (SelectionMarker's live selection)
           // and @lisse/core (FocusRingOverlay's path geometry). The
-          // playground-only libs — @highlighters/react, @lisse/react,
-          // @numeric-text — are deliberately NOT forced here; returning
+          // playground-only libs - @highlighters/react, @lisse/react,
+          // @numeric-text - are deliberately NOT forced here; returning
           // undefined lets Rollup fold them into the lazy /playground chunk so
           // they leave the landing critical path.
           if (id.includes("/@highlighters/core") || id.includes("/@lisse/core")) {

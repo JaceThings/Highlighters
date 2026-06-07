@@ -23,6 +23,8 @@ echo "[consumer-smoke] packing tarballs"
 for pkg in "${PACKAGES[@]}"; do
   PKG_DIR="$ROOT_DIR/packages/$pkg"
   ( cd "$PKG_DIR" && pnpm pack --pack-destination "$VENDOR_DIR" >/dev/null )
+  # Drop the version from the filename so the fixture overrides never need updating on a bump.
+  mv "$VENDOR_DIR/highlighters-$pkg-"*.tgz "$VENDOR_DIR/highlighters-$pkg.tgz"
 done
 ls "$VENDOR_DIR"
 
@@ -37,7 +39,7 @@ echo "[consumer-smoke] linting tarballs with arethetypeswrong"
 # Soft-fail here; publint above still hard-fails on real packaging issues.
 for tarball in "$VENDOR_DIR"/*.tgz; do
   echo "  -> $(basename "$tarball")"
-  pnpm exec attw "$tarball" || echo "  (attw warnings — non-fatal)"
+  pnpm exec attw "$tarball" || echo "  (attw warnings - non-fatal)"
 done
 
 echo "[consumer-smoke] installing fixture deps"

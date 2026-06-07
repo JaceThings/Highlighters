@@ -11,7 +11,7 @@
   "labels": ["dependencies"],
   "packageRules": [
     {
-      "description": "Group dev-only dependency bumps into a single weekly PR — easier to review and rebase than per-dep PRs.",
+      "description": "Group dev-only dependency bumps into a single weekly PR - easier to review and rebase than per-dep PRs.",
       "matchDepTypes": ["devDependencies"],
       "groupName": "devDependencies",
       "schedule": ["before 6am on monday"]
@@ -27,7 +27,7 @@
       "schedule": ["before 6am on the first day of the month"]
     },
     {
-      "description": "Auto-merge patch updates for devDependencies once the suite is stable. Keep blocked for now (false) — flip to true after 4-6 weeks of clean signal.",
+      "description": "Auto-merge patch updates for devDependencies once the suite is stable. Keep blocked for now (false) - flip to true after 4-6 weeks of clean signal.",
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["patch"],
       "automerge": false

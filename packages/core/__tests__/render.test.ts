@@ -51,7 +51,7 @@ function geometry(seed: number): MarkGeometry {
     seed,
     clipPath: "path('M0 0 H100 V20 H0 Z')",
     // Front-truncated clip: an empty path when closed, the full clip at full width,
-    // and a distinct truncated string in between — enough to drive the draw-on.
+    // and a distinct truncated string in between - enough to drive the draw-on.
     clipAtFront: (front: number) =>
       front <= 0
         ? 'path("M 0 0 Z")'
@@ -410,7 +410,7 @@ describe("applyDrawOn", () => {
   let container: HTMLElement;
   // Per-seed wrapper lookup, exactly like a renderer's `bandFor`: the draw-on finds
   // a line's wrapper by its stable seed, NOT by index into the (possibly shared)
-  // container — so marks sharing a container never animate each other's bands.
+  // container - so marks sharing a container never animate each other's bands.
   let bands: Map<number, HTMLElement>;
   const bandFor = (seed: number): HTMLElement | null => bands.get(seed) ?? null;
 
@@ -459,13 +459,13 @@ describe("applyDrawOn", () => {
     vi.useFakeTimers();
     const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], { ...anim, draw: true, trigger: "immediate", direction: "left-to-right", stagger: 50, duration: 200 }, fullEnv());
     const wrapper = wrapperOf(0);
-    // play() runs synchronously: the line is parked CLOSED (an empty front clip) —
+    // play() runs synchronously: the line is parked CLOSED (an empty front clip) -
     // revealed by growing the clip, never by a mask, opacity fade, or transform.
     expect(wrapper.style.clipPath).toContain("M 0 0 Z");
     expect(wrapper.style.maskImage ?? "").toBe("");
     expect(wrapper.style.opacity).toBe("");
     expect(wrapper.style.transform).toBe("");
-    // Advance partway: the clip is a TRUNCATED band — non-empty, not yet full.
+    // Advance partway: the clip is a TRUNCATED band - non-empty, not yet full.
     vi.advanceTimersByTime(90);
     const mid = wrapper.style.clipPath;
     expect(mid).toContain("path(");
@@ -477,7 +477,7 @@ describe("applyDrawOn", () => {
     disconnect();
   });
 
-  it("draws on the wrapper, never the ink child — so the renderer keeps the ink's geometry clip", () => {
+  it("draws on the wrapper, never the ink child - so the renderer keeps the ink's geometry clip", () => {
     vi.useFakeTimers();
     const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
     vi.advanceTimersByTime(90);
@@ -488,7 +488,7 @@ describe("applyDrawOn", () => {
     disconnect();
   });
 
-  it("survives a reflow that resets the ink clip mid-draw — no flash to full, no restart", () => {
+  it("survives a reflow that resets the ink clip mid-draw - no flash to full, no restart", () => {
     // The exact regression: a reflow re-runs renderer.update(), which rewrites the
     // ink child's clip to FULL. Because the draw clips the WRAPPER (not the ink),
     // the front is preserved and the band keeps drawing instead of flashing full.
@@ -501,10 +501,10 @@ describe("applyDrawOn", () => {
     inkOf(0).style.clipPath = FULL;
     // …and the draw is retargeted onto the (unchanged) geometry.
     handle.retarget([geometry(0)]);
-    // The wrapper's front clip is still truncated — the visible band did NOT snap to
+    // The wrapper's front clip is still truncated - the visible band did NOT snap to
     // full. (A flash-to-full would mean the wrapper read FULL here.)
     expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
-    // The next frame keeps advancing from where it was, then settles — one draw.
+    // The next frame keeps advancing from where it was, then settles - one draw.
     vi.advanceTimersByTime(40);
     expect(wrapperOf(0).style.clipPath).toContain("path(");
     vi.advanceTimersByTime(200);
@@ -545,10 +545,10 @@ describe("applyDrawOn", () => {
     cancelSpy.mockRestore();
   });
 
-  it("starts the front at minFront (tip touchdown), never below — no start-of-draw pause", () => {
+  it("starts the front at minFront (tip touchdown), never below - no start-of-draw pause", () => {
     // The draw maps progress 0→1 onto front [minFront → width]. With a chisel-like
     // minFront of 30, the FIRST drawn frame must already be at ≥30 (the band touches
-    // down at its tip and drags) — not a sub-tip value that build() would clamp,
+    // down at its tip and drags) - not a sub-tip value that build() would clamp,
     // which is what made the band pop then sit frozen.
     vi.useFakeTimers();
     const seed = 0;
@@ -595,7 +595,7 @@ describe("applyDrawOn", () => {
   it("only touches its OWN seed's band, never a sibling mark sharing the container", () => {
     // The root cause of "draws twice": several marks share ONE overlay container,
     // so wrappers for unrelated marks are siblings. A draw-on for line seed 0 must
-    // animate ONLY the seed-0 wrapper — never the seed-20 wrapper that belongs to a
+    // animate ONLY the seed-0 wrapper - never the seed-20 wrapper that belongs to a
     // different mark (which would let N marks all clobber one band).
     vi.useFakeTimers();
     const sibling = wrapperOf(1); // the seed-20 band; this draw-on must not touch it
@@ -611,7 +611,7 @@ describe("applyDrawOn", () => {
   });
 
   it("an armed in-view mark stays parked closed across a reflow (no pre-view flash)", () => {
-    // A reflow that lands BEFORE an in-view mark enters view must not reveal it —
+    // A reflow that lands BEFORE an in-view mark enters view must not reveal it -
     // otherwise it flashes fully-drawn, then restarts when it finally intersects.
     class FakeIO {
       constructor(public cb: (e: { isIntersecting: boolean }[]) => void) {}

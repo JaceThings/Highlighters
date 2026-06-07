@@ -1,6 +1,6 @@
-// Subpath smoke: @highlighters/core exports a `./path` subpath — the
+// Subpath smoke: @highlighters/core exports a `./path` subpath - the
 // DOM-free, SSR-safe surface (pure geometry + config + types).
-// Resolution failure here would mean package.json#exports got broken — a
+// Resolution failure here would mean package.json#exports got broken - a
 // class of regression the source-aliased tests cannot see.
 import assert from "node:assert/strict";
 import * as corePath from "@highlighters/core/path";
