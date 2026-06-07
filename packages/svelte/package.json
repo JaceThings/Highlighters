@@ -1,7 +1,8 @@
 {
   "name": "@highlighters/svelte",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Svelte action for realistic highlighter marks",
+  "author": "Jace Attard <hi@ja.mt> (https://ja.mt)",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -36,7 +37,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/JaceThings/highlighters",
+    "url": "git+https://github.com/JaceThings/highlighters.git",
     "directory": "packages/svelte"
   },
   "keywords": [
