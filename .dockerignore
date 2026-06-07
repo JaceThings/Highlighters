@@ -1,0 +1,37 @@
+# Excludes from the docker build context for the website's Dockerfile
+# (Railway runs `dockerfilePath: apps/website/Dockerfile` with the repo root
+# as the build context).
+
+node_modules
+**/node_modules
+
+# Build artefacts (rebuilt inside the image)
+**/dist
+**/.vite
+**/*.tsbuildinfo
+**/.turbo
+coverage
+
+# Editor / OS / CI noise
+.git
+.github
+.changeset
+.claude
+.cursor
+.vscode
+.DS_Store
+
+# Repo areas the website build doesn't need
+docs
+/scripts
+tests
+.shots
+device-radius
+
+# Local planning docs (gitignored) and package changelogs
+blueprint.md
+*_CONTRACT.md
+CONTRACT.md
+BUILD_REPORT.md
+PERF_RESEARCH.md
+**/CHANGELOG.md
