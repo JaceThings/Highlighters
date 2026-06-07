@@ -50,8 +50,9 @@ createServer(async (req, res) => {
       return await send(res, join(DIST, "docs", "index.html"));
     }
 
-    // Try a real file under dist/, guarding against path traversal.
-    const target = join(DIST, normalize(pathname).replace(/^(\.\.(\/|\\|$))+/, ""));
+    // Try a real file under dist/. normalize() collapses any ../ in the absolute
+    // pathname; the startsWith(DIST) check is the traversal backstop.
+    const target = join(DIST, normalize(pathname));
     if (target.startsWith(DIST)) {
       try {
         return await send(res, target);
