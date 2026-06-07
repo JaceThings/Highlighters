@@ -45,9 +45,10 @@ FROM node:${NODE_VERSION} AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# `serve` is a tiny static file server: `-s` rewrites unknown routes to
-# index.html (SPA deep links), it binds 0.0.0.0, and it honours the PORT env
-# that Railway injects at runtime.
+# `serve` is a tiny static file server. It binds 0.0.0.0, honours the PORT env
+# Railway injects, and reads dist/serve.json for routing: /docs gets its own HTML
+# (its own OG card), everything else falls back to the SPA. No -s flag: single
+# mode would rewrite /docs to the home index before serve.json could route it.
 RUN npm install -g serve@14
 
 COPY --from=builder /workspace/apps/website/dist ./dist
@@ -58,4 +59,4 @@ COPY --from=builder /workspace/apps/website/dist ./dist
 USER node
 
 EXPOSE 3000
-CMD ["serve", "-s", "dist"]
+CMD ["serve", "dist"]
