@@ -22,7 +22,7 @@ export function MobileDock() {
         style={{ background: "#fff", borderRadius: 9999, boxShadow: SHADOW, padding: "30px 0 26px" }}
         initial={skipEntrance ? false : { y: "130%" }}
         animate={{ y: 0 }}
-        transition={skipEntrance ? { duration: 0 } : { type: "spring", duration: 0.7, bounce: 0.28, delay: 0.15 }}
+        transition={{ type: "spring", duration: 0.7, bounce: 0.28, delay: 0.15 }}
       >
         <div
           aria-hidden
