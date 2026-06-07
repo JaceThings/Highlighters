@@ -40,9 +40,10 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # OIDC trusted publishing needs npm >=11.5.1; pin to latest so it works
-      # regardless of which npm the resolved Node 24 minor happens to ship.
-      - run: npm install -g npm@latest
+      # OIDC trusted publishing needs npm >=11.5.1; pin to the current major so we
+      # get patch/minor fixes without pulling an unknown future major into a
+      # workflow that holds id-token/contents write.
+      - run: npm install -g npm@11
 
       - run: pnpm install --frozen-lockfile
 
