@@ -1,9 +1,35 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+// Social crawlers don't run JS, so /docs needs its own real HTML to get a different preview card.
+// After the build, emit dist/docs/index.html from the built index.html with the docs OG/Twitter
+// image and a matching canonical (else crawlers fall back to the home card). server.mjs returns
+// this file for /docs; the SPA still boots and routes there normally.
+function docsOgVariant(): Plugin {
+  return {
+    name: "docs-og-variant",
+    apply: "build",
+    closeBundle() {
+      const dist = fileURLToPath(new URL("./dist/", import.meta.url));
+      const src = readFileSync(`${dist}index.html`, "utf8");
+      const html = src
+        .replaceAll("/og-image.jpg", "/og-image-docs.png")
+        .replace('content="image/jpeg"', 'content="image/png"')
+        .replace('content="https://highlighte.rs/"', 'content="https://highlighte.rs/docs"')
+        .replace('href="https://highlighte.rs/"', 'href="https://highlighte.rs/docs"');
+      // Fail loud if index.html drifted and nothing matched, rather than shipping the home card on /docs.
+      if (html === src) throw new Error("docsOgVariant: no OG replacements matched - check index.html");
+      mkdirSync(`${dist}docs`, { recursive: true });
+      writeFileSync(`${dist}docs/index.html`, html);
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [tailwindcss(), react()],
+  plugins: [tailwindcss(), react(), docsOgVariant()],
   server: {
     port: 5173,
     host: true,

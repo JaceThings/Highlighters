@@ -3,8 +3,9 @@
 #
 # Stage 1: install workspace deps, build @highlighters/* so the website resolves
 #          them via their dist/ outputs, then `vite build` the website to dist/.
-# Stage 2: serve dist/ with `serve` in single-page mode (unknown routes fall
-#          back to index.html). No nginx, no static-file layer.
+# Stage 2: run a tiny Node static server (server.mjs) over dist/ - it serves the
+#          files, gives /docs its own OG-card HTML, and falls back to the SPA for
+#          every other route. No nginx, no extra deps.
 
 ARG NODE_VERSION=20-bookworm-slim
 
@@ -45,17 +46,13 @@ FROM node:${NODE_VERSION} AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# `serve` is a tiny static file server: `-s` rewrites unknown routes to
-# index.html (SPA deep links), it binds 0.0.0.0, and it honours the PORT env
-# that Railway injects at runtime.
-RUN npm install -g serve@14
-
 COPY --from=builder /workspace/apps/website/dist ./dist
+COPY --from=builder /workspace/apps/website/server.mjs ./server.mjs
 
 # Drop root: the node base image ships an unprivileged `node` user. The static
-# dist/ is world-readable and serve binds the high PORT Railway injects, so no
-# root is needed at runtime.
+# dist/ is world-readable and the server binds the high PORT Railway injects, so
+# no root is needed at runtime.
 USER node
 
 EXPOSE 3000
-CMD ["serve", "-s", "dist"]
+CMD ["node", "server.mjs"]
