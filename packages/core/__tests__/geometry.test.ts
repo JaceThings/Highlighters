@@ -176,7 +176,7 @@ describe("mulberry", () => {
 });
 
 // ---------------------------------------------------------------------------
-// edges.ts — the fixed-grid method
+// edges.ts - the fixed-grid method
 // ---------------------------------------------------------------------------
 
 describe("buildEdge", () => {
@@ -272,7 +272,7 @@ describe("buildEdge", () => {
       seed: 200,
     });
     // Every vertex from the smaller extent appears, byte-identical, in the
-    // larger one at the same grid index — nothing re-seeds or shifts.
+    // larger one at the same grid index - nothing re-seeds or shifts.
     for (const v of small) {
       const match = grown.find((g) => g.gridIndex === v.gridIndex);
       expect(match).toEqual(v);
@@ -429,7 +429,7 @@ describe("buildClipPath", () => {
     });
     // radius resolves to 0 for flat caps, so the Q arcs collapse onto their
     // anchor points; the corners are effectively square. The string still
-    // contains "Q " tokens but with zero radius — assert the box corners are
+    // contains "Q " tokens but with zero radius - assert the box corners are
     // at the exact box extents instead.
     expect(s).toContain("M 0.0 0");
     expect(s).toContain("200.0");
@@ -449,7 +449,7 @@ describe("buildClipPath", () => {
       // The top edge starts at "M <slant> 0" (flat cap ⇒ R=0 ⇒ topStartX = slant).
       return Number(/^path\("M ([\d.]+) 0/.exec(s)![1]);
     };
-    // A steeper nib angle leans the parallelogram further — visible end to end,
+    // A steeper nib angle leans the parallelogram further - visible end to end,
     // not saturated after a handful of degrees.
     const a10 = slantStartX(10);
     const a35 = slantStartX(35);
@@ -459,7 +459,7 @@ describe("buildClipPath", () => {
     expect(a70).toBeGreaterThan(a35);
   });
 
-  it("is deterministic — identical inputs give a byte-identical string", () => {
+  it("is deterministic - identical inputs give a byte-identical string", () => {
     const args = {
       box: { x: 0, y: 0, width: 247, height: 22 },
       tip: { ...baseTip },
@@ -547,7 +547,7 @@ describe("buildPoolGradient", () => {
     expect(g.stops[3].opacity!).toBeLessThan(g.stops[2].opacity!);
   });
 
-  it("flowFade dries the stroke directionally — start wetter than the end", () => {
+  it("flowFade dries the stroke directionally - start wetter than the end", () => {
     const flat = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5 });
     const dry = buildPoolGradient({ lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5, flowFade: 0.5 });
     // No flowFade → flat band, start alpha equals end alpha.
@@ -562,7 +562,7 @@ describe("buildPoolGradient", () => {
     expect(a[2]).toBeGreaterThanOrEqual(a[3]);
   });
 
-  it("flowReversed mirrors the dry-out — wet end, dry start (backward drag)", () => {
+  it("flowReversed mirrors the dry-out - wet end, dry start (backward drag)", () => {
     const base = { lengthPx: 400, startEndBuildup: 0, color: "#000", opacity: 0.5, flowFade: 0.5 };
     const fwd = buildPoolGradient(base);
     const rev = buildPoolGradient({ ...base, flowReversed: true });
@@ -665,7 +665,7 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
     expect(tile.width).toBe(256);
     expect(tile.height).toBe(64);
     const svg = Buffer.from(tile.dataUrl.split(",")[1], "base64").toString("utf8");
-    // The tile's own canvas and the painted rect are sized in absolute px — the
+    // The tile's own canvas and the painted rect are sized in absolute px - the
     // grain is never percentage/cover-scaled. (The `<filter>` region uses the
     // standard `width="100%"` to cover its input, which is filter-region sizing,
     // not texture scaling, so it is expected and excluded here.)
@@ -689,7 +689,7 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
   it("does not depend on the DOM btoa global", () => {
     const original = (globalThis as { btoa?: unknown }).btoa;
     try {
-      // Remove btoa entirely — the pure encoder must still work (SSR safety).
+      // Remove btoa entirely - the pure encoder must still work (SSR safety).
       delete (globalThis as { btoa?: unknown }).btoa;
       const url = buildNoiseTileDataUrl({ seed: 3, streakiness: 0.5, feathering: 0.5 });
       expect(url.startsWith("data:image/svg+xml;base64,")).toBe(true);
@@ -700,7 +700,7 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
 });
 
 // ---------------------------------------------------------------------------
-// clip-path.ts — draw-on front truncation (grow the band by adding nodes)
+// clip-path.ts - draw-on front truncation (grow the band by adding nodes)
 // ---------------------------------------------------------------------------
 
 describe("buildClipPath front truncation", () => {
@@ -734,11 +734,11 @@ describe("buildClipPath front truncation", () => {
 });
 
 // ---------------------------------------------------------------------------
-// mark-space.ts — the resolution-independent integrator
+// mark-space.ts - the resolution-independent integrator
 // ---------------------------------------------------------------------------
 
 describe("buildMarkGeometry", () => {
-  it("V2 — same seed yields byte-identical geometry (determinism)", () => {
+  it("V2 - same seed yields byte-identical geometry (determinism)", () => {
     const opts = makeOptions();
     const rect = makeLineRect();
     const a = buildMarkGeometry(rect, opts, rect.seed);
@@ -789,7 +789,7 @@ describe("buildMarkGeometry", () => {
     expect(g.noiseTile.width + g.maskOffset.x).toBeGreaterThan(800);
   });
 
-  it("V9e — same logical mark at two widths shares wavelength, grain & pool px", () => {
+  it("V9e - same logical mark at two widths shares wavelength, grain & pool px", () => {
     const opts = makeOptions();
     const seed = 555;
     const narrow = buildMarkGeometry(
@@ -826,7 +826,7 @@ describe("buildMarkGeometry", () => {
     expect(wide.pool.endInsetPx).toBe(narrow.pool.endInsetPx);
   });
 
-  it("V9e — vertex y values at shared grid indices are identical across widths", () => {
+  it("V9e - vertex y values at shared grid indices are identical across widths", () => {
     const opts = makeOptions();
     const seed = 555;
     const narrow = buildMarkGeometry(makeLineRect({ seed, width: 200 }), opts, seed);
@@ -837,7 +837,7 @@ describe("buildMarkGeometry", () => {
     }
   });
 
-  it("V9f — growing a mark leaves the covered-region path prefix byte-identical", () => {
+  it("V9f - growing a mark leaves the covered-region path prefix byte-identical", () => {
     const opts = makeOptions();
     const seed = 808;
     // Grow the same line incrementally (left fixed, width increasing) and
@@ -851,7 +851,7 @@ describe("buildMarkGeometry", () => {
       const prev = steps[i - 1];
       const next = steps[i];
       // Every top-edge vertex emitted in the smaller step survives byte-for-byte
-      // at the same local x/y/gridIndex in the larger step — ink that's down
+      // at the same local x/y/gridIndex in the larger step - ink that's down
       // stays down (R22d).
       for (const v of prev.topEdge) {
         const match = next.topEdge.find((w) => w.gridIndex === v.gridIndex);
@@ -864,7 +864,7 @@ describe("buildMarkGeometry", () => {
     }
   });
 
-  it("V9f — the clip-path's threaded vertex commands form a stable prefix on growth", () => {
+  it("V9f - the clip-path's threaded vertex commands form a stable prefix on growth", () => {
     const opts = makeOptions();
     const seed = 808;
     const small = buildMarkGeometry(makeLineRect({ seed, left: 100, width: 200 }), opts, seed);

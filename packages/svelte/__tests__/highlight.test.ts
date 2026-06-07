@@ -27,7 +27,7 @@ describe("highlight action - lifecycle", () => {
   });
 
   it("creates a core mark handle delegating to the core pipeline", () => {
-    // The action must call core highlight() — we observe by checking it does not
+    // The action must call core highlight() - we observe by checking it does not
     // throw and leaves the element's text intact (R29: no text mutation).
     const node = document.createElement("p");
     node.textContent = "Highlight me";

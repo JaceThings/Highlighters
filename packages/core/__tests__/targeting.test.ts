@@ -63,10 +63,10 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// V1 — normalization per input type (R6a–R6f)
+// V1 - normalization per input type (R6a–R6f)
 // ---------------------------------------------------------------------------
 
-describe("toRanges — V1 normalization per input type", () => {
+describe("toRanges - V1 normalization per input type", () => {
   it("normalizes an Element to a range over its content (R6a)", () => {
     const body = setBody(`<p id="t">hello world</p>`);
     const el = body.querySelector("#t")!;
@@ -159,7 +159,7 @@ describe("toRanges — V1 normalization per input type", () => {
 // Nested include/exclude precedence (R7)
 // ---------------------------------------------------------------------------
 
-describe("include/exclude — structural exclusion precedence (R7)", () => {
+describe("include/exclude - structural exclusion precedence (R7)", () => {
   it("excludes a subtree nested inside an included ancestor", () => {
     const body = setBody(`
       <article id="a">
@@ -250,7 +250,7 @@ describe("include/exclude — structural exclusion precedence (R7)", () => {
 // Text search across element boundaries (R6c)
 // ---------------------------------------------------------------------------
 
-describe("findTextRanges — matches across inline boundaries (R6c)", () => {
+describe("findTextRanges - matches across inline boundaries (R6c)", () => {
   it("finds a string match spanning two inline elements", () => {
     const body = setBody(`<p>foo<em>bar</em>baz</p>`);
     const ranges = findTextRanges(body, "obarb");
@@ -327,7 +327,7 @@ describe("findTextRanges — matches across inline boundaries (R6c)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// line-rects — pure rect merging and seeding
+// line-rects - pure rect merging and seeding
 // ---------------------------------------------------------------------------
 
 describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
@@ -414,7 +414,7 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
 
     const anchor = { top: 100, left: 20 };
     // Seeds are relative to the overlay container origin (3rd arg), not the
-    // anchor — so an upward drag that moves the anchor can't re-roll them. Pass
+    // anchor - so an upward drag that moves the anchor can't re-roll them. Pass
     // originTop=100 so the line at top 100 still seeds to 0.
     const lines = rangesToLineRects([range], anchor, 100);
     expect(lines).toHaveLength(2);
@@ -429,10 +429,10 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Observers — dispose() removes all listeners (R8, R22, R33)
+// Observers - dispose() removes all listeners (R8, R22, R33)
 // ---------------------------------------------------------------------------
 
-describe("createReflowObserver — dispose removes all listeners", () => {
+describe("createReflowObserver - dispose removes all listeners", () => {
   let observed: Set<Element>;
   let roDisconnect: ReturnType<typeof vi.fn>;
   let rafCallbacks: Map<number, FrameRequestCallback>;
@@ -565,7 +565,7 @@ describe("createReflowObserver — dispose removes all listeners", () => {
   });
 });
 
-describe("createMutationWatcher — debounced and leak-free (R8)", () => {
+describe("createMutationWatcher - debounced and leak-free (R8)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
   });

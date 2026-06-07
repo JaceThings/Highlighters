@@ -95,7 +95,7 @@ describe("useHighlight", () => {
     expect(handleSpies.update).toHaveBeenLastCalledWith({ opacity: 0.9 });
   });
 
-  it("recovers a deferred target — a bare ref populated after mount still highlights", () => {
+  it("recovers a deferred target - a bare ref populated after mount still highlights", () => {
     function Probe({ show }: { show: boolean }): React.ReactElement {
       const ref = useRef<HTMLParagraphElement>(null);
       useHighlight(ref, {});

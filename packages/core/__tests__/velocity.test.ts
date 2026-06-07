@@ -5,7 +5,7 @@ import type { ResolvedSpeedDynamics } from "../src/types.js";
 
 /**
  * Speed dynamics measured deterministically. We stub `document.createRange` so a
- * caret's x equals the (set) offset and its y is fixed to one line band — letting
+ * caret's x equals the (set) offset and its y is fixed to one line band - letting
  * us script a swipe as `(offset, time)` samples and assert the resulting deposit.
  * `smoothing: 1` makes the EMA track the raw instantaneous speed (no lag), so the
  * assertions are exact.
