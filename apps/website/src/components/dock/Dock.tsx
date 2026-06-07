@@ -9,7 +9,8 @@ import { MarkerRow } from "./Marker.tsx";
 import { MarkerPopover } from "./MarkerPopover.tsx";
 import { playMenuOpen, playMenuClose } from "../../lib/marker-audio.ts";
 import { useSelectionStyle, type PenTip } from "../../selection-style.tsx";
-import { useDockEntrance } from "../../dock-entrance.tsx";
+import { useDockEntrance, useSkipDockEntrance } from "../../dock-entrance.tsx";
+import { useDockTier } from "../../hooks/useDockTier.ts";
 import { DOCK_H } from "./constants.ts";
 
 // Start fully below the viewport so the tray rises in from the bottom.
@@ -29,6 +30,9 @@ export function Dock() {
   // Hold the entrance until the page's text cascade has landed.
   const { ready } = useDockEntrance();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Shed the colour palette as the window narrows (below the pen tier RootLayout swaps to MobileDock).
+  const { showColors } = useDockTier();
+  const skipEntrance = useSkipDockEntrance();
 
   // `popover` = which control is open and its centre relative to the tray (null = closed).
   const trayRef = useRef<HTMLDivElement>(null);
@@ -106,6 +110,11 @@ export function Dock() {
     [setColor],
   );
 
+  // If a shrink hides the colour palette, close its popover.
+  useEffect(() => {
+    if (!showColors) setPopover((prev) => (prev?.kind === "color" ? null : prev));
+  }, [showColors]);
+
   // Close on Escape or a press outside the tray. The popover is a tray DOM child, so clicks on it keep it open.
   useEffect(() => {
     if (!open) return;
@@ -133,8 +142,8 @@ export function Dock() {
         className="pointer-events-auto relative max-w-[calc(100vw-32px)]"
         style={{ height: DOCK_H }}
         variants={ENTRANCE}
-        initial="hidden"
-        animate={ready ? "shown" : "hidden"}
+        initial={skipEntrance ? false : "hidden"}
+        animate={skipEntrance || ready ? "shown" : "hidden"}
         transition={{
           type: "spring",
           duration: 0.85,
@@ -159,11 +168,13 @@ export function Dock() {
                 onActivate={handleActivate}
               />
             </div>
-            <ColorPalette
-              value={style.color}
-              onChange={handleSelectColor}
-              onActivateCustom={handleActivateCustom}
-            />
+            {showColors && (
+              <ColorPalette
+                value={style.color}
+                onChange={handleSelectColor}
+                onActivateCustom={handleActivateCustom}
+              />
+            )}
           </div>
 
           <DockLinks className="pr-[32px]" />
