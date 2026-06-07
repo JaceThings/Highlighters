@@ -1,5 +1,6 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import maskUrl from "./slider-mask.svg";
+import { feedRumble } from "../../lib/marker-audio.ts";
 
 // Shared primitives for the dock's capsule sliders. 1:1 with slider-mask.svg's 284x43
 // viewBox; the knob centre travels cap-centre to cap-centre so it never clips a corner.
@@ -91,6 +92,7 @@ export function useCapsuleDrag({
       if (draggingRef.current) return;
       const p = Math.min(1, (now - t0) / GLIDE_MS);
       onChangeRef.current(from + (target - from) * easeOut(p));
+      feedRumble();
       if (p < 1) rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -111,6 +113,7 @@ export function useCapsuleDrag({
       draggingRef.current = true;
       cancelAnimationFrame(rafRef.current);
       onChangeRef.current(valueFromClientX(e.clientX));
+      feedRumble();
     },
     endDrag: () => {
       draggingRef.current = false;
