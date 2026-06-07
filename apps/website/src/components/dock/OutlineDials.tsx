@@ -30,7 +30,7 @@ export function OutlineDials() {
   });
 
   useEffect(() => {
-    setRumble({ cutoff: p.rumble.cutoff, q: p.rumble.q, gain: p.rumble.gain, fadeIn: p.rumble.fadeIn, fadeOut: p.rumble.fadeOut });
+    setRumble(p.rumble);
   }, [p.rumble.cutoff, p.rumble.q, p.rumble.gain, p.rumble.fadeIn, p.rumble.fadeOut]);
 
   useEffect(() => {
