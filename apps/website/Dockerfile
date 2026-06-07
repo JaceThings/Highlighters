@@ -52,5 +52,10 @@ RUN npm install -g serve@14
 
 COPY --from=builder /workspace/apps/website/dist ./dist
 
+# Drop root: the node base image ships an unprivileged `node` user. The static
+# dist/ is world-readable and serve binds the high PORT Railway injects, so no
+# root is needed at runtime.
+USER node
+
 EXPOSE 3000
 CMD ["serve", "-s", "dist"]

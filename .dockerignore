@@ -5,6 +5,10 @@
 node_modules
 **/node_modules
 
+# Never ship local env/secrets into the build context or image layers
+.env*
+**/.env*
+
 # Build artefacts (rebuilt inside the image)
 **/dist
 **/.vite
