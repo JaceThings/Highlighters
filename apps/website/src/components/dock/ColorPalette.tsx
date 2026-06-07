@@ -1,4 +1,5 @@
 import colorPickerUrl from "./color-picker.svg";
+import { INK_FADE_MS } from "./constants.ts";
 import { playColorBloop, primeMarkerAudio } from "../../lib/marker-audio.ts";
 
 // `ring` is the selected outline, solid since box-shadow can't take a gradient.
@@ -100,11 +101,11 @@ function CustomDisc({
               : "transform 300ms cubic-bezier(0.6, 0, 0.35, 1)",
           }}
         >
-          {/* Picked colour crossfades over the wheel via opacity (background can't transition). */}
+          {/* Picked colour over the wheel: opacity crossfades it in/out, background-color fades hue to hue. */}
           <span className="absolute inset-0 rounded-full" style={{ background: WHEEL }} />
           <span
             className="absolute inset-0 rounded-full"
-            style={{ background: color, opacity: active ? 1 : 0, transition: "opacity 300ms ease" }}
+            style={{ backgroundColor: color, opacity: active ? 1 : 0, transition: `background-color ${INK_FADE_MS}ms ease, opacity 300ms ease` }}
           />
         </span>
       </span>

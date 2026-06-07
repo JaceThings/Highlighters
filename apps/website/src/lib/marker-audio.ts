@@ -333,3 +333,114 @@ export function stopSliderSound(): void {
   idleTimer = undefined;
   fadeOutSlider();
 }
+
+// Dock popup-slider rumble: a low brown-noise bed (lowpass-filtered) that swells while a capsule slider
+// (opacity / HSL) moves and fades when it stops. Shape is dev-tunable via DialKit (?dials).
+let rumbleSrc: AudioBufferSourceNode | null = null;
+let rumbleFilter: BiquadFilterNode | null = null;
+let rumbleGain: GainNode | null = null;
+let rumbleIdle: ReturnType<typeof setTimeout> | undefined;
+let rumbleStopTimer: ReturnType<typeof setTimeout> | undefined;
+
+let rumbleCutoff = 160; // lowpass Hz, lower = deeper
+let rumbleQ = 0.9;
+let rumbleLevel = 0.045; // swell-target gain
+let rumbleFadeIn = 0.25; // s, gentle swell-in
+let rumbleFadeOut = 0.4; // s, gentle fade-out
+export function setRumble(cfg: { cutoff?: number; q?: number; gain?: number; fadeIn?: number; fadeOut?: number }): void {
+  const now = ctx?.currentTime ?? 0;
+  if (cfg.cutoff !== undefined) {
+    rumbleCutoff = cfg.cutoff;
+    rumbleFilter?.frequency.setValueAtTime(rumbleCutoff, now);
+  }
+  if (cfg.q !== undefined) {
+    rumbleQ = cfg.q;
+    rumbleFilter?.Q.setValueAtTime(rumbleQ, now);
+  }
+  if (cfg.gain !== undefined) {
+    rumbleLevel = cfg.gain;
+    if (rumbleSrc) rampRumble(rumbleLevel, 0.05);
+  }
+  if (cfg.fadeIn !== undefined) rumbleFadeIn = cfg.fadeIn;
+  if (cfg.fadeOut !== undefined) rumbleFadeOut = cfg.fadeOut;
+}
+
+// Brown noise: a leaky-integrated random walk (normalized ~unit), built once and looped seamlessly.
+let brownBuffer: AudioBuffer | null = null;
+function brownNoise(c: AudioContext): AudioBuffer {
+  if (brownBuffer) return brownBuffer;
+  const len = c.sampleRate * 2;
+  brownBuffer = c.createBuffer(1, len, c.sampleRate);
+  const d = brownBuffer.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) {
+    last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02;
+    d[i] = last * 3.5;
+  }
+  return brownBuffer;
+}
+
+function rampRumble(target: number, seconds: number): void {
+  if (!ctx || !rumbleGain) return;
+  const now = ctx.currentTime;
+  const g = rumbleGain.gain;
+  g.cancelScheduledValues(now);
+  g.setValueAtTime(Math.max(g.value, NEAR_SILENT), now);
+  g.exponentialRampToValueAtTime(Math.max(target, NEAR_SILENT), now + seconds);
+}
+
+function startRumble(): void {
+  if (!ctx || !master) return;
+  const src = ctx.createBufferSource();
+  src.buffer = brownNoise(ctx);
+  src.loop = true;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = rumbleCutoff;
+  filter.Q.value = rumbleQ;
+  const g = ctx.createGain();
+  g.gain.value = NEAR_SILENT;
+  src.connect(filter).connect(g).connect(master);
+  src.start();
+  rumbleSrc = src;
+  rumbleFilter = filter;
+  rumbleGain = g;
+}
+
+function fadeOutRumble(): void {
+  if (!rumbleSrc || !rumbleGain) return;
+  rampRumble(NEAR_SILENT, rumbleFadeOut);
+  const dyingSrc = rumbleSrc;
+  const dyingFilter = rumbleFilter;
+  const dyingGain = rumbleGain;
+  clearTimeout(rumbleStopTimer);
+  rumbleStopTimer = setTimeout(
+    () => {
+      try {
+        dyingSrc.stop();
+      } catch {
+        // already stopped
+      }
+      dyingSrc.disconnect();
+      dyingFilter?.disconnect();
+      dyingGain.disconnect();
+      if (rumbleSrc === dyingSrc) {
+        rumbleSrc = null;
+        rumbleFilter = null;
+        rumbleGain = null;
+      }
+    },
+    rumbleFadeOut * 1000 + 80,
+  );
+}
+
+/** Call repeatedly while a popup slider moves; the rumble fades itself out once feeds stop. */
+export function feedRumble(): void {
+  if (!ensureRunning() || !master) return;
+  clearTimeout(rumbleStopTimer);
+  rumbleStopTimer = undefined;
+  clearTimeout(rumbleIdle);
+  rumbleIdle = setTimeout(fadeOutRumble, IDLE_MS);
+  if (!rumbleSrc) startRumble();
+  rampRumble(rumbleLevel, rumbleFadeIn);
+}
