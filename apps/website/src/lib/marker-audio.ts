@@ -344,7 +344,7 @@ let rumbleStopTimer: ReturnType<typeof setTimeout> | undefined;
 
 let rumbleCutoff = 160; // lowpass Hz, lower = deeper
 let rumbleQ = 0.9;
-let rumbleLevel = 0.015; // swell-target gain
+let rumbleLevel = 0.045; // swell-target gain
 let rumbleFadeIn = 0.25; // s, gentle swell-in
 let rumbleFadeOut = 0.4; // s, gentle fade-out
 export function setRumble(cfg: { cutoff?: number; q?: number; gain?: number; fadeIn?: number; fadeOut?: number }): void {

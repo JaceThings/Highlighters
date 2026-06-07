@@ -23,7 +23,7 @@ export function OutlineDials() {
     rumble: {
       cutoff: [160, 40, 1500, 10] as [number, number, number, number],
       q: [0.9, 0.1, 8, 0.1] as [number, number, number, number],
-      gain: [0.015, 0, 0.2, 0.005] as [number, number, number, number],
+      gain: [0.045, 0, 0.2, 0.005] as [number, number, number, number],
       fadeIn: [0.25, 0, 1, 0.02] as [number, number, number, number],
       fadeOut: [0.4, 0, 1.5, 0.02] as [number, number, number, number],
     },
