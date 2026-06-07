@@ -14,6 +14,7 @@ import { DynamicFavicon } from "./components/DynamicFavicon.tsx";
 import { SelectionStyleProvider } from "./selection-style.tsx";
 import { DockEntranceContext } from "./dock-entrance.tsx";
 import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
+import { useDockTier } from "./hooks/useDockTier.ts";
 
 // The agentation dev-feedback toolbar, dev only.
 function DevAgentation() {
@@ -44,6 +45,8 @@ function DevOutlineDials() {
 export function RootLayout() {
   // The marker demo is pointer-driven, so the dock is dropped on touch; MobileNotice explains why.
   const isTouch = useIsTouchDevice();
+  // On a narrow desktop window the full tray won't fit, so fall back to the compact MobileDock pill.
+  const { showPens } = useDockTier();
   // On touch, the trimmed MobileDock appears once MobileNotice is dismissed (or immediately on a return visit).
   const [mobileDockShown, setMobileDockShown] = useState(isNoticeDismissed);
   // The dock holds its entrance until the page signals; the timer is the fallback for routes with no cascade.
@@ -90,7 +93,7 @@ export function RootLayout() {
             <FocusRingOverlay />
             <SelectionMarker />
             <DynamicFavicon />
-            {!isTouch && <Dock />}
+            {!isTouch && (showPens ? <Dock /> : <MobileDock />)}
             <MobileNotice onDismissed={() => setMobileDockShown(true)} />
             {isTouch && mobileDockShown && <MobileDock />}
             {!isTouch && <DevAgentation />}

@@ -1,12 +1,15 @@
 import { m } from "framer-motion";
 import { useRouterState } from "@tanstack/react-router";
 import { DockNav, DockLinks } from "./DockButton.tsx";
+import { useSkipDockEntrance } from "../../dock-entrance.tsx";
 
-// The touch dock: four nav/link buttons (no pens or colour) on a white pill, mounted once MobileNotice is dismissed.
+// The compact dock: four nav/link buttons (no pens or colour) on a full-width white pill. Used on
+// touch (after MobileNotice) and on narrow desktop windows where the full tray won't fit.
 const SHADOW = "0 6px 14px -7px rgba(115, 87, 74, 0.3)";
 
 export function MobileDock() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const skipEntrance = useSkipDockEntrance();
 
   return (
     <nav
@@ -17,9 +20,9 @@ export function MobileDock() {
       <m.div
         className="pointer-events-auto relative flex w-full max-w-[460px] items-center justify-between"
         style={{ background: "#fff", borderRadius: 9999, boxShadow: SHADOW, padding: "30px 0 26px" }}
-        initial={{ y: "130%" }}
+        initial={skipEntrance ? false : { y: "130%" }}
         animate={{ y: 0 }}
-        transition={{ type: "spring", duration: 0.7, bounce: 0.28, delay: 0.15 }}
+        transition={skipEntrance ? { duration: 0 } : { type: "spring", duration: 0.7, bounce: 0.28, delay: 0.15 }}
       >
         <div
           aria-hidden
