@@ -31,50 +31,6 @@ const RADIUS_FLOOR = 22;
 // drop-shadow, not box-shadow, so the lift follows the squircle clip-path.
 const SHEET_SHADOW = "drop-shadow(0 -5px 18px rgba(20, 14, 10, 0.18))";
 
-// MacBook-screen visual built in the DOM (not a baked PNG) so it stays sharp at any DPR.
-function MacScreen() {
-  return (
-    <div
-      aria-hidden
-      style={{
-        position: "relative",
-        width: "100%",
-        aspectRatio: "389 / 100",
-        borderRadius: "11px 11px 0 0",
-        overflow: "hidden",
-        borderTop: "3px solid #16151a",
-        borderInline: "3px solid #16151a",
-        boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.22)",
-      }}
-    >
-      <div style={{ position: "absolute", inset: 0, backgroundImage: "url(/mac-wallpaper.webp)", backgroundSize: "cover", backgroundPosition: "50% 16%" }} />
-      <div
-        style={{
-          position: "absolute",
-          insetInline: 0,
-          top: 0,
-          height: "12%",
-          minHeight: 9,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 3.5%",
-          background: "rgba(28, 24, 20, 0.3)",
-          backdropFilter: "blur(2px)",
-          WebkitBackdropFilter: "blur(2px)",
-          color: "rgba(255, 255, 255, 0.92)",
-          fontSize: 7,
-          lineHeight: 1,
-        }}
-      >
-        <span style={{ fontWeight: 700 }}>Finder</span>
-        <span style={{ opacity: 0.9 }}>9:41</span>
-      </div>
-      <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "16%", height: 6, background: "#000", borderBottomLeftRadius: 5, borderBottomRightRadius: 5 }} />
-    </div>
-  );
-}
-
 // One-time dismissible heads-up on touch devices: the live demo needs a desktop pointer. Top corners follow the device screen radius.
 export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const isTouch = useIsTouchDevice();
@@ -161,7 +117,14 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
             letterSpacing: "-0.25px",
           }}
         >
-          <MacScreen />
+          {/* Device-screen mockup: bezel, notch, menu bar, wallpaper, and rounded top all baked into the PNG. */}
+          <img
+            src="/mac-mockup.png"
+            alt=""
+            aria-hidden
+            draggable={false}
+            style={{ display: "block", width: "100%", height: "auto" }}
+          />
 
           <div className="flex flex-col" style={{ gap: 8, padding: "0 4px", lineHeight: "24px" }}>
             <h2 className="m-0" style={{ fontSize: 16 }}>
