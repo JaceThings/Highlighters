@@ -3,7 +3,7 @@
 // MUST NOT throw (R34). The pure config/geometry path must produce a
 // deterministic result on the server with no browser globals present.
 // Failure here means SSR consumers (Next, Remix, Astro, edge runtimes)
-// would crash on import — a class of regression hard to catch in
+// would crash on import - a class of regression hard to catch in
 // DOM-emulated unit tests.
 import assert from "node:assert/strict";
 
