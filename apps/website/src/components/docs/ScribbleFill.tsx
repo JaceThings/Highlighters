@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { useMotionValueEvent, type MotionValue } from "framer-motion";
-import { makeZigzag, pointsUpTo, smoothStrokePath } from "./scribble-render.ts";
+import { makeZigzag, pointsUpTo, pointsBetween, smoothStrokePath } from "./scribble-render.ts";
 import { IS_WEBKIT } from "./is-webkit.ts";
 
 // The slider fill as a hand-scribbled sawtooth: the path is rebuilt over points up to the slider
@@ -44,12 +44,14 @@ export function ScribbleFill({
   const span = max - min === 0 ? 1 : max - min;
   const floorFrac = floor != null ? Math.max(0, Math.min(1, (floor - min) / span)) : 0;
 
-  // Redraw the smooth stroke up to the value fraction.
+  // Redraw the smooth stroke up to the value fraction. With a floor, start at floorFrac so the brown
+  // line begins where the blue floor squiggle ends instead of overlapping it.
   const draw = (v: number) => {
     const el = pathRef.current;
     if (!el) return;
     const f = Math.max(0, Math.min(1, (v - min) / span));
-    el.setAttribute("d", smoothStrokePath(pointsUpTo(pts, f)));
+    const seg = floor != null ? pointsBetween(pts, floorFrac, f) : pointsUpTo(pts, f);
+    el.setAttribute("d", smoothStrokePath(seg));
   };
   useIso(() => {
     draw(reported.get());
