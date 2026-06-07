@@ -20,10 +20,10 @@ The one catch: it smears fresh fountain-pen and gel ink. Over printed pages or b
 | To erase and redo | [Pilot FriXion Light](https://www.pilot-frixion.uk/uk/frixion-family/frixion-softslight/) | Heat-erasable ink, no crumbs. (Just don't leave it in a hot car.) |
 | Thin / Bible / planner paper | A gel or dry highlighter (see below) | They barely wet the page, so no bleed-through and no smearing the print. |
 | The reliable classic | [Stabilo Boss Original](https://www.stabilo.com/com/products/highlighting/highlighters/stabilo-boss-original/) | The icon since 1971. Huge colour range, refillable eco version exists. |
-| Smear-resistance over notes | [Staedtler Textsurfer Classic](https://www.staedtler.com/us/en/products/markers/highlighters/textsurfer-classic-364-highlighter-m364/) | Quick-drying, clear-window chisel, big ink reservoir. |
+| Smear-resistance over notes | [Staedtler Textsurfer Classic](https://www.staedtler.com/intl/en/products/markers/highlighters/textsurfer-classic-364-c-highlighter-364-cwp4/) | Quick-drying, clear-window chisel, big ink reservoir. |
 | Archival / won't fade | A pigment marker like [Sakura Pigma](https://www.sakuraofamerica.com/product/pigma-micron/) (liner) or [Tombow Kei Coat](https://www.tombow.com/en/products/kei_coat/) (highlighter) | Pigment is lightfast and water-resistant once dry. Dye fades. |
 | Low-waste / refillable | [Stabilo Green Boss](https://www.stabilo.com/com/products/highlighting/highlighters/stabilo-green-boss/) or [Schneider Job](https://schneiderpen.com/us/highlighter/job/1504) | 80%+ recycled, refillable, and they survive being left uncapped. |
-| Many widths in one pen | [Kokuyo Beetle Tip 3way](https://www.kokuyostore.com/en_US/beetle-tip-3-way-marking-pen-orange/PM-L301YR.html) | One nib does thin, broad, and a double line by angle. |
+| Many widths in one pen | [Kokuyo Beetle Tip 3way](https://www.kokuyostore.com/en_US/stationery/stationery-marker/beetle-tip-3-way-marking-pen-orange/PM-L301YR.html) | One nib does thin, broad, and a double line by angle. |
 | Cheap and everywhere | [Sharpie](https://www.sharpie.com/highlighters/) | Fine for printed handouts. Just not on thin paper, where it bleeds. |
 
 ## By use case
@@ -41,7 +41,7 @@ The [Uni Propus Window](https://www.mp-uni.com/th/en/product/propus-window/) fix
 Reach for a **gel or dry highlighter**: [Sharpie Gel](https://www.sharpie.com/highlighters/sharpie-gel-highlighters-bullet-tip/SP_1184439.html), a "Bible" gel highlighter from Pentel, or a twist-up wax stick. They lay down almost no liquid, so they don't bleed through tissue-thin pages or reactivate the printed ink. One honest caveat: bleed is partly a property of the paper, so even a "no-bleed" pen can ghost on the very thinnest stock. Test a corner first.
 
 ### Highlighting over your own pen ink
-Skip wet dye highlighters here. Use a **gel** or **dry** highlighter, or let your ink dry fully and reach for a smear-resistant wet one like the [Staedtler Textsurfer Classic](https://www.staedtler.com/us/en/products/markers/highlighters/textsurfer-classic-364-highlighter-m364/). Better still: if you know you'll highlight, write with ballpoint in the first place.
+Skip wet dye highlighters here. Use a **gel** or **dry** highlighter, or let your ink dry fully and reach for a smear-resistant wet one like the [Staedtler Textsurfer Classic](https://www.staedtler.com/intl/en/products/markers/highlighters/textsurfer-classic-364-c-highlighter-364-cwp4/). Better still: if you know you'll highlight, write with ballpoint in the first place.
 
 ### Journaling and the pretty stuff
 The [Mildliner](https://www.zebrapen.com/products/mildliner-double-ended-highlighter) basically started the muted-highlighter look; [Stabilo Boss Pastel](https://www.stabilo.com/com/products/highlighting/pastel-highlighters/stabilo-boss-original-pastel/) has the widest pastel range. Want shimmer? [Sun-Star LAMECO](https://www.jetpens.com/Sun-Star-LAMECO-Clear-Glitter-Marker-3-Color-Set/pd/50361) glitter markers are clear, so they add sparkle over writing without tinting it.
