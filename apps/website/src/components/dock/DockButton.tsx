@@ -103,10 +103,10 @@ export function DockNav({ pathname, className }: { pathname: string; className?:
 export function DockLinks({ className }: { className?: string }) {
   return (
     <div className={`flex items-center gap-[12px] ${className ?? ""}`}>
-      <DockButton label="Star" href={GITHUB_URL} clickSound={playNavHome}>
+      <DockButton label="Star" href={GITHUB_URL} clickSound={playNavDocs}>
         <StarIcon />
       </DockButton>
-      <DockButton label="Follow" href={FOLLOW_URL} clickSound={playNavDocs}>
+      <DockButton label="Follow" href={FOLLOW_URL} clickSound={playNavHome}>
         <PersonIcon />
       </DockButton>
     </div>
