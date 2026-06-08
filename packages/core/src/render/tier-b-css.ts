@@ -9,9 +9,9 @@
  * Nodes are pooled by stable line identity; `unmount()` leaves the DOM pristine.
  */
 
-import type { Renderer, RenderContext, MarkGeometry, PoolGradient } from "../types.js";
-import { NodePool, applyBoxPosition } from "./renderer.js";
-import { effectiveBlend } from "./blend.js";
+import type { Renderer, RenderContext, MarkGeometry, PoolGradient, ColorValue } from "../types.js";
+import { NodePool, applyBoxPosition, backdropElement } from "./renderer.js";
+import { effectiveInk } from "./blend.js";
 
 /**
  * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` with absolute-px stop positions
@@ -20,7 +20,7 @@ import { effectiveBlend } from "./blend.js";
  * pooling + dry-out while the band's layer opacity supplies the base. Without normalization the
  * per-stop alpha never renders and the band is flat.
  */
-export function poolGradientToCss(pool: PoolGradient): string {
+export function poolGradientToCss(pool: PoolGradient, colorOverride?: ColorValue): string {
   const stops = pool.stops;
   let maxAlpha = 0;
   for (const s of stops) maxAlpha = Math.max(maxAlpha, s.opacity ?? 1);
@@ -29,7 +29,8 @@ export function poolGradientToCss(pool: PoolGradient): string {
   const fill = (i: number): string => {
     const stop = stops[i] ?? stops[0];
     const rel = maxAlpha > 0 ? (stop?.opacity ?? 1) / maxAlpha : 1;
-    return `color-mix(in srgb, ${stop?.color ?? "transparent"} ${Math.round(rel * 100)}%, transparent)`;
+    const color = colorOverride ?? stop?.color ?? "transparent";
+    return `color-mix(in srgb, ${color} ${Math.round(rel * 100)}%, transparent)`;
   };
 
   // Live-speed path: N core stops at pre-computed px positions between the two pool ends; no nested calc/min/max, so it parses everywhere.
@@ -71,7 +72,12 @@ export function createCssRenderer(): Renderer {
   const bandPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
 
-  function styleBand(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
+  function styleBand(
+    el: HTMLElement,
+    line: MarkGeometry,
+    context: RenderContext,
+    inkColor: ColorValue | undefined,
+  ): void {
     const { options } = context;
     const s = el.style;
     s.position = "absolute";
@@ -83,7 +89,7 @@ export function createCssRenderer(): Renderer {
     s.mixBlendMode = options.blendMode;
     // layerScale (live-speed path only, else 1) carries the band's absolute deposit so a uniformly-fast swipe dims here rather than normalizing to full.
     s.opacity = String(options.opacity * (line.pool.layerScale ?? 1));
-    s.backgroundImage = poolGradientToCss(line.pool);
+    s.backgroundImage = poolGradientToCss(line.pool, inkColor);
     s.backgroundRepeat = "no-repeat";
     (s as CSSStyleDeclaration & { boxDecorationBreak?: string }).boxDecorationBreak = "clone";
     s.borderRadius = `${options.edge.radius}px`;
@@ -93,7 +99,9 @@ export function createCssRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    container.style.mixBlendMode = effectiveBlend(context.options.blendMode, context.options.color, doc);
+    const ink = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
+    container.style.mixBlendMode = ink.blend;
+    const inkColor = ink.color === context.options.color ? undefined : ink.color;
     const keep = new Set<number>();
 
     for (const line of context.lines) {
@@ -116,7 +124,7 @@ export function createCssRenderer(): Renderer {
         wrapper.appendChild(band);
         bandPool.set(line.seed, band);
       }
-      styleBand(band, line, context);
+      styleBand(band, line, context, inkColor);
     }
 
     // Release vanished lines (the wrapper takes its band child with it); survivors keep their identical subtree.

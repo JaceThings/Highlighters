@@ -1,7 +1,15 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 
-import { colorMinChannel, effectiveBlend } from "../src/render/blend.js";
+import { colorMinChannel, effectiveInk } from "../src/render/blend.js";
+
+/** A detached element whose computed background-color resolves to `bg` (happy-dom reads inline style). */
+function backdrop(bg: string): HTMLElement {
+  const el = document.createElement("div");
+  el.style.backgroundColor = bg;
+  document.body.appendChild(el);
+  return el;
+}
 
 describe("colorMinChannel", () => {
   it("reads the smallest channel of 6-digit hex", () => {
@@ -34,29 +42,48 @@ describe("colorMinChannel", () => {
   });
 });
 
-describe("effectiveBlend", () => {
+describe("effectiveInk", () => {
   const doc = document;
 
-  it("switches a near-white multiply ink to normal so it stays visible", () => {
-    expect(effectiveBlend("multiply", "#ffffff", doc)).toBe("normal");
-    expect(effectiveBlend("multiply", "#fafafa", doc)).toBe("normal");
-    expect(effectiveBlend("multiply", "rgb(255, 250, 245)", doc)).toBe("normal");
+  it("keeps a saturated or mid ink on multiply, unchanged", () => {
+    expect(effectiveInk("multiply", "#fff14d", backdrop("#fff"), doc)).toEqual({
+      blend: "multiply",
+      color: "#fff14d",
+    });
+    expect(effectiveInk("multiply", "#cccccc", backdrop("#000"), doc)).toEqual({
+      blend: "multiply",
+      color: "#cccccc",
+    });
   });
 
-  it("keeps multiply for saturated and mid inks", () => {
-    expect(effectiveBlend("multiply", "#fff14d", doc)).toBe("multiply"); // yellow
-    expect(effectiveBlend("multiply", "#ff6fae", doc)).toBe("multiply"); // pink
-    expect(effectiveBlend("multiply", "#cccccc", doc)).toBe("multiply"); // mid grey, below threshold
+  it("paints a near-white ink as a normal wash on a dark backdrop", () => {
+    expect(effectiveInk("multiply", "#ffffff", backdrop("#0a0a0a"), doc)).toEqual({
+      blend: "normal",
+      color: "#ffffff",
+    });
   });
 
-  it("respects an explicit non-multiply blend regardless of colour", () => {
-    expect(effectiveBlend("screen", "#ffffff", doc)).toBe("screen");
-    expect(effectiveBlend("normal", "#fff14d", doc)).toBe("normal");
-    expect(effectiveBlend("darken", "#ffffff", doc)).toBe("darken");
+  it("darkens a near-white ink to an off-white multiply wash on a light backdrop", () => {
+    const r = effectiveInk("multiply", "#ffffff", backdrop("#fbfbf9"), doc);
+    expect(r.blend).toBe("multiply");
+    expect(r.color).not.toBe("#ffffff");
+    expect(colorMinChannel(r.color)).toBeLessThan(255); // an actual off-white, not pure white
   });
 
-  it("keeps multiply when the colour can't be parsed (safe default)", () => {
-    // happy-dom has no canvas colour parsing, so named colours fall through to multiply here.
-    expect(effectiveBlend("multiply", "rebeccapurple", doc)).toBe("multiply");
+  it("assumes a light page when no opaque backdrop is found", () => {
+    const r = effectiveInk("multiply", "#ffffff", backdrop("transparent"), doc);
+    expect(r.blend).toBe("multiply");
+    expect(r.color).not.toBe("#ffffff");
+  });
+
+  it("respects an explicit non-multiply blend regardless of colour or backdrop", () => {
+    expect(effectiveInk("screen", "#ffffff", backdrop("#000"), doc)).toEqual({
+      blend: "screen",
+      color: "#ffffff",
+    });
+    expect(effectiveInk("normal", "#fff14d", backdrop("#fff"), doc)).toEqual({
+      blend: "normal",
+      color: "#fff14d",
+    });
   });
 });

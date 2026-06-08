@@ -16,10 +16,10 @@
  * Nodes are pooled by stable line identity; `unmount()` leaves the DOM pristine.
  */
 
-import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions } from "../types.js";
-import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce } from "./renderer.js";
+import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions, ColorValue } from "../types.js";
+import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce, backdropElement } from "./renderer.js";
 import { poolGradientToCss } from "./tier-b-css.js";
-import { effectiveBlend } from "./blend.js";
+import { effectiveInk } from "./blend.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -183,6 +183,7 @@ export function createSvgRenderer(): Renderer {
     line: MarkGeometry,
     context: RenderContext,
     filterValue: string,
+    inkColor: ColorValue | undefined,
   ): void {
     const { options } = context;
     const { ink } = options;
@@ -199,7 +200,7 @@ export function createSvgRenderer(): Renderer {
     );
     s.opacity = String(round3(effectiveAlpha));
 
-    setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool));
+    setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool, inkColor));
     s.backgroundRepeat = "no-repeat";
     setVendorPrefixed(el, "clipPath", line.clipPath);
     // Offset-sampled, fixed-px, repeated noise tile as a mask so the gradient shows through the grain. Sampled by offsetting the window, never rescaling it.
@@ -239,7 +240,9 @@ export function createSvgRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    container.style.mixBlendMode = effectiveBlend(context.options.blendMode, context.options.color, doc);
+    const composite = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
+    container.style.mixBlendMode = composite.blend;
+    const inkColor = composite.color === context.options.color ? undefined : composite.color;
     // Intern the edge filter once: it depends only on doc + options, so it's invariant across a mark's lines.
     const defs = getSharedDefs(doc);
     const filterParams = resolveEdgeFilter(context.options);
@@ -276,7 +279,7 @@ export function createSvgRenderer(): Renderer {
         styleGlow(glow, line, context);
       }
 
-      styleInk(ink, line, context, filterValue);
+      styleInk(ink, line, context, filterValue, inkColor);
     }
 
     // A vanished line's wrapper (with its ink/glow children) is removed as a unit; survivors keep their exact subtree.

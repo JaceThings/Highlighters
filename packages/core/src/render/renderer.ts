@@ -12,7 +12,7 @@
  * its exact node and never flickers when the line set changes. {@link teardownContainer} leaves the DOM as it was.
  */
 
-import type { Box } from "../types.js";
+import type { Box, RenderContext } from "../types.js";
 
 export type { Renderer, RenderContext } from "../types.js";
 
@@ -57,6 +57,13 @@ export function setStyleOnce(el: HTMLElement, prop: string, value: string): void
   applyOnce(el, prop, value, () => {
     (el.style as CSSStyleDeclaration & Record<string, string>)[prop] = value;
   });
+}
+
+/** The element behind a mark's first range, for backdrop-aware ink choices. Falls back to the overlay host. */
+export function backdropElement(context: RenderContext): Element | null {
+  const node = context.ranges[0]?.commonAncestorContainer;
+  const el = node instanceof Element ? node : (node?.parentElement ?? null);
+  return el ?? context.container.parentElement;
 }
 
 /** Place an element as an absolutely-positioned px box from a {@link Box}. */
