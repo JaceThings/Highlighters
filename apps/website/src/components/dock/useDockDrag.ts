@@ -877,6 +877,21 @@ export function useDockDrag({
     [onDragStart, slotFor, stopAll, x, y, width, height, markerOpacity, markerOffsetX, markerOffsetY, markerReveal, penRotation, frozen, recenter, setCollapsed, setPreview, setPhase, onMove, onUp],
   );
 
+  // onHandlePointerDown adds the window listeners and width/height subscriptions imperatively,
+  // outside React's tree, so an unmount mid-gesture would leak them. onMove/onUp are referentially
+  // stable, so this cleanup only fires on a real unmount, never mid-drag.
+  useEffect(() => {
+    return () => {
+      if (!sessionRef.current) return;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      recenterUnsubs.current.forEach((u) => u());
+      recenterUnsubs.current = [];
+      sessionRef.current = null;
+    };
+  }, [onMove, onUp]);
+
   return {
     phase,
     side,
