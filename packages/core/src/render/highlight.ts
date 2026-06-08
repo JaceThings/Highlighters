@@ -358,6 +358,8 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       return true;
     }
     if (anchor !== currentHost) {
+      // createOverlayContainer only promotes at creation, so re-parenting to a new host needs its
+      // own static->relative check before moving the overlay in.
       const view = anchor.ownerDocument.defaultView;
       if (view && view.getComputedStyle(anchor).position === "static") {
         anchor.style.position = "relative";
@@ -458,10 +460,12 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   // are skipped rather than drawn.
   const sample = (): void => {
     if (!tracker || !dragging || !resolved.speed.enabled) return;
+    // sample() runs on selectionchange, before the rAF render's ensureAnchor creates the container.
+    if (!container) return;
     const selection = document.getSelection();
     if (!selection || selection.isCollapsed) return;
     // Same container-local px space buildLines projects into, so the lookup is exact during the drag.
-    const origin = container!.getBoundingClientRect();
+    const origin = container.getBoundingClientRect();
     tracker.recordSample(
       selection,
       origin.left,
