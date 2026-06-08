@@ -495,9 +495,11 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       container!.style.opacity = "0";
       clearTimer = setTimeout(() => {
         clearTimer = null;
+        // remove() may have nulled the container after this timer was queued (clearTimeout no-ops once enqueued).
+        if (!container) return;
         renderer?.update(rebuild([], false));
-        container!.style.transition = "";
-        container!.style.opacity = "";
+        container.style.transition = "";
+        container.style.opacity = "";
       }, CLEAR_FADE_MS);
       return;
     }
