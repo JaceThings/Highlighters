@@ -45,11 +45,30 @@ const EXPAND_FADE = 0.16;
 // no stranded half-state if the pointer moves mid-collapse. Critically damped (damping >= 2*sqrt(k))
 // so the shape eases to the circle with no overshoot.
 const COLLAPSE = { type: "spring", stiffness: 400, damping: 42 } as const;
-// Preview morph (circle <-> docked) and snap-to-side / return-to-bottom settle.
+// Preview morph (circle <-> docked) and the live, anchored transitions.
 const MORPH = { type: "spring", stiffness: 460, damping: 42 } as const;
+// Commit settle (release -> docked bottom/side): softer + slower than MORPH so the circle eases into the
+// dock unhurriedly and lands with a small, gentle overshoot (~2%) that oscillates back slowly rather than
+// snapping. Lower stiffness = the slower travel AND the slower, gentler bounce; the slight underdamping
+// is the overshoot. `velocity: 0` starts it from rest so the overshoot is a designed, constant amount
+// rather than scaling with how hard the release was thrown. The pen's rotation + reveal stay on MORPH so
+// the marker never over-rotates.
+const SETTLE = { type: "spring", stiffness: 300, damping: 27, velocity: 0 } as const;
 // Rotation snap: the pen jumps (springs) fully to its docked angle on entering an edge zone, back to
 // upright on leaving - it does NOT track the cursor angle.
 const ROT_SNAP = { type: "spring", stiffness: 520, damping: 38 } as const;
+
+// One useState whose latest value is also mirrored to a ref, so the stable pointer handlers can read it
+// synchronously (state lags a render; the ref doesn't). Returns [value, ref, set]; `set` updates both.
+function useStateRef<T>(initial: T) {
+  const [value, setValue] = useState(initial);
+  const ref = useRef(value);
+  const set = useCallback((next: T) => {
+    ref.current = next;
+    setValue(next);
+  }, []);
+  return [value, ref, set] as const;
+}
 
 const sideRotation = (s: DockSide): number => (s === "left" ? 90 : -90);
 // Pen facing for a free circle centered at `cx`: faces the nearer edge (inward) within a generous
@@ -113,8 +132,6 @@ export interface DockDrag {
   /** Which dock the collapsed circle is currently previewing (expanded), or null for a free circle. */
   preview: DockTarget | null;
   geometry: DockGeometry;
-  /** True while a dock drag occupies the tray (no live canvas marker, fixed positioning). */
-  active: boolean;
   /** Bind to the grab handle's onPointerDown. */
   onHandlePointerDown: (e: ReactPointerEvent) => void;
   /** Keep the hook's view of layout/viewport sizes current; repositions the resting tray. */
@@ -184,21 +201,19 @@ export function useDockDrag({
   const freezeCy = useMotionValue(0);
   const frozen = useMotionValue(0);
 
-  const [phase, setPhase] = useState<DockPhase>("bottom");
-  const [side, setSide] = useState<DockSide | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
-  const [preview, setPreview] = useState<DockTarget | null>(null);
+  // State + a ref mirror for each (the pointer handlers read the refs synchronously; see useStateRef).
+  const [phase, phaseRef, setPhase] = useStateRef<DockPhase>("bottom");
+  const [side, sideRef, setSide] = useStateRef<DockSide | null>(null);
+  const [collapsed, collapsedRef, setCollapsed] = useStateRef(false);
+  const [preview, previewRef, setPreview] = useStateRef<DockTarget | null>(null);
 
-  // Refs mirror state so the (stable) pointer handlers read the live values.
-  const phaseRef = useRef<DockPhase>("bottom");
-  const sideRef = useRef<DockSide | null>(null);
-  const collapsedRef = useRef(false);
-  const previewRef = useRef<DockTarget | null>(null);
   // When true the circle tracks the pointer; false while a preview/transition owns x/y (anchored).
   const followRef = useRef(true);
-  // A side-dock drag's origin side stays disarmed (won't re-preview/snap) until the circle leaves that
-  // edge's zone, so grabbing a side dock yields a forgiving circle instead of instantly re-docking.
-  const disarmedSideRef = useRef<DockSide | null>(null);
+  // The drag's origin dock stays disarmed (won't re-preview/snap) until the circle leaves that dock's
+  // zone, so grabbing a dock yields a forgiving free circle instead of instantly re-docking. Crucially
+  // this includes the BOTTOM: grabbing the bottom dock disarms the bottom band, so a horizontal drag
+  // along the floor becomes a pointer-following circle (iPadOS-style) instead of snapping to centre.
+  const disarmedRef = useRef<DockTarget | null>(null);
   const sessionRef = useRef<DragSession | null>(null);
   // Live subscriptions that recenter the circle during the collapse spring; torn down on release.
   const recenterUnsubs = useRef<Array<() => void>>([]);
@@ -235,23 +250,6 @@ export function useDockDrag({
   // A state mirror of the sizes so resting placement runs as a reactive effect (deterministic after
   // commit, unlike an imperative set during the mount measure which raced framer's subscription).
   const [sizesState, setSizesState] = useState<DockSizes>(initialSizes);
-
-  const setPhaseBoth = useCallback((next: DockPhase) => {
-    phaseRef.current = next;
-    setPhase(next);
-  }, []);
-  const setSideBoth = useCallback((next: DockSide | null) => {
-    sideRef.current = next;
-    setSide(next);
-  }, []);
-  const setCollapsedBoth = useCallback((next: boolean) => {
-    collapsedRef.current = next;
-    setCollapsed(next);
-  }, []);
-  const setPreviewBoth = useCallback((next: DockTarget | null) => {
-    previewRef.current = next;
-    setPreview(next);
-  }, []);
 
   // Register a tween so it can be cancelled later. `stopAll` cancels every tracked tween and bumps the
   // generation, invalidating any pending settle `done`. Called at the start of every transition and on
@@ -383,44 +381,24 @@ export function useDockDrag({
     return { w, h, radius: w / 2, x: tx, y: (viewport.height - h) / 2 };
   }, []);
 
-  // Snap the geometry to the bottom rest capsule. Instant: only called at rest / on resize. The feather
-  // is owned by the motion controller (it eases out once the shape stops), so placement never touches it
-  // - hard-zeroing it here is what produced the mask pop.
-  const placeBottom = useCallback(() => {
-    stopAll();
-    const b = boxFor("bottom");
-    width.set(b.w);
-    height.set(b.h);
-    cornerRadius.set(b.radius);
-    x.set(b.x);
-    y.set(b.y);
-    horizontalOpacity.set(1);
-    verticalOpacity.set(0);
-    markerOpacity.set(0);
-    penRotation.set(0);
-    rotateTargetRef.current = 0;
-    markerOffsetX.set(0);
-    markerOffsetY.set(0);
-    markerReveal.set(0);
-    frozen.set(0);
-  }, [stopAll, boxFor, width, height, cornerRadius, x, y, horizontalOpacity, verticalOpacity, markerOpacity, penRotation, markerOffsetX, markerOffsetY, markerReveal, frozen]);
-
-  // Snap the geometry to a side pill. Instant: at rest after a side settle / on resize. Feather is the
-  // motion controller's job (see placeBottom).
-  const placeSide = useCallback(
-    (s: DockSide) => {
+  // Snap the geometry to a target's rest box (bottom capsule or side pill). Instant: only called at rest
+  // / on resize. The feather is owned by the motion controller (it eases out once the shape stops), so
+  // placement never touches it - hard-zeroing it here is what produced the mask pop.
+  const place = useCallback(
+    (target: DockTarget) => {
       stopAll();
-      const b = boxFor(s);
+      const b = boxFor(target);
+      const rot = target === "bottom" ? 0 : sideRotation(target);
       width.set(b.w);
       height.set(b.h);
       cornerRadius.set(b.radius);
       x.set(b.x);
       y.set(b.y);
-      horizontalOpacity.set(0);
-      verticalOpacity.set(1);
+      horizontalOpacity.set(target === "bottom" ? 1 : 0);
+      verticalOpacity.set(target === "bottom" ? 0 : 1);
       markerOpacity.set(0);
-      penRotation.set(sideRotation(s));
-      rotateTargetRef.current = sideRotation(s);
+      penRotation.set(rot);
+      rotateTargetRef.current = rot;
       markerOffsetX.set(0);
       markerOffsetY.set(0);
       markerReveal.set(0);
@@ -446,14 +424,15 @@ export function useDockDrag({
   // Reposition the resting tray whenever sizes/phase settle. Skipped mid-drag and during the
   // snap/return animations (which own the values until they finish and flip phase here).
   useEffect(() => {
-    if (phase === "bottom") placeBottom();
-    else if (phase === "side" && side) placeSide(side);
-  }, [sizesState, phase, side, placeBottom, placeSide]);
+    if (phase === "bottom") place("bottom");
+    else if (phase === "side" && side) place(side);
+  }, [sizesState, phase, side, place]);
 
-  // Animate `geom` (spring) + `fades` (tween) to targets, then run `done`. Reduced motion: jump.
+  // Animate `geom` (spring; per-entry transition, default the bouncy SETTLE) + `fades` (tween) to
+  // targets, then run `done`. Reduced motion: jump.
   const settle = useCallback(
     (
-      geom: [MotionValue<number>, number][],
+      geom: [MotionValue<number>, number, Transition?][],
       fades: [MotionValue<number>, number][],
       done: () => void,
     ) => {
@@ -467,7 +446,7 @@ export function useDockDrag({
         return;
       }
       const gen = genRef.current;
-      const controls = geom.map(([mv, v]) => track(animate(mv, v, MORPH)));
+      const controls = geom.map(([mv, v, tr]) => track(animate(mv, v, tr ?? SETTLE)));
       // Expand timing: let the carried pen land in its slot before the contents arrive. The appearing
       // layer (target 1) fades in after EXPAND_FADE; the layer fading OUT (target 0) is not delayed.
       const fadeControls = fades.map(([mv, v]) =>
@@ -509,11 +488,14 @@ export function useDockDrag({
   );
 
   // Which dock the collapsed circle should preview for a center at (cx, cy), or null for a free circle.
+  // The bottom band wins FIRST (incl. the bottom corners): the side zones are only the edges ABOVE it, so
+  // dragging along the floor previews the bottom dock instead of flipping to a side pill that snaps up to
+  // mid-screen. (The bottom corners overlap both zones; without this they'd read as a side dock.)
   const targetFor = useCallback((cx: number, cy: number): DockTarget | null => {
     const { width: vw, height: vh } = sizesRef.current.viewport;
-    if (cx <= SNAP_ZONE && disarmedSideRef.current !== "left") return "left";
-    if (cx >= vw - SNAP_ZONE && disarmedSideRef.current !== "right") return "right";
-    if (cy >= vh - BOTTOM_ZONE) return "bottom";
+    if (cy >= vh - BOTTOM_ZONE && disarmedRef.current !== "bottom") return "bottom";
+    if (cx <= SNAP_ZONE && disarmedRef.current !== "left") return "left";
+    if (cx >= vw - SNAP_ZONE && disarmedRef.current !== "right") return "right";
     return null;
   }, []);
 
@@ -521,7 +503,7 @@ export function useDockDrag({
   // pen glides to the dock's slot (or back to centre) - it stays the same visible pen the whole time.
   const previewTo = useCallback(
     (target: DockTarget | null, s: DragSession) => {
-      // The preview we're leaving (read before setPreviewBoth overwrites the ref below): used to tell a
+      // The preview we're leaving (read before setPreview overwrites the ref below): used to tell a
       // side<->side crossing (row already on screen) from a fresh circle->side entry (row still hidden).
       const prevPreview = previewRef.current;
       stopAll();
@@ -529,7 +511,7 @@ export function useDockDrag({
       frozen.set(0);
       freeMorphRef.current = false;
       freePosCtrls.current = [];
-      setPreviewBoth(target);
+      setPreview(target);
       followRef.current = false;
       if (target !== null) {
         const b = boxFor(target);
@@ -640,7 +622,7 @@ export function useDockDrag({
         recenter();
       });
     },
-    [stopAll, track, setPreviewBoth, boxFor, slotFor, runWhen, rotateWhenCircular, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, feather, frozen, horizontalOpacity, verticalOpacity, retargetFreePos, recenter],
+    [stopAll, track, setPreview, boxFor, slotFor, runWhen, rotateWhenCircular, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, feather, frozen, horizontalOpacity, verticalOpacity, retargetFreePos, recenter],
   );
 
   // Pinch the (lifted) pill into the circle: spring-driven collapse, fade the contents out, carry the
@@ -650,8 +632,8 @@ export function useDockDrag({
       stopAll();
       freeMorphRef.current = false;
       freePosCtrls.current = [];
-      setCollapsedBoth(true);
-      setPreviewBoth(null);
+      setCollapsed(true);
+      setPreview(null);
       followRef.current = true;
       // Freeze the fading contents at their current on-screen centre so the capsule->circle narrowing
       // doesn't push them sideways - they dissolve in place while the selected pen carries to centre.
@@ -694,7 +676,7 @@ export function useDockDrag({
       track(animate(markerOffsetY, 0, COLLAPSE));
       track(animate(markerReveal, 1, COLLAPSE));
     },
-    [stopAll, track, setCollapsedBoth, setPreviewBoth, markerOffsetX, markerOffsetY, markerReveal, width, height, cornerRadius, x, y, freezeCx, freezeCy, frozen, feather, horizontalOpacity, verticalOpacity, recenter],
+    [stopAll, track, setCollapsed, setPreview, markerOffsetX, markerOffsetY, markerReveal, width, height, cornerRadius, x, y, freezeCx, freezeCy, frozen, feather, horizontalOpacity, verticalOpacity, recenter],
   );
 
   const onMove = useCallback(
@@ -710,10 +692,14 @@ export function useDockDrag({
         if (dist > LIFT_DISTANCE) collapse();
         return;
       }
-      const vw = sizesRef.current.viewport.width;
-      // Re-arm a side's preview/snap once the circle has left that edge's zone (so the origin re-arms).
-      if (disarmedSideRef.current === "left" && s.centerX > SNAP_ZONE) disarmedSideRef.current = null;
-      if (disarmedSideRef.current === "right" && s.centerX < vw - SNAP_ZONE) disarmedSideRef.current = null;
+      const { width: vw, height: vh } = sizesRef.current.viewport;
+      // Re-arm a dock's preview/snap once the circle has left that zone (so the origin re-arms). The
+      // bottom re-arms by lifting clear of the floor band, so the floor only re-docks on a deliberate
+      // return — a horizontal drag stays a free circle until then.
+      const dr = disarmedRef.current;
+      if (dr === "left" && s.centerX > SNAP_ZONE) disarmedRef.current = null;
+      else if (dr === "right" && s.centerX < vw - SNAP_ZONE) disarmedRef.current = null;
+      else if (dr === "bottom" && s.centerY < vh - BOTTOM_ZONE) disarmedRef.current = null;
       // Collapsed: preview the dock at whatever edge/bottom the circle is over (or stay a free circle).
       const target = targetFor(s.centerX, s.centerY);
       if (target !== previewRef.current) previewTo(target, s);
@@ -731,59 +717,38 @@ export function useDockDrag({
     [recenter, collapse, targetFor, previewTo, rotateWhenCircular, retargetFreePos],
   );
 
-  const goSide = useCallback(
-    (s: DockSide) => {
-      setSideBoth(s);
-      setPhaseBoth("snapping");
-      const b = boxFor(s);
-      const slot = slotFor(s);
+  // Settle the released drag onto a target dock: spring the shape/slot home and crossfade the layouts.
+  // Marker opacity stays 1 through the settle; the rest-place (place) hands it back to the row pen.
+  const commitTo = useCallback(
+    (target: DockTarget) => {
+      const bottom = target === "bottom";
+      setSide(bottom ? null : target);
+      setPhase(bottom ? "returning" : "snapping");
+      const b = boxFor(target);
+      const slot = slotFor(target);
       settle(
         [
+          // Shape + position + the pen's slot ride the bouncy SETTLE so the dock lands with a tiny
+          // overshoot; the pen's rotation + reveal stay on MORPH so the marker doesn't over-rotate.
           [width, b.w],
           [height, b.h],
           [cornerRadius, b.radius],
           [x, b.x],
           [y, b.y],
-          [penRotation, sideRotation(s)],
+          [penRotation, bottom ? 0 : sideRotation(target), MORPH],
           [markerOffsetX, slot.x],
           [markerOffsetY, slot.y],
-          [markerReveal, 0],
+          [markerReveal, 0, MORPH],
         ],
-        // Marker opacity stays 1 through the settle; the rest-place hands it back to the row pen.
         [
-          [horizontalOpacity, 0],
-          [verticalOpacity, 1],
+          [horizontalOpacity, bottom ? 1 : 0],
+          [verticalOpacity, bottom ? 0 : 1],
         ],
-        () => setPhaseBoth("side"),
+        () => setPhase(bottom ? "bottom" : "side"),
       );
     },
-    [setSideBoth, setPhaseBoth, settle, boxFor, slotFor, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, horizontalOpacity, verticalOpacity],
+    [setSide, setPhase, settle, boxFor, slotFor, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, horizontalOpacity, verticalOpacity],
   );
-
-  const goBottom = useCallback(() => {
-    setSideBoth(null);
-    setPhaseBoth("returning");
-    const b = boxFor("bottom");
-    const slot = slotFor("bottom");
-    settle(
-      [
-        [width, b.w],
-        [height, b.h],
-        [cornerRadius, b.radius],
-        [x, b.x],
-        [y, b.y],
-        [penRotation, 0],
-        [markerOffsetX, slot.x],
-        [markerOffsetY, slot.y],
-        [markerReveal, 0],
-      ],
-      [
-        [horizontalOpacity, 1],
-        [verticalOpacity, 0],
-      ],
-      () => setPhaseBoth("bottom"),
-    );
-  }, [setSideBoth, setPhaseBoth, settle, boxFor, slotFor, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, horizontalOpacity, verticalOpacity]);
 
   const onUp = useCallback(
     (e: PointerEvent) => {
@@ -801,25 +766,21 @@ export function useDockDrag({
       followRef.current = true;
       freeMorphRef.current = false;
       freePosCtrls.current = [];
-      setCollapsedBoth(false);
-      setPreviewBoth(null);
+      setCollapsed(false);
+      setPreview(null);
       if (wasCollapsed) {
         // Commit whatever was previewed; otherwise a free circle commits to the way the marker is
         // facing (its on-screen destination), and only an upright circle returns to the bottom.
-        const commit =
+        const dest: DockTarget =
           target ??
-          (rotateTargetRef.current === 90 ? "left" : rotateTargetRef.current === -90 ? "right" : null);
-        if (commit === "left") goSide("left");
-        else if (commit === "right") goSide("right");
-        else goBottom();
-      } else if (origin) {
-        // Released during the lift, before collapse: settle back to where it came from.
-        goSide(origin);
+          (rotateTargetRef.current === 90 ? "left" : rotateTargetRef.current === -90 ? "right" : "bottom");
+        commitTo(dest);
       } else {
-        goBottom();
+        // Released during the lift, before collapse: settle back to where it came from (or bottom).
+        commitTo(origin ?? "bottom");
       }
     },
-    [onMove, goSide, goBottom, setCollapsedBoth, setPreviewBoth],
+    [onMove, commitTo, setCollapsed, setPreview],
   );
 
   const onHandlePointerDown = useCallback(
@@ -854,11 +815,12 @@ export function useDockDrag({
       followRef.current = true;
       freeMorphRef.current = false;
       freePosCtrls.current = [];
-      // Keep the side we came from from instantly re-docking/uprighting until we leave its zone.
-      disarmedSideRef.current = sideRef.current;
-      setCollapsedBoth(false);
-      setPreviewBoth(null);
-      setPhaseBoth("dragging");
+      // Keep the dock we came from from instantly re-docking until we leave its zone (bottom included,
+      // so a horizontal drag off the floor becomes a free circle instead of snapping back to centre).
+      disarmedRef.current = originTarget;
+      setCollapsed(false);
+      setPreview(null);
+      setPhase("dragging");
       // Lift phase: keep the intact pill + its contents and let it follow the pointer (onMove) until
       // lifted past LIFT_DISTANCE. Seed the carried overlay RIGHT NOW, sitting exactly on the selected
       // pen's slot at its docked facing: it stands in for the row's selected pen (hidden atomically via
@@ -879,7 +841,7 @@ export function useDockDrag({
       window.addEventListener("pointerup", onUp);
       window.addEventListener("pointercancel", onUp);
     },
-    [onDragStart, slotFor, stopAll, x, y, width, height, markerOpacity, markerOffsetX, markerOffsetY, markerReveal, penRotation, frozen, recenter, setCollapsedBoth, setPreviewBoth, setPhaseBoth, onMove, onUp],
+    [onDragStart, slotFor, stopAll, x, y, width, height, markerOpacity, markerOffsetX, markerOffsetY, markerReveal, penRotation, frozen, recenter, setCollapsed, setPreview, setPhase, onMove, onUp],
   );
 
   return {
@@ -887,7 +849,6 @@ export function useDockDrag({
     side,
     collapsed,
     preview,
-    active: phase !== "bottom",
     geometry: {
       x,
       y,

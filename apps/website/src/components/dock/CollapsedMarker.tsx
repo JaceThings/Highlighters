@@ -11,6 +11,9 @@ import type { PenTip } from "../../selection-style.tsx";
 // it's masked by the circle's curve (the pen clipped to the round shape, not a flat cut). It is never
 // shrunk. `reveal` (0 slot, 1 circle) just nudges it up so the masked pen sits centred in the circle.
 const CENTER_SHIFT = FRAME_H / 2 - (REST_TOP - SELECTED_RISE + FRAME_H) / 2;
+// ...then drop it a few px below dead-centre, which reads better (nib has more headroom) in the circle.
+const CIRCLE_DROP = 7;
+const CIRCLE_SHIFT = CENTER_SHIFT + CIRCLE_DROP;
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (v: number, max: number) => (v > max ? max : v < -max ? -max : v);
 // Keep the carried pen's frame centre this far inside the shape's edge, so its visible body never
@@ -67,10 +70,10 @@ export function CollapsedMarker({
     },
     [offsetX, offsetY, rotation, shapeWidth, shapeHeight],
   );
-  // Nudge the clipped unit up so its visible window centres in the circle (no shrink, no un-clip).
+  // Nudge the clipped unit up to sit (a touch below) centred in the circle (no shrink, no un-clip).
   const applyReveal = useCallback(
     (el: HTMLElement | SVGElement) => {
-      el.style.transform = `translateY(${lerp(0, CENTER_SHIFT, reveal.get())}px)`;
+      el.style.transform = `translateY(${lerp(0, CIRCLE_SHIFT, reveal.get())}px)`;
     },
     [reveal],
   );
