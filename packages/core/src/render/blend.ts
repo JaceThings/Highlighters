@@ -77,13 +77,14 @@ function minChannel(color: ColorValue, doc: Document): number | null {
   return null;
 }
 
-/** Walk up from `el` to the first opaque background; light when its luminance >= 0.5. Unknown reads as light (default page canvas is white). */
+/** Walk up from `el` to the first mostly-opaque background; light when its luminance >= 0.5. Unknown reads as light (default page canvas is white). */
 function backdropIsLight(el: Element | null, doc: Document): boolean {
   const view = doc.defaultView;
   if (!view) return true;
   for (let node = el; node; node = node.parentElement) {
+    // Skip near-transparent layers (e.g. a faint scrim) so the real surface below decides the verdict.
     const c = parseRgba(view.getComputedStyle(node).backgroundColor);
-    if (c && c[3] > 0) return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255 >= 0.5;
+    if (c && c[3] > 0.5) return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255 >= 0.5;
   }
   return true;
 }
