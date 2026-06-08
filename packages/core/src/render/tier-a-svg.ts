@@ -16,9 +16,10 @@
  * Nodes are pooled by stable line identity; `unmount()` leaves the DOM pristine.
  */
 
-import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions } from "../types.js";
-import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce } from "./renderer.js";
+import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions, ColorValue } from "../types.js";
+import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce, backdropElement, createBlendLayer } from "./renderer.js";
 import { poolGradientToCss } from "./tier-b-css.js";
+import { effectiveInk } from "./blend.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -166,6 +167,9 @@ export function createSvgRenderer(): Renderer {
   const inkPool = new NodePool<HTMLElement>();
   const glowPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
+  // A private `normal`-blend layer for a near-white ink on a dark backdrop, so it escapes the shared
+  // multiply container without flipping its blend (which would knock sibling marks out of multiply).
+  let blendLayer: HTMLElement | null = null;
 
   /** Place a child node at `inset: 0` of its wrapper (fills the line box). */
   function fillWrapper(el: HTMLElement): void {
@@ -182,6 +186,7 @@ export function createSvgRenderer(): Renderer {
     line: MarkGeometry,
     context: RenderContext,
     filterValue: string,
+    inkColor: ColorValue | undefined,
   ): void {
     const { options } = context;
     const { ink } = options;
@@ -198,7 +203,7 @@ export function createSvgRenderer(): Renderer {
     );
     s.opacity = String(round3(effectiveAlpha));
 
-    setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool));
+    setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool, inkColor));
     s.backgroundRepeat = "no-repeat";
     setVendorPrefixed(el, "clipPath", line.clipPath);
     // Offset-sampled, fixed-px, repeated noise tile as a mask so the gradient shows through the grain. Sampled by offsetting the window, never rescaling it.
@@ -238,6 +243,11 @@ export function createSvgRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
+    // Near-white ink on a dark backdrop gets its own normal-blend layer; everything else uses the shared container.
+    const plan = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
+    const host = container.parentElement;
+    const target = plan.layer && host ? (blendLayer ??= createBlendLayer(host, plan.layer)) : container;
+    const inkColor = plan.color === context.options.color ? undefined : plan.color;
     // Intern the edge filter once: it depends only on doc + options, so it's invariant across a mark's lines.
     const defs = getSharedDefs(doc);
     const filterParams = resolveEdgeFilter(context.options);
@@ -255,9 +265,9 @@ export function createSvgRenderer(): Renderer {
         wrapper = doc.createElement("div");
         wrapper.setAttribute("aria-hidden", "true");
         wrapper.style.pointerEvents = "none";
-        container.appendChild(wrapper);
         wrapperPool.set(line.seed, wrapper);
       }
+      if (wrapper.parentElement !== target) target.appendChild(wrapper);
       applyBoxPosition(wrapper, line.box);
 
       const ink = ensureInk(doc, wrapper, line.seed);
@@ -274,7 +284,7 @@ export function createSvgRenderer(): Renderer {
         styleGlow(glow, line, context);
       }
 
-      styleInk(ink, line, context, filterValue);
+      styleInk(ink, line, context, filterValue, inkColor);
     }
 
     // A vanished line's wrapper (with its ink/glow children) is removed as a unit; survivors keep their exact subtree.
@@ -296,6 +306,8 @@ export function createSvgRenderer(): Renderer {
       wrapperPool.clear((el) => el.remove());
       inkPool.clear(() => {});
       glowPool.clear(() => {});
+      blendLayer?.remove();
+      blendLayer = null;
       container = null;
     },
   };
