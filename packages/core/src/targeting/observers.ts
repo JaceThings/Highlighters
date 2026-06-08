@@ -68,6 +68,10 @@ export function createReflowObserver(
 
   window.addEventListener("resize", schedule);
 
+  // visualViewport.resize (mobile URL bar, pinch-zoom) shifts layout without a window resize.
+  const vv = window.visualViewport;
+  if (vv) vv.addEventListener("resize", schedule);
+
   // Late web-font load shifts text metrics; reflow once fonts are ready.
   const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
   if (fonts && typeof fonts.ready?.then === "function") {
@@ -81,6 +85,7 @@ export function createReflowObserver(
     disposed = true;
     resizeObserver?.disconnect();
     window.removeEventListener("resize", schedule);
+    if (vv) vv.removeEventListener("resize", schedule);
     if (rafId !== undefined) {
       cancelAnimationFrame(rafId);
       rafId = undefined;

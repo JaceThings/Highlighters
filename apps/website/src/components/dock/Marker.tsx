@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { m } from "framer-motion";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { m, type MotionValue } from "framer-motion";
+import { useBindMotion } from "./bindMotion.ts";
 import { DOCK_H, INK_FADE_MS } from "./constants.ts";
 import { Pen } from "./PenSvg.tsx";
 import { PEN_OUTLINES } from "./pen-outlines.ts";
@@ -10,13 +11,14 @@ import { playMarkerSelect, primeMarkerAudio } from "../../lib/marker-audio.ts";
 import type { PenTip } from "../../selection-style.tsx";
 
 // Render wider so the body (26.1475 of the 43-unit viewBox) lands at 27px.
-const SVG_W = (27 * 43) / 26.1475; // ~44.4px
+// Exported so the collapsed drag marker reuses the exact dock-pen geometry (it IS the same pen).
+export const SVG_W = (27 * 43) / 26.1475; // ~44.4px
 
-const FRAME_H = DOCK_H;
-const REST_TOP = FRAME_H - 95.45; // resting offset above the tray floor
+export const FRAME_H = DOCK_H;
+export const REST_TOP = FRAME_H - 95.45; // resting offset above the tray floor
 const GAP = 71 - SVG_W; // pen centres sit 71px apart
-const STEP = SVG_W + GAP; // 71px between pen slots
-const SELECTED_RISE = 24; // selected-pen lift (see global.css)
+export const STEP = SVG_W + GAP; // 71px between pen slots
+export const SELECTED_RISE = 24; // selected-pen lift (see global.css)
 const HOVER_RISE = 6; // hovered-pen lift (see global.css .dock-pen:hover)
 
 // Traveling keyboard focus outline: one designed outline (pen-outlines.ts) springs between pens.
@@ -110,7 +112,8 @@ const NUM_STYLE: CSSProperties = {
 };
 
 // Fades out across the 99<->100 boundary without ever rendering "100": holds the last sub-100 value and fades it.
-function OpacityReadout({ pct }: { pct: number }) {
+// Exported so the carried drag overlay shows the same readout, travelling with the pen.
+export function OpacityReadout({ pct }: { pct: number }) {
   const visible = pct < 100;
   const lastVisible = useRef(visible ? pct : 99);
   if (visible) lastVisible.current = pct;
@@ -136,6 +139,9 @@ const PENS: PenDef[] = [
   { id: "fine", label: "Fine marker" },
 ];
 
+// Pen ids in row order (left -> right), so the drag overlay can compute a pen's along-row slot offset.
+export const PEN_ORDER: PenTip[] = PENS.map((p) => p.id);
+
 // Pen wants an oklch() string: its tip shading reads OKLCH lightness.
 const toPen = (hex: string) => oklchToCss(hexToOklch(hex));
 
@@ -145,6 +151,7 @@ export function MarkerRow({
   opacityByPen,
   onSelect,
   onActivate,
+  hideSelected,
 }: {
   color: string;
   selected: PenTip;
@@ -153,6 +160,10 @@ export function MarkerRow({
   onSelect: (pen: PenTip) => void;
   /** Clicking the already-selected pen opens the marker popover on this button. */
   onActivate: (button: HTMLButtonElement) => void;
+  /** Carried-overlay opacity (0-1). The selected pen's art fades out as this rises (1 - value), driven
+   *  off the SAME MotionValue as the overlay so the hand-off is atomic in one rAF - never a frame with
+   *  both the row pen and the overlay visible (the doubled marker). */
+  hideSelected?: MotionValue<number>;
 }) {
   // New colour shows instantly on the base pen; the previous colour renders on top and dissolves out.
   const [fadeOut, setFadeOut] = useState<{ color: string; key: number } | null>(null);
@@ -182,8 +193,23 @@ export function MarkerRow({
 
   const selectedIdx = PENS.findIndex((p) => p.id === selected);
 
+  // Fade the selected pen's art (and its readout) out as the carried overlay takes over, keyed off the
+  // overlay's own opacity MotionValue. Both the overlay (its outer opacity) and this hide flush in the
+  // same rAF, so the swap is atomic - the row pen and overlay are never both visible (no doubled pen),
+  // and the row never reappears a frame before the overlay (parked at the tray centre) finishes hiding.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const hideRef = useRef(hideSelected);
+  hideRef.current = hideSelected;
+  const applyLift = useCallback((el: HTMLElement | SVGElement) => {
+    const m = hideRef.current?.get() ?? 0;
+    el.querySelectorAll<HTMLElement>(".dock-lift-art").forEach((n) => {
+      n.style.opacity = n.closest('button[aria-pressed="true"]') ? String(1 - m) : "1";
+    });
+  }, []);
+  useBindMotion(rowRef, hideSelected ? [hideSelected] : [], applyLift);
+
   return (
-    <div className="relative flex items-end" style={{ gap: GAP }} onPointerEnter={primeMarkerAudio}>
+    <div ref={rowRef} className="relative flex items-end" style={{ gap: GAP }} onPointerEnter={primeMarkerAudio}>
       {PENS.map((p, i) => {
         const isSelected = p.id === selected;
         const pct = Math.round(opacityByPen[p.id] * 100);
@@ -215,7 +241,13 @@ export function MarkerRow({
             className="dock-pen relative block shrink-0 overflow-hidden"
             style={{ width: SVG_W, height: FRAME_H }}
           >
-            <Pen tip={p.id} color={toPen(color)} width={SVG_W} className="dock-pen-art" style={place} />
+            <Pen
+              tip={p.id}
+              color={toPen(color)}
+              width={SVG_W}
+              className="dock-pen-art dock-lift-art"
+              style={place}
+            />
             {fadeOut && (
               // colorOnly skips the barrel shadow (no doubling); keyed so rapid swaps restart the fade.
               <Pen
@@ -228,10 +260,11 @@ export function MarkerRow({
                 style={{ ...place, animation: `dock-ink-out ${INK_FADE_MS}ms ease forwards` }}
               />
             )}
-            {/* Rides the pen transform (.dock-pen-art) so the digits track its rise/pop. */}
+            {/* Rides the pen transform (.dock-pen-art) so the digits track its rise/pop. Hidden for the
+                lifted pen so the carried overlay's readout (which travels with it) isn't doubled. */}
             <span
               aria-hidden
-              className="dock-pen-art pointer-events-none absolute"
+              className="dock-pen-art dock-lift-art pointer-events-none absolute"
               style={{ left: 0, top: REST_TOP, width: SVG_W }}
             >
               <OpacityReadout pct={pct} />

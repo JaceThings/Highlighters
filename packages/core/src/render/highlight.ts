@@ -30,6 +30,7 @@ import { toRanges } from "../targeting/normalize.js";
 import { collectPageRanges } from "../targeting/include-exclude.js";
 import { computeAnchor, rangesToLineRects } from "../targeting/line-rects.js";
 import { SelectionVelocityTracker } from "../targeting/velocity.js";
+import { findSelectionAnchor } from "../targeting/anchor.js";
 import { createMutationWatcher, createReflowObserver } from "../targeting/observers.js";
 import { createOverlayContainer, teardownContainer } from "./renderer.js";
 import { detectEnvironment, selectTier } from "./tier-select.js";
@@ -81,6 +82,27 @@ function snapRanges(ranges: Range[], mode: SnapMode): Range[] {
   return ranges.map((r) => snapRangeToBounds(r, mode));
 }
 
+/** Elements whose layout shifts should trigger a mark reflow (the range's text nodes and ancestors). */
+function elementsFromRanges(ranges: Range[]): Element[] {
+  const seen = new Set<Element>();
+  const add = (node: Node | null) => {
+    if (!node) return;
+    const el = node instanceof Element ? node : node.parentElement;
+    if (el) seen.add(el);
+  };
+  for (const range of ranges) {
+    add(range.startContainer);
+    add(range.endContainer);
+    add(range.commonAncestorContainer);
+  }
+  return [...seen];
+}
+
+/** Reflow targets for a mounted mark: the overlay host plus every highlighted element. */
+function reflowTargetsFor(host: HTMLElement, ranges: Range[]): Element[] {
+  return [...new Set<Element>([host, ...elementsFromRanges(ranges)])];
+}
+
 /** The host an overlay attaches to - the document body, where line boxes are anchored. */
 function hostFor(ranges: Range[]): HTMLElement | null {
   for (const range of ranges) {
@@ -101,15 +123,22 @@ function buildLines(
   container: HTMLElement,
   flowReversed = false,
   profileFor?: (local: LineRect) => LineSpeedProfile | undefined,
+  cachedOrigin?: DOMRect,
+  anchorHost?: HTMLElement,
 ): MarkGeometry[] {
   if (ranges.length === 0) return [];
   // `getClientRects()` is viewport-relative; subtracting the container's rect ties a line's seed
   // and position to its document position alone, stable under scroll and either drag direction.
-  const origin = container.getBoundingClientRect();
+  // A caller mid-frame can pass `cachedOrigin` so several builds share one layout read.
+  const origin = cachedOrigin ?? container.getBoundingClientRect();
+  const hostRect = anchorHost?.getBoundingClientRect();
   const lineRects: LineRect[] = rangesToLineRects(
     ranges,
     computeAnchor(ranges),
     origin.top,
+    anchorHost && hostRect
+      ? { scope: anchorHost, columnBounds: { left: hostRect.left, right: hostRect.right } }
+      : undefined,
   );
   return lineRects.map((rect) => {
     // An explicit `options.seed` must still yield a distinct per-line seed, else every line's
@@ -180,8 +209,7 @@ function mountMark(
 
   // Re-derive geometry and update the renderer without re-animating. An in-flight draw-on is
   // retargeted onto the corrected geometry so it finishes the right shape instead of snapping.
-  const reflowTargets = host instanceof Element ? [host] : [];
-  const reflow = createReflowObserver(reflowTargets, () => {
+  const reflow = createReflowObserver(reflowTargetsFor(host, activeRanges), () => {
     const ctx = buildContext(resolved);
     renderer.update(ctx);
     animDisconnect.retarget(ctx.lines);
@@ -315,12 +343,46 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
   // construction-time options each update would revert prior ones.
   let userOptions: HighlightOptions = { snap: "word", ...options };
   let resolved = resolveOptions(userOptions);
-  const host = document.body ?? document.documentElement;
-  if (!host) return inertHandle();
-
-  const container = createOverlayContainer(host as HTMLElement);
+  // Anchor follows the selection (article/main/positioned ancestor), not a fixed body mount.
+  let currentHost: HTMLElement | null = null;
+  let container: HTMLElement | null = null;
+  let reflowDisconnect: () => void = () => {};
   let renderer: Renderer | null = null;
   let currentRanges: Range[] = [];
+
+  const ensureAnchor = (anchor: HTMLElement): boolean => {
+    if (anchor === currentHost && container) return false;
+    if (!container) {
+      container = createOverlayContainer(anchor);
+      currentHost = anchor;
+      return true;
+    }
+    if (anchor !== currentHost) {
+      // createOverlayContainer only promotes at creation, so re-parenting to a new host needs its
+      // own static->relative check before moving the overlay in.
+      const view = anchor.ownerDocument.defaultView;
+      if (view && view.getComputedStyle(anchor).position === "static") {
+        anchor.style.position = "relative";
+      }
+      anchor.appendChild(container);
+      currentHost = anchor;
+      return true;
+    }
+    return false;
+  };
+
+  const armReflow = (anchor: HTMLElement, ranges: Range[]): void => {
+    reflowDisconnect();
+    reflowDisconnect = createReflowObserver(reflowTargetsFor(anchor, ranges), () => {
+      if (currentRanges.length === 0) return;
+      // Observer already coalesces to rAF — paint now, not one frame later.
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      renderSelection();
+    });
+  };
 
   // Speed-aware ink, live-drag only. The tracker samples focus-caret velocity during a primary
   // fine-pointer drag and serves a per-line deposit profile. Skipped under reduced motion; gated on
@@ -334,6 +396,9 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     tracker?.reset();
   };
   const endDrag = (): void => {
+    // Paint any frame still pending while the drag is "live" so the settled mark keeps the last
+    // sampled speed look, matching the pre-coalescing behaviour where the final event rendered sync.
+    flushRender();
     dragging = false;
   };
   if (tracker) {
@@ -345,7 +410,11 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     window.addEventListener("blur", endDrag);
   }
 
-  const rebuild = (ranges: Range[], flowReversed: boolean): RenderContext => {
+  const rebuild = (
+    ranges: Range[],
+    flowReversed: boolean,
+    origin?: DOMRect,
+  ): RenderContext => {
     const snapped = snapRanges(ranges, resolved.snap);
     // Speed profile only while a drag actively feeds the tracker; gating on `dragging` stops a
     // post-release selection from reusing a finished gesture's stale samples. The look persists
@@ -358,8 +427,16 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
             resolved.speed,
           )
       : undefined;
-    const lines = buildLines(snapped, resolved, container, flowReversed, profileFor);
-    return { container, options: resolved, lines, ranges };
+    const lines = buildLines(
+      snapped,
+      resolved,
+      container!,
+      flowReversed,
+      profileFor,
+      origin,
+      currentHost ?? undefined,
+    );
+    return { container: container!, options: resolved, lines, ranges };
   };
 
   // Clear-fade: when the selection empties, fade the overlay out then drop the bands; re-selecting cancels it.
@@ -371,8 +448,31 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       clearTimer = null;
     }
     // Transition off first so resetting opacity is instant, not a fade back.
-    container.style.transition = "";
-    container.style.opacity = "";
+    if (container) {
+      container.style.transition = "";
+      container.style.opacity = "";
+    }
+  };
+
+  // Sample the focus-caret velocity on EVERY selectionchange (cheap; the field's fidelity depends
+  // on per-event sampling), but coalesce the expensive geometry+paint into one rAF per frame. Each
+  // frame still reads the latest selection, so intermediate states that would be overwritten anyway
+  // are skipped rather than drawn.
+  const sample = (): void => {
+    if (!tracker || !dragging || !resolved.speed.enabled) return;
+    // sample() runs on selectionchange, before the rAF render's ensureAnchor creates the container.
+    if (!container) return;
+    const selection = document.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    // Same container-local px space buildLines projects into, so the lookup is exact during the drag.
+    const origin = container.getBoundingClientRect();
+    tracker.recordSample(
+      selection,
+      origin.left,
+      origin.top,
+      performance.now(),
+      resolved.speed.smoothing,
+    );
   };
 
   const renderSelection = (): void => {
@@ -382,17 +482,6 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     let flowReversed = false;
     if (selection && !selection.isCollapsed) {
       flowReversed = isSelectionBackward(selection);
-      // Sample in the same container-local px space buildLines projects into, so the lookup is exact during the drag.
-      if (tracker && dragging && resolved.speed.enabled) {
-        const origin = container.getBoundingClientRect();
-        tracker.recordSample(
-          selection,
-          origin.left,
-          origin.top,
-          performance.now(),
-          resolved.speed.smoothing,
-        );
-      }
       for (let i = 0; i < selection.rangeCount; i++) {
         ranges.push(selection.getRangeAt(i).cloneRange());
       }
@@ -402,10 +491,12 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     const cleared = ranges.length === 0 && currentRanges.length > 0;
     currentRanges = ranges;
     if (cleared && resolved.fadeOnClear && renderer && !env.prefersReducedMotion) {
-      container.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
-      container.style.opacity = "0";
+      container!.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
+      container!.style.opacity = "0";
       clearTimer = setTimeout(() => {
         clearTimer = null;
+        // remove() may have nulled the container after this timer was queued (clearTimeout no-ops once enqueued).
+        if (!container) return;
         renderer?.update(rebuild([], false));
         container.style.transition = "";
         container.style.opacity = "";
@@ -414,7 +505,16 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     }
     cancelClearFade();
 
-    const context = rebuild(ranges, flowReversed);
+    if (ranges.length > 0) {
+      const anchor = findSelectionAnchor(ranges[0].commonAncestorContainer);
+      if (ensureAnchor(anchor)) armReflow(anchor, ranges);
+    }
+
+    if (!container) return;
+
+    // One layout read per frame, shared by every line's build.
+    const origin = container.getBoundingClientRect();
+    const context = rebuild(ranges, flowReversed, origin);
     if (!renderer) {
       const tier = selectTier(resolved.renderer, env, context.lines.length);
       renderer = rendererForTier(tier);
@@ -424,7 +524,27 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     }
   };
 
-  const onSelectionChange = (): void => renderSelection();
+  let rafId = 0;
+  const scheduleRender = (): void => {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      renderSelection();
+    });
+  };
+  // Flush a pending coalesced frame synchronously (e.g. on drag-settle), so the final selection is
+  // painted now rather than a frame later, while `dragging` is still true and the speed look holds.
+  const flushRender = (): void => {
+    if (!rafId) return;
+    cancelAnimationFrame(rafId);
+    rafId = 0;
+    renderSelection();
+  };
+
+  const onSelectionChange = (): void => {
+    sample();
+    scheduleRender();
+  };
   document.addEventListener("selectionchange", onSelectionChange);
   renderSelection();
 
@@ -437,12 +557,12 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     show(): void {
       if (removed) return;
       showing = true;
-      container.style.visibility = "";
+      if (container) container.style.visibility = "";
     },
     hide(): void {
       if (removed) return;
       showing = false;
-      container.style.visibility = "hidden";
+      if (container) container.style.visibility = "hidden";
     },
     isShowing(): boolean {
       return showing && !removed && currentRanges.length > 0;
@@ -451,13 +571,20 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       if (removed) return;
       userOptions = mergeOptions(userOptions, opts as HighlightOptions);
       resolved = resolveOptions(userOptions);
+      // An option change renders synchronously; drop any pending coalesced frame (same selection).
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
       renderSelection();
     },
     remove(): void {
       if (removed) return;
       removed = true;
       showing = false;
+      if (rafId) cancelAnimationFrame(rafId);
       if (clearTimer !== null) clearTimeout(clearTimer);
+      reflowDisconnect();
       document.removeEventListener("selectionchange", onSelectionChange);
       if (tracker) {
         document.removeEventListener("pointerdown", onPointerDown, true);
@@ -468,7 +595,11 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       }
       renderer?.unmount();
       renderer = null;
-      teardownContainer(container);
+      if (container) {
+        teardownContainer(container);
+        container = null;
+        currentHost = null;
+      }
     },
   };
 }

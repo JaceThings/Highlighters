@@ -21,21 +21,40 @@ function rectArray(list: DOMRectList): DOMRect[] {
   return out;
 }
 
+/** Reject text whose parent is `visibility: hidden` (layout spacers still emit client rects). */
+function isHiddenText(node: Node): boolean {
+  if (typeof getComputedStyle === "undefined") return false;
+  const parent = node.parentElement;
+  if (!parent) return false;
+  try {
+    return getComputedStyle(parent).visibility === "hidden";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Client rects for a range, collected per text node. `Range.getClientRects()` across block boundaries
  * emits spurious full-width bbox rects, so a multi-text-node range uses a sub-range clamped to each
  * text node (tight to glyphs); a single-text-node range keeps its own rects.
+ *
+ * When `scope` is set, only text nodes under that element are walked — the reading-surface boundary
+ * for live selection, so page chrome outside `article`/`main` is never measured.
  */
-function collectRangeRects(range: Range): DOMRect[] {
-  const common = range.commonAncestorContainer;
+function collectRangeRects(range: Range, scope?: Element): DOMRect[] {
+  const common = scope ?? range.commonAncestorContainer;
   // A text-node common ancestor (or no TreeWalker) is a single text run.
-  if (common.nodeType === 3 || typeof document.createTreeWalker !== "function") {
+  if (!scope && common.nodeType === 3) {
+    return rectArray(range.getClientRects());
+  }
+  if (typeof document.createTreeWalker !== "function") {
     return rectArray(range.getClientRects());
   }
 
   const walker = document.createTreeWalker(common, SHOW_TEXT, {
     acceptNode(node: Node) {
       if (isInNonRenderedSubtree(node)) return FILTER_REJECT;
+      if (isHiddenText(node)) return FILTER_REJECT;
       // intersectsNode is near-universal; fall back to "accept" if a host lacks it.
       const hit =
         typeof range.intersectsNode === "function"
@@ -172,29 +191,38 @@ export function computeAnchor(ranges: Range[]): Anchor {
   return { top, left };
 }
 
+export interface RangesToLineRectsOptions {
+  /** Only measure text under this element (live-selection reading surface). */
+  scope?: Element;
+  /** Anchor element bounds for column filtering; when set, both edges come from the host rect. */
+  columnBounds?: { left: number; right: number };
+}
+
 /** Collect per-text-node rects, merge into visual lines, drop rects outside the anchor column, and emit one {@link LineRect} per line with its stable seed. Read-only. */
 export function rangesToLineRects(
   ranges: Range[],
   anchor: Anchor,
   originTop = 0,
+  options?: RangesToLineRectsOptions,
 ): LineRect[] {
   if (!hasDomWithRange() || ranges.length === 0) return [];
 
   const raw: DOMRect[] = [];
   for (const range of ranges) {
-    for (const r of collectRangeRects(range)) {
+    for (const r of collectRangeRects(range, options?.scope)) {
       if (r.width < 1 || r.height < 1) continue;
       raw.push(r);
     }
   }
   if (raw.length === 0) return [];
 
-  // Anchor-column filter: drop rects horizontally outside the content column, bounded by the anchor's
-  // left and the widest rect's right plus slop. Bounded loop, not a spread, so a huge scan can't blow the stack.
+  // Anchor-column filter: drop rects horizontally outside the content column. Live selection passes
+  // the overlay host's viewport bounds; static marks use selection min-left and widest rect right.
   let maxRight = -Infinity;
   for (const r of raw) if (r.right > maxRight) maxRight = r.right;
-  const minLeft = anchor.left - COLUMN_SLOP;
-  const maxRightBound = maxRight + COLUMN_SLOP;
+  const bounds = options?.columnBounds;
+  const minLeft = (bounds?.left ?? anchor.left) - COLUMN_SLOP;
+  const maxRightBound = (bounds?.right ?? maxRight) + COLUMN_SLOP;
   const columnRects = raw.filter(
     (r) => r.right >= minLeft && r.left <= maxRightBound,
   );

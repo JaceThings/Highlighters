@@ -33,7 +33,7 @@ const DARK_BARREL =
   '<stop stop-color="#2E2E2E"/><stop offset=".047" stop-color="#393939"/><stop offset=".146" stop-color="#212121"/><stop offset=".734" stop-color="#373737"/><stop offset=".906" stop-color="#2C2C2C"/><stop offset="1" stop-color="#363636"/>';
 
 /** SVG markup (not a data-URL) for the marker in `color` with `tip`, theme-aware via prefers-color-scheme. */
-function buildFaviconSvg(color: string, tip: PenTip): string {
+function buildFaviconSvg(color: string, tip: PenTip, lightOnly = false): string {
   const ok = hexToOklch(color);
   const ink = oklchToRgb(ok);
   const inkTop = oklchToRgb(lightenOklch(ok, 0.06)); // nib gradient top
@@ -43,8 +43,12 @@ function buildFaviconSvg(color: string, tip: PenTip): string {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 0 62 124">` +
     // Light mode: dark barrel + lifted ink. Dark mode: light barrel + true ink. Either way the barrel
     // contrasts the tab so the marker reads.
-    `<style>.barrel{fill:url(#bd)}.ink{fill:${inkLift}}.nt{stop-color:${inkLiftTop}}.nb{stop-color:${inkLift}}` +
-    `@media(prefers-color-scheme:dark){.barrel{fill:url(#bl)}.ink{fill:${ink}}.nt{stop-color:${inkTop}}.nb{stop-color:${ink}}}</style>` +
+    `<style>` +
+    (lightOnly
+      ? `.barrel{fill:url(#bl)}.ink{fill:${ink}}.nt{stop-color:${inkTop}}.nb{stop-color:${ink}}`
+      : `.barrel{fill:url(#bd)}.ink{fill:${inkLift}}.nt{stop-color:${inkLiftTop}}.nb{stop-color:${inkLift}}` +
+        `@media(prefers-color-scheme:dark){.barrel{fill:url(#bl)}.ink{fill:${ink}}.nt{stop-color:${inkTop}}.nb{stop-color:${ink}}}`) +
+    `</style>` +
     `<defs>` +
     `<linearGradient id="bl" x1="13.93" y1="0" x2="59.44" y2="0" gradientUnits="userSpaceOnUse">${LIGHT_BARREL}</linearGradient>` +
     `<linearGradient id="bd" x1="13.93" y1="0" x2="59.44" y2="0" gradientUnits="userSpaceOnUse">${DARK_BARREL}</linearGradient>` +
@@ -62,6 +66,6 @@ function buildFaviconSvg(color: string, tip: PenTip): string {
 }
 
 /** Ready-to-assign `<link rel=icon>` href for the marker in `color` with `tip`. */
-export function buildFaviconDataUrl(color: string, tip: PenTip): string {
-  return `data:image/svg+xml,${encodeURIComponent(buildFaviconSvg(color, tip))}`;
+export function buildFaviconDataUrl(color: string, tip: PenTip, lightOnly = false): string {
+  return `data:image/svg+xml,${encodeURIComponent(buildFaviconSvg(color, tip, lightOnly))}`;
 }

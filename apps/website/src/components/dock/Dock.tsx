@@ -1,23 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, m } from "framer-motion";
+import { useCallback, useRef } from "react";
+import { m } from "framer-motion";
 import { useRouterState } from "@tanstack/react-router";
-import { CapsuleBackground } from "./CapsuleBackground.tsx";
+import { MorphBackground } from "./MorphBackground.tsx";
+import { CollapsedMarker } from "./CollapsedMarker.tsx";
 import { ColorPalette } from "./ColorPalette.tsx";
-import { ColorPickerPopover } from "./ColorPickerPopover.tsx";
 import { DockNav, DockLinks } from "./DockButton.tsx";
 import { MarkerRow } from "./Marker.tsx";
-import { MarkerPopover } from "./MarkerPopover.tsx";
-import { playMenuOpen, playMenuClose } from "../../lib/marker-audio.ts";
+import { DockHandle } from "./DockHandle.tsx";
+import { DockPopover } from "./DockPopover.tsx";
+import { useDockPopover } from "./useDockPopover.ts";
+import { useDockBindings } from "./useDockBindings.ts";
+import { readDockSizes, useSlotOffset, useDockMeasure } from "./useDockLayout.ts";
+import { hexToOklch, oklchToCss } from "./oklch.ts";
 import { useSelectionStyle, type PenTip } from "../../selection-style.tsx";
 import { useDockEntrance, useSkipDockEntrance } from "../../dock-entrance.tsx";
-import { useDockTier } from "../../hooks/useDockTier.ts";
-import { DOCK_H } from "./constants.ts";
+import { dockContentAxis, useDockTier } from "../../hooks/useDockTier.ts";
+import { useDockDrag } from "./useDockDrag.ts";
+import type { DockRefs } from "./dockRefs.ts";
+import { DOCK_H, ROW_W, ROW_H } from "./constants.ts";
 
 // Start fully below the viewport so the tray rises in from the bottom.
 const ENTER_FROM = DOCK_H + 96;
-
-// Both popovers are this wide; clamps them inside the tray.
-const POPOVER_W = 320;
 
 const ENTRANCE = {
   hidden: { y: ENTER_FROM, scale: 0.98, opacity: 0, filter: "blur(4px)" },
@@ -30,193 +33,215 @@ export function Dock() {
   // Hold the entrance until the page's text cascade has landed.
   const { ready } = useDockEntrance();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // Shed the colour palette as the window narrows (below the pen tier RootLayout swaps to MobileDock).
-  const { showColors } = useDockTier();
+  // Each stack measures against its own axis so bottom<->side morphs never read a stale height/width.
+  const widthTier = useDockTier("width");
+  const heightTier = useDockTier("height");
   const skipEntrance = useSkipDockEntrance();
 
-  // `popover` = which control is open and its centre relative to the tray (null = closed).
-  const trayRef = useRef<HTMLDivElement>(null);
-  const [popover, setPopover] = useState<{ kind: "marker" | "color"; x: number } | null>(null);
-  const open = popover !== null;
+  const refs: DockRefs = {
+    tray: useRef<HTMLDivElement>(null),
+    clip: useRef<HTMLDivElement>(null),
+    feather: useRef<HTMLDivElement>(null),
+    backdrop: useRef<HTMLDivElement>(null),
+    horizontal: useRef<HTMLDivElement>(null),
+    vertical: useRef<HTMLDivElement>(null),
+    penBox: useRef<HTMLDivElement>(null),
+    horizontalLayer: useRef<HTMLDivElement>(null),
+    verticalLayer: useRef<HTMLDivElement>(null),
+  };
 
-  // Bloop on appear (open or switch kind); reversed bloop on close.
-  const prevPopoverKind = useRef<string | null>(null);
-  useEffect(() => {
-    const kind = popover?.kind ?? null;
-    const prev = prevPopoverKind.current;
-    if (kind && kind !== prev) playMenuOpen();
-    else if (!kind && prev) playMenuClose();
-    prevPopoverKind.current = kind;
-  }, [popover]);
-  // Last custom ink, so reopening the picker returns to it from a preset swatch.
-  const lastCustom = useRef("#a855f7");
+  const getSlotOffset = useSlotOffset(refs, style.pen);
+  // Popover close is wired into drag-start after useDockPopover runs; ref avoids a TDZ on showColors.
+  const closePopoverRef = useRef<() => void>(() => {});
+  const dock = useDockDrag({
+    onDragStart: () => closePopoverRef.current(),
+    getSlotOffset,
+    measureSizes: () => readDockSizes(refs),
+  });
+  const { phase, side, collapsed, preview, geometry, onHandlePointerDown, syncSizes } = dock;
+  useDockMeasure(refs, syncSizes);
+  useDockBindings(geometry, refs);
 
-  // Centre of `button` relative to the tray, clamped so the centred popover stays inside it.
-  const centerX = useCallback((button: HTMLButtonElement) => {
-    const tray = trayRef.current;
-    if (!tray) return null;
-    const a = button.getBoundingClientRect();
-    const b = tray.getBoundingClientRect();
-    const raw = a.left + a.width / 2 - b.left;
-    const half = POPOVER_W / 2;
-    return Math.max(half, Math.min(b.width - half, raw));
-  }, []);
+  const vertical = dockContentAxis(phase, side, preview, collapsed) === "height";
+  const activeTier = vertical ? heightTier : widthTier;
 
-  const handleActivate = useCallback(
-    (button: HTMLButtonElement) => {
-      setPopover((prev) => {
-        if (prev?.kind === "marker") return null;
-        const x = centerX(button);
-        return x === null ? prev : { kind: "marker", x };
-      });
-    },
-    [centerX],
-  );
-
-  const handleActivateCustom = useCallback(
-    (button: HTMLButtonElement) => {
-      const x = centerX(button);
-      if (x === null) return;
-      setPopover((prev) => (prev?.kind === "color" ? null : { kind: "color", x }));
-      // Seed the picker from the remembered custom ink when leaving a preset.
-      if (style.color !== lastCustom.current) setColor(lastCustom.current);
-    },
-    [centerX, setColor, style.color],
-  );
-
-  const handleCustomColor = useCallback(
-    (hex: string) => {
-      lastCustom.current = hex;
-      setColor(hex);
-    },
-    [setColor],
-  );
+  const {
+    popover: activePopover,
+    close: closePopover,
+    handleActivate,
+    handleActivateCustom,
+    handleCustomColor,
+    handleSelectColor,
+  } = useDockPopover({ trayRef: refs.tray, color: style.color, setColor, showColors: activeTier.showColors });
+  closePopoverRef.current = closePopover;
+  // Live side `preview` wins over committed `side` so cross-side drags flip orientation immediately.
+  const shownSide = preview === "left" || preview === "right" ? preview : side;
+  const handleVisible = !collapsed;
+  const penColor = oklchToCss(hexToOklch(style.color));
+  // Pens lie sideways with nibs pointing inward, toward the canvas (left dock -> +90, right -> -90).
+  const penDeg = shownSide === "right" ? -90 : 90;
+  const handleSide = shownSide === "left" || shownSide === "right" ? shownSide : null;
 
   // Switching to a different pen closes the popover (it belongs to the prior pen).
   const handleSelectPen = useCallback(
     (pen: PenTip) => {
       setPen(pen);
-      setPopover(null);
+      closePopover();
     },
-    [setPen],
+    [setPen, closePopover],
   );
 
-  // A preset swatch closes the picker; it replaces the custom ink.
-  const handleSelectColor = useCallback(
-    (color: string) => {
-      setColor(color);
-      setPopover((prev) => (prev?.kind === "color" ? null : prev));
-    },
-    [setColor],
-  );
-
-  // If a shrink hides the colour palette, close its popover.
-  useEffect(() => {
-    if (!showColors) setPopover((prev) => (prev?.kind === "color" ? null : prev));
-  }, [showColors]);
-
-  // Close on Escape or a press outside the tray. The popover is a tray DOM child, so clicks on it keep it open.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (!trayRef.current?.contains(e.target as Node)) setPopover(null);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPopover(null);
-    };
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  // Identical wiring for the pen row + palette in both layouts, bundled so the two can't drift apart.
+  const markerRowProps = {
+    color: style.color,
+    selected: style.pen,
+    opacityByPen: style.opacityByPen,
+    onSelect: handleSelectPen,
+    onActivate: handleActivate,
+    hideSelected: geometry.markerOpacity,
+  };
+  const paletteProps = {
+    value: style.color,
+    onChange: handleSelectColor,
+    onActivateCustom: handleActivateCustom,
+  };
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex select-none justify-center"
+      className="pointer-events-none fixed inset-0 z-50 select-none overflow-hidden"
       aria-label="Highlighter tray"
     >
-      <m.div
-        ref={trayRef}
-        className="pointer-events-auto relative max-w-[calc(100vw-32px)]"
-        style={{ height: DOCK_H }}
-        variants={ENTRANCE}
-        initial={skipEntrance ? false : "hidden"}
-        animate={skipEntrance || ready ? "shown" : "hidden"}
-        transition={{
-          type: "spring",
-          duration: 0.85,
-          bounce: 0.3,
-          delay: 0.12,
-          opacity: { duration: 0.5, ease: "easeOut", delay: 0.12 },
-          filter: { duration: 0.6, ease: "easeOut", delay: 0.12 },
-        }}
+      <div
+        ref={refs.tray}
+        className="pointer-events-auto absolute"
+        style={{ top: 0, left: 0, width: 0, height: DOCK_H, willChange: "transform, width, height" }}
       >
-        <CapsuleBackground />
+        <m.div
+          className="absolute inset-0"
+          variants={ENTRANCE}
+          initial={skipEntrance ? false : "hidden"}
+          animate={skipEntrance || ready ? "shown" : "hidden"}
+          transition={{
+            type: "spring",
+            duration: 0.85,
+            bounce: 0.3,
+            delay: 0.12,
+            opacity: { duration: 0.5, ease: "easeOut", delay: 0.12 },
+            filter: { duration: 0.6, ease: "easeOut", delay: 0.12 },
+          }}
+        >
+          <MorphBackground
+            width={geometry.width}
+            height={geometry.height}
+            cornerRadius={geometry.cornerRadius}
+          />
 
-        <div className="relative flex h-full items-center gap-[32px]">
-          <DockNav pathname={pathname} className="pr-[25px] pl-[32px]" />
-
-          <div className="flex h-full items-center gap-[40px]">
-            <div className="flex h-full items-end">
-              <MarkerRow
-                color={style.color}
-                selected={style.pen}
-                opacityByPen={style.opacityByPen}
-                onSelect={handleSelectPen}
-                onActivate={handleActivate}
-              />
+          <div ref={refs.clip} className="absolute inset-0 overflow-hidden">
+            <div
+              ref={refs.horizontalLayer}
+              inert={phase !== "bottom"}
+              className="absolute inset-0 flex items-center justify-center"
+            >
+              <div
+                ref={refs.horizontal}
+                className="relative flex shrink-0 items-center gap-[32px]"
+                style={{ width: "max-content", height: DOCK_H }}
+              >
+                <DockNav pathname={pathname} className="pr-[25px] pl-[32px]" />
+                <div className="flex h-full items-center gap-[40px]">
+                  <div className="flex h-full items-end">
+                    <MarkerRow {...markerRowProps} />
+                  </div>
+                  {widthTier.showColors && <ColorPalette {...paletteProps} />}
+                </div>
+                <DockLinks className="pr-[32px]" />
+              </div>
             </div>
-            {showColors && (
-              <ColorPalette
-                value={style.color}
-                onChange={handleSelectColor}
-                onActivateCustom={handleActivateCustom}
-              />
-            )}
+
+            {/* Side layout: nav → pens → colours → links; spacing mirrors the bottom capsule rotated 90°. */}
+            <div
+              ref={refs.verticalLayer}
+              inert={phase !== "side"}
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ opacity: 0 }}
+            >
+              <div
+                ref={refs.vertical}
+                className="flex shrink-0 flex-col items-center gap-[32px] py-[32px]"
+                style={{ width: "max-content" }}
+              >
+                <DockNav pathname={pathname} className="flex-col pb-[25px]" />
+                {(heightTier.showPens || heightTier.showColors) && (
+                  <div className="flex flex-col items-center gap-[40px]">
+                    {heightTier.showPens && (
+                      <div ref={refs.penBox} style={{ position: "relative", width: ROW_H, height: ROW_W }}>
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            transform: `translate(-50%, -50%) rotate(${penDeg}deg)`,
+                          }}
+                        >
+                          <MarkerRow {...markerRowProps} />
+                        </div>
+                      </div>
+                    )}
+                    {heightTier.showColors && (
+                      <ColorPalette {...paletteProps} columns={2} mirror={shownSide === "left"} />
+                    )}
+                  </div>
+                )}
+                <DockLinks className="flex-col" />
+              </div>
+            </div>
+
+            <div
+              ref={refs.feather}
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{ boxShadow: "inset 0 0 16px 5px #fff", opacity: 0 }}
+            />
+
+            <div
+              ref={refs.backdrop}
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-white"
+              style={{ opacity: 0 }}
+            />
+
+            <CollapsedMarker
+              pen={style.pen}
+              color={penColor}
+              pct={Math.round(style.opacity * 100)}
+              rotation={geometry.penRotation}
+              offsetX={geometry.markerOffsetX}
+              offsetY={geometry.markerOffsetY}
+              reveal={geometry.markerReveal}
+              opacity={geometry.markerOpacity}
+              shapeWidth={geometry.width}
+              shapeHeight={geometry.height}
+            />
           </div>
 
-          <DockLinks className="pr-[32px]" />
-        </div>
+          <DockHandle
+            phase={phase}
+            side={handleSide}
+            visible={handleVisible}
+            onPointerDown={onHandlePointerDown}
+          />
+        </m.div>
 
-        <div
-          aria-hidden
-          className="absolute top-[7.5px] left-1/2 -translate-x-1/2 rounded-full bg-[#efeeed]"
-          style={{ width: 42.787, height: 5.943 }}
+        <DockPopover
+          popover={activePopover}
+          vertical={vertical}
+          side={side}
+          style={style}
+          onCustomColor={handleCustomColor}
+          onOpacity={setOpacity}
+          onMarkType={setMarkType}
         />
-
-        <AnimatePresence>
-          {open && (
-            <m.div
-              key={popover.kind === "color" ? "color-popover" : "marker-popover"}
-              className="absolute"
-              style={{
-                left: popover.x,
-                bottom: "calc(100% + 14px)",
-                transformOrigin: "bottom center",
-              }}
-              initial={{ opacity: 0, scale: 0.96, y: 6, x: "-50%" }}
-              animate={{ opacity: 1, scale: 1, y: 0, x: "-50%" }}
-              exit={{ opacity: 0, scale: 0.97, y: 4, x: "-50%" }}
-              transition={{ type: "spring", duration: 0.3, bounce: 0 }}
-            >
-              {popover.kind === "color" ? (
-                <ColorPickerPopover color={style.color} onChange={handleCustomColor} />
-              ) : (
-                <MarkerPopover
-                  inkColor={style.color}
-                  pen={style.pen}
-                  opacity={style.opacity}
-                  markType={style.markType}
-                  onOpacity={setOpacity}
-                  onMarkType={setMarkType}
-                />
-              )}
-            </m.div>
-          )}
-        </AnimatePresence>
-      </m.div>
+      </div>
     </div>
   );
 }

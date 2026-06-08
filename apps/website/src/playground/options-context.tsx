@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { MotionValue } from "framer-motion";
 import { DEFAULT_OPTIONS, resolveSwatch } from "@highlighters/core";
 import type {
   BlendMode,
@@ -23,7 +24,7 @@ import {
   type PenTip,
 } from "../selection-style.tsx";
 import { STATE_CHANGE_EASE } from "../components/playground/springs.ts";
-import { useSpringNumber } from "../hooks/useSpringNumber.ts";
+import { useSpringMotionValue } from "../hooks/useSpringNumber.ts";
 import { useAnimatedColor } from "../hooks/useAnimatedColor.ts";
 
 // Playground shares colour / opacity / markType / tip with the dock's live marker via one
@@ -183,6 +184,11 @@ function setAtPath(
 
 // Spring the numeric leaves toward their targets so the Preview eases into a new look.
 // `fromDrag` bypasses the spring (pointer input is already smooth). Non-numeric fields pass through.
+//
+// All 17 numeric springs are read into ONE rAF-batched `setState`/frame instead of one `setState`
+// per spring: when several knobs ease together, the provider re-renders once per frame, not ~17×.
+// The settled values stay exact because the final tween "change" still schedules a flush that reads
+// each MotionValue's resting value.
 function useAnimatedOptions(
   o: PlaygroundOptions,
   fromDrag: boolean,
@@ -191,44 +197,77 @@ function useAnimatedOptions(
   // Ink colour glides in OKLCH (useAnimatedColor); swatch objects pass through untouched.
   const animatedColor = useAnimatedColor(typeof o.color === "string" ? o.color : DEFAULT_INK, cfg);
   const color = typeof o.color === "string" ? animatedColor : o.color;
-  const opacity = useSpringNumber(o.opacity ?? 0.5, cfg);
-  const angle = useSpringNumber(o.tip?.angle ?? 35, cfg);
-  const overshoot = useSpringNumber(o.tip?.overshoot ?? 2, cfg);
-  const overshootJitter = useSpringNumber(o.tip?.overshootJitter ?? 1, cfg);
-  const flow = useSpringNumber(o.ink?.flow ?? 0.5, cfg);
-  const viscosity = useSpringNumber(o.ink?.viscosity ?? 0.5, cfg);
-  const feathering = useSpringNumber(o.ink?.feathering ?? 0.3, cfg);
-  const streakiness = useSpringNumber(o.ink?.streakiness ?? 0.35, cfg);
-  const dryout = useSpringNumber(o.ink?.dryout ?? 0.15, cfg);
-  const startEndBuildup = useSpringNumber(o.ink?.startEndBuildup ?? 0.25, cfg);
-  const waviness = useSpringNumber(o.edge?.waviness ?? 1.5, cfg);
-  const frequency = useSpringNumber(o.edge?.frequency ?? 22, cfg);
-  const roughness = useSpringNumber(o.edge?.roughness ?? 0.3, cfg);
-  const radius = useSpringNumber(o.edge?.radius ?? 4, cfg);
-  const absorbency = useSpringNumber(o.paper?.absorbency ?? 0.3, cfg);
-  const glowIntensity = useSpringNumber(o.glow?.intensity ?? 0.5, cfg);
-  const glowSpread = useSpringNumber(o.glow?.spread ?? 4, cfg);
+  const opacity = useSpringMotionValue(o.opacity ?? 0.5, cfg);
+  const angle = useSpringMotionValue(o.tip?.angle ?? 35, cfg);
+  const overshoot = useSpringMotionValue(o.tip?.overshoot ?? 2, cfg);
+  const overshootJitter = useSpringMotionValue(o.tip?.overshootJitter ?? 1, cfg);
+  const flow = useSpringMotionValue(o.ink?.flow ?? 0.5, cfg);
+  const viscosity = useSpringMotionValue(o.ink?.viscosity ?? 0.5, cfg);
+  const feathering = useSpringMotionValue(o.ink?.feathering ?? 0.3, cfg);
+  const streakiness = useSpringMotionValue(o.ink?.streakiness ?? 0.35, cfg);
+  const dryout = useSpringMotionValue(o.ink?.dryout ?? 0.15, cfg);
+  const startEndBuildup = useSpringMotionValue(o.ink?.startEndBuildup ?? 0.25, cfg);
+  const waviness = useSpringMotionValue(o.edge?.waviness ?? 1.5, cfg);
+  const frequency = useSpringMotionValue(o.edge?.frequency ?? 22, cfg);
+  const roughness = useSpringMotionValue(o.edge?.roughness ?? 0.3, cfg);
+  const radius = useSpringMotionValue(o.edge?.radius ?? 4, cfg);
+  const absorbency = useSpringMotionValue(o.paper?.absorbency ?? 0.3, cfg);
+  const glowIntensity = useSpringMotionValue(o.glow?.intensity ?? 0.5, cfg);
+  const glowSpread = useSpringMotionValue(o.glow?.spread ?? 4, cfg);
+
+  // MotionValue identities are stable for the component's life, so this array is a stable dep set.
+  const springs: MotionValue<number>[] = [
+    opacity, angle, overshoot, overshootJitter,
+    flow, viscosity, feathering, streakiness, dryout, startEndBuildup,
+    waviness, frequency, roughness, radius,
+    absorbency, glowIntensity, glowSpread,
+  ];
+  const [nums, setNums] = useState<number[]>(() => springs.map((m) => m.get()));
+
+  useEffect(() => {
+    let raf = 0;
+    const flush = () => {
+      raf = 0;
+      setNums(springs.map((m) => m.get()));
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(flush);
+    };
+    const unsubs = springs.map((m) => m.on("change", schedule));
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      unsubs.forEach((u) => u());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- MotionValue refs are stable; `springs` is rebuilt each render but element-equal.
+  }, springs);
+
+  const [
+    opacityV, angleV, overshootV, overshootJitterV,
+    flowV, viscosityV, featheringV, streakinessV, dryoutV, startEndBuildupV,
+    wavinessV, frequencyV, roughnessV, radiusV,
+    absorbencyV, glowIntensityV, glowSpreadV,
+  ] = nums;
 
   return useMemo<PlaygroundOptions>(
     () => ({
       ...o,
       color,
-      opacity,
-      tip: { ...o.tip, angle, overshoot, overshootJitter },
+      opacity: opacityV,
+      tip: { ...o.tip, angle: angleV, overshoot: overshootV, overshootJitter: overshootJitterV },
       ink: {
         ...o.ink,
-        flow,
-        viscosity,
-        feathering,
-        streakiness,
-        dryout,
-        startEndBuildup,
+        flow: flowV,
+        viscosity: viscosityV,
+        feathering: featheringV,
+        streakiness: streakinessV,
+        dryout: dryoutV,
+        startEndBuildup: startEndBuildupV,
       },
-      edge: { ...o.edge, waviness, frequency, roughness, radius },
-      paper: { ...o.paper, absorbency },
-      glow: { ...o.glow, intensity: glowIntensity, spread: glowSpread },
+      edge: { ...o.edge, waviness: wavinessV, frequency: frequencyV, roughness: roughnessV, radius: radiusV },
+      paper: { ...o.paper, absorbency: absorbencyV },
+      glow: { ...o.glow, intensity: glowIntensityV, spread: glowSpreadV },
     }),
-    [o, color, opacity, angle, overshoot, overshootJitter, flow, viscosity, feathering, streakiness, dryout, startEndBuildup, waviness, frequency, roughness, radius, absorbency, glowIntensity, glowSpread],
+    [o, color, opacityV, angleV, overshootV, overshootJitterV, flowV, viscosityV, featheringV, streakinessV, dryoutV, startEndBuildupV, wavinessV, frequencyV, roughnessV, radiusV, absorbencyV, glowIntensityV, glowSpreadV],
   );
 }
 

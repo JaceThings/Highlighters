@@ -23,43 +23,63 @@ const PRESET_COLORS = new Set(SWATCHES.map((s) => s.color));
 // One wheel image for both ring and fill, so they can't drift apart.
 const WHEEL = `url("${colorPickerUrl}") center / cover no-repeat`;
 
+// Reverse each row of `cols` items so the grid reads as a horizontal mirror, while keeping DOM (and so
+// tab) order matching the visible order. Used for the LEFT side dock so the palette mirrors the right -
+// the custom (rainbow) swatch ends up bottom-OUTER on both sides, matching Apple's PencilKit.
+function mirrorRows<T>(items: T[], cols: number): T[] {
+  const out: T[] = [];
+  for (let i = 0; i < items.length; i += cols) out.push(...items.slice(i, i + cols).reverse());
+  return out;
+}
+
 export function ColorPalette({
   value,
   onChange,
   onActivateCustom,
+  columns = 3,
+  mirror = false,
 }: {
   value: string;
   onChange: (color: string) => void;
   /** The custom swatch opens the HSL picker rising from this button. */
   onActivateCustom: (button: HTMLButtonElement) => void;
+  /** Swatch columns; the side dock uses 2 so the grid fits the 145px pill. */
+  columns?: number;
+  /** Mirror the columns (left side dock) so the rainbow sits on the bottom-outer edge, as Apple does. */
+  mirror?: boolean;
 }) {
   const customActive = !PRESET_COLORS.has(value);
-  return (
-    <div
-      className="grid grid-cols-3 gap-x-[14px] gap-y-[14px]"
-      onPointerEnter={primeMarkerAudio}
-    >
-      {SWATCHES.map((s) => (
-        <Disc
-          key={s.id}
-          label={s.label}
-          ring={s.ring}
-          fill={s.color}
-          selected={s.color === value}
-          onClick={() => {
-            playColorBloop();
-            onChange(s.color);
-          }}
-        />
-      ))}
-      <CustomDisc
-        active={customActive}
-        color={value}
-        onClick={(btn) => {
+  const items = [
+    ...SWATCHES.map((s) => (
+      <Disc
+        key={s.id}
+        label={s.label}
+        ring={s.ring}
+        fill={s.color}
+        selected={s.color === value}
+        onClick={() => {
           playColorBloop();
-          onActivateCustom(btn);
+          onChange(s.color);
         }}
       />
+    )),
+    <CustomDisc
+      key="custom"
+      active={customActive}
+      color={value}
+      onClick={(btn) => {
+        playColorBloop();
+        onActivateCustom(btn);
+      }}
+    />,
+  ];
+  return (
+    <div
+      className="grid gap-x-[14px] gap-y-[14px]"
+      style={{ gridTemplateColumns: `repeat(${columns}, 43px)` }}
+      onPointerEnter={primeMarkerAudio}
+    >
+      {mirror ? mirrorRows(items, columns) : items}
     </div>
   );
 }

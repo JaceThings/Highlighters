@@ -28,8 +28,16 @@ function docsOgVariant(): Plugin {
   };
 }
 
+const coreSrc = fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url));
+
 export default defineConfig({
   plugins: [tailwindcss(), react(), docsOgVariant()],
+  resolve: {
+    // Dev resolves workspace package exports to stale dist; alias to source so core edits apply live.
+    alias: {
+      "@highlighters/core": coreSrc,
+    },
+  },
   server: {
     port: 5173,
     host: true,

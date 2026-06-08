@@ -124,11 +124,19 @@ h3 {
   -webkit-user-select: none;
 }
 
-/* Docs paper is read-only: never selectable, forced onto descendants so quote marks can't re-enable it. */
+/* Docs paper is read-only: never selectable, including Cmd+A. !important beats stray utilities. */
 .demo-paper,
-.demo-paper * {
-  user-select: none;
-  -webkit-user-select: none;
+.demo-paper *,
+.demo-paper *::before,
+.demo-paper *::after {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+}
+html.selection-marker-ready .demo-paper ::selection,
+html.selection-marker-ready .demo-paper *::selection {
+  background-color: transparent !important;
+  color: inherit;
 }
 
 /* Slider range input: visuals stripped so a layered track/fill div shows through; input stays

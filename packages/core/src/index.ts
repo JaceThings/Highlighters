@@ -18,6 +18,7 @@ export { toRanges } from "./targeting/normalize.js";
 export { rangesToLineRects, computeAnchor } from "./targeting/line-rects.js";
 export { collectPageRanges } from "./targeting/include-exclude.js";
 export { findTextRanges } from "./targeting/text-search.js";
+export { findSelectionAnchor } from "./targeting/anchor.js";
 export { createReflowObserver, createMutationWatcher } from "./targeting/observers.js";
 
 export { detectEnvironment, selectTier } from "./render/tier-select.js";
