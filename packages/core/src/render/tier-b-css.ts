@@ -11,6 +11,7 @@
 
 import type { Renderer, RenderContext, MarkGeometry, PoolGradient } from "../types.js";
 import { NodePool, applyBoxPosition } from "./renderer.js";
+import { effectiveBlend } from "./blend.js";
 
 /**
  * Convert a {@link PoolGradient} into a CSS `linear-gradient(...)` with absolute-px stop positions
@@ -92,6 +93,8 @@ export function createCssRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
+    // A near-white ink would vanish under the container's subtractive multiply; composite it normal instead.
+    container.style.mixBlendMode = effectiveBlend(context.options.blendMode, context.options.color, doc);
     const keep = new Set<number>();
 
     for (const line of context.lines) {

@@ -19,6 +19,7 @@
 import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions } from "../types.js";
 import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce } from "./renderer.js";
 import { poolGradientToCss } from "./tier-b-css.js";
+import { effectiveBlend } from "./blend.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -238,6 +239,8 @@ export function createSvgRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
+    // A near-white ink would vanish under the container's subtractive multiply; composite it normal instead.
+    container.style.mixBlendMode = effectiveBlend(context.options.blendMode, context.options.color, doc);
     // Intern the edge filter once: it depends only on doc + options, so it's invariant across a mark's lines.
     const defs = getSharedDefs(doc);
     const filterParams = resolveEdgeFilter(context.options);
