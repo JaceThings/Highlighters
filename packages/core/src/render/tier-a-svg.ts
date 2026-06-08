@@ -239,7 +239,6 @@ export function createSvgRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    // A near-white ink would vanish under the container's subtractive multiply; composite it normal instead.
     container.style.mixBlendMode = effectiveBlend(context.options.blendMode, context.options.color, doc);
     // Intern the edge filter once: it depends only on doc + options, so it's invariant across a mark's lines.
     const defs = getSharedDefs(doc);

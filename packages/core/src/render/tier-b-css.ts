@@ -93,7 +93,6 @@ export function createCssRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    // A near-white ink would vanish under the container's subtractive multiply; composite it normal instead.
     container.style.mixBlendMode = effectiveBlend(context.options.blendMode, context.options.color, doc);
     const keep = new Set<number>();
 

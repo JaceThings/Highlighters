@@ -67,6 +67,8 @@ function minChannel(color: ColorValue, doc: Document): number | null {
       result = colorMinChannel(probe.fillStyle as string);
     }
   } catch {
+    // Drop a context that errored (e.g. a torn-down document) so the next call retries with a live one.
+    probe = undefined;
     result = null;
   }
   normalizeCache.set(color, result);
