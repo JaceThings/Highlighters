@@ -12,7 +12,7 @@
  * its exact node and never flickers when the line set changes. {@link teardownContainer} leaves the DOM as it was.
  */
 
-import type { Box, RenderContext } from "../types.js";
+import type { BlendMode, Box, RenderContext } from "../types.js";
 
 export type { Renderer, RenderContext } from "../types.js";
 
@@ -89,20 +89,7 @@ export function createOverlayContainer(host: HTMLElement): HTMLElement {
   const doc = host.ownerDocument;
   const container = doc.createElement("div");
   container.setAttribute(OVERLAY_FLAG, "");
-  container.setAttribute("aria-hidden", "true");
-
-  const s = container.style;
-  s.position = "absolute";
-  s.top = "0";
-  s.left = "0";
-  s.width = "100%";
-  s.height = "100%";
-  s.pointerEvents = "none";
-  // Isolate so multiply composites against this overlay's own backdrop, not an ancestor stacking context.
-  s.isolation = "isolate";
-  s.mixBlendMode = "multiply";
-  s.overflow = "visible";
-  s.userSelect = "none";
+  styleOverlayLayer(container, "multiply");
 
   // Promote only a static host to `relative`, anchoring the overlay without disturbing its layout.
   const view = doc.defaultView;
@@ -113,6 +100,36 @@ export function createOverlayContainer(host: HTMLElement): HTMLElement {
 
   host.appendChild(container);
   return container;
+}
+
+/** Style an element as a positioned, isolated, non-interactive overlay layer with `blend` compositing. */
+function styleOverlayLayer(el: HTMLElement, blend: BlendMode): void {
+  el.setAttribute("aria-hidden", "true");
+  const s = el.style;
+  s.position = "absolute";
+  s.top = "0";
+  s.left = "0";
+  s.width = "100%";
+  s.height = "100%";
+  s.pointerEvents = "none";
+  // Isolate so the blend composites against this overlay's own backdrop, not an ancestor stacking context.
+  s.isolation = "isolate";
+  s.mixBlendMode = blend;
+  s.overflow = "visible";
+  s.userSelect = "none";
+}
+
+/**
+ * An extra overlay layer on `host` with a non-default blend, for a mark whose ink can't use the shared
+ * multiply container - a near-white ink on a dark backdrop needs `normal` to stay visible. Fills the
+ * host identically to the shared container (so host-relative line boxes line up), but is uncached and
+ * unflagged: the renderer that creates it owns its lifetime, and it never disturbs sibling marks.
+ */
+export function createBlendLayer(host: Element, blend: BlendMode): HTMLElement {
+  const layer = host.ownerDocument.createElement("div");
+  styleOverlayLayer(layer, blend);
+  host.appendChild(layer);
+  return layer;
 }
 
 /**

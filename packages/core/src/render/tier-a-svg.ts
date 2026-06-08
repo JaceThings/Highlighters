@@ -17,7 +17,7 @@
  */
 
 import type { Renderer, RenderContext, MarkGeometry, ResolvedOptions, ColorValue } from "../types.js";
-import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce, backdropElement } from "./renderer.js";
+import { NodePool, applyBoxPosition, setVendorPrefixed, setStyleOnce, backdropElement, createBlendLayer } from "./renderer.js";
 import { poolGradientToCss } from "./tier-b-css.js";
 import { effectiveInk } from "./blend.js";
 
@@ -167,6 +167,9 @@ export function createSvgRenderer(): Renderer {
   const inkPool = new NodePool<HTMLElement>();
   const glowPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
+  // A private `normal`-blend layer for a near-white ink on a dark backdrop, so it escapes the shared
+  // multiply container without flipping its blend (which would knock sibling marks out of multiply).
+  let blendLayer: HTMLElement | null = null;
 
   /** Place a child node at `inset: 0` of its wrapper (fills the line box). */
   function fillWrapper(el: HTMLElement): void {
@@ -240,9 +243,11 @@ export function createSvgRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    const composite = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
-    container.style.mixBlendMode = composite.blend;
-    const inkColor = composite.color === context.options.color ? undefined : composite.color;
+    // Near-white ink on a dark backdrop gets its own normal-blend layer; everything else uses the shared container.
+    const plan = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
+    const host = container.parentElement;
+    const target = plan.layer && host ? (blendLayer ??= createBlendLayer(host, plan.layer)) : container;
+    const inkColor = plan.color === context.options.color ? undefined : plan.color;
     // Intern the edge filter once: it depends only on doc + options, so it's invariant across a mark's lines.
     const defs = getSharedDefs(doc);
     const filterParams = resolveEdgeFilter(context.options);
@@ -260,9 +265,9 @@ export function createSvgRenderer(): Renderer {
         wrapper = doc.createElement("div");
         wrapper.setAttribute("aria-hidden", "true");
         wrapper.style.pointerEvents = "none";
-        container.appendChild(wrapper);
         wrapperPool.set(line.seed, wrapper);
       }
+      if (wrapper.parentElement !== target) target.appendChild(wrapper);
       applyBoxPosition(wrapper, line.box);
 
       const ink = ensureInk(doc, wrapper, line.seed);
@@ -301,6 +306,8 @@ export function createSvgRenderer(): Renderer {
       wrapperPool.clear((el) => el.remove());
       inkPool.clear(() => {});
       glowPool.clear(() => {});
+      blendLayer?.remove();
+      blendLayer = null;
       container = null;
     },
   };

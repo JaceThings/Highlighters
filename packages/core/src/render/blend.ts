@@ -22,9 +22,13 @@ const NEAR_WHITE_MIN = 217;
 // The off-white a near-white ink falls back to on a light backdrop, so multiply leaves a visible wash.
 const OFF_WHITE = "#d6d6d6";
 
-/** The colour + blend to actually paint an ink with. */
-export interface InkComposite {
-  blend: BlendMode;
+/**
+ * How to paint an ink. `layer` is the blend for a private overlay layer the mark needs (only a
+ * near-white ink on a dark backdrop, which must escape the shared multiply container), or `null` to
+ * use the shared multiply container as-is. `color` is the ink, possibly substituted to an off-white.
+ */
+export interface InkPlan {
+  layer: BlendMode | null;
   color: ColorValue;
 }
 
@@ -90,20 +94,21 @@ function backdropIsLight(el: Element | null, doc: Document): boolean {
 }
 
 /**
- * The colour + blend to composite an ink with. A near-white ink under the default `multiply` would
- * vanish, so it switches to `normal` on a dark backdrop (bright wash) or to a soft off-white on a
- * light backdrop (a faint multiply wash). Every other colour, and any explicit blend, is unchanged.
+ * How to paint an ink so a near-white one stays visible. On a light backdrop it stays in the shared
+ * multiply container but darkens to a soft off-white (`layer: null`); on a dark backdrop it needs its
+ * own `normal`-blend layer to escape multiply (`layer: "normal"`). Every other colour, and any
+ * explicit non-multiply blend, is left to the shared container untouched (`layer: null`).
  */
 export function effectiveInk(
   blendMode: BlendMode,
   color: ColorValue,
   backdrop: Element | null,
   doc: Document,
-): InkComposite {
-  if (blendMode !== "multiply") return { blend: blendMode, color };
+): InkPlan {
+  if (blendMode !== "multiply") return { layer: null, color };
   const min = minChannel(color, doc);
-  if (min === null || min < NEAR_WHITE_MIN) return { blend: "multiply", color };
+  if (min === null || min < NEAR_WHITE_MIN) return { layer: null, color };
   return backdropIsLight(backdrop, doc)
-    ? { blend: "multiply", color: OFF_WHITE }
-    : { blend: "normal", color };
+    ? { layer: null, color: OFF_WHITE }
+    : { layer: "normal", color };
 }

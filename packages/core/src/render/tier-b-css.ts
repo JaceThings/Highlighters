@@ -10,7 +10,7 @@
  */
 
 import type { Renderer, RenderContext, MarkGeometry, PoolGradient, ColorValue } from "../types.js";
-import { NodePool, applyBoxPosition, backdropElement } from "./renderer.js";
+import { NodePool, applyBoxPosition, backdropElement, createBlendLayer } from "./renderer.js";
 import { effectiveInk } from "./blend.js";
 
 /**
@@ -71,6 +71,9 @@ export function createCssRenderer(): Renderer {
   const wrapperPool = new NodePool<HTMLElement>();
   const bandPool = new NodePool<HTMLElement>();
   let container: HTMLElement | null = null;
+  // A private `normal`-blend layer for a near-white ink on a dark backdrop, so it escapes the shared
+  // multiply container without flipping its blend (which would knock sibling marks out of multiply).
+  let blendLayer: HTMLElement | null = null;
 
   function styleBand(
     el: HTMLElement,
@@ -99,9 +102,11 @@ export function createCssRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    const ink = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
-    container.style.mixBlendMode = ink.blend;
-    const inkColor = ink.color === context.options.color ? undefined : ink.color;
+    // Near-white ink on a dark backdrop gets its own normal-blend layer; everything else uses the shared container.
+    const plan = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
+    const host = container.parentElement;
+    const target = plan.layer && host ? (blendLayer ??= createBlendLayer(host, plan.layer)) : container;
+    const inkColor = plan.color === context.options.color ? undefined : plan.color;
     const keep = new Set<number>();
 
     for (const line of context.lines) {
@@ -112,9 +117,9 @@ export function createCssRenderer(): Renderer {
         wrapper = doc.createElement("div");
         wrapper.setAttribute("aria-hidden", "true");
         wrapper.style.pointerEvents = "none";
-        container.appendChild(wrapper);
         wrapperPool.set(line.seed, wrapper);
       }
+      if (wrapper.parentElement !== target) target.appendChild(wrapper);
       applyBoxPosition(wrapper, line.box);
 
       let band = bandPool.get(line.seed);
@@ -140,6 +145,8 @@ export function createCssRenderer(): Renderer {
     unmount(): void {
       wrapperPool.clear((el) => el.remove());
       bandPool.clear(() => {});
+      blendLayer?.remove();
+      blendLayer = null;
       container = null;
     },
   };

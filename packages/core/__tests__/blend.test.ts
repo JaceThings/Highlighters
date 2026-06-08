@@ -45,44 +45,44 @@ describe("colorMinChannel", () => {
 describe("effectiveInk", () => {
   const doc = document;
 
-  it("keeps a saturated or mid ink on multiply, unchanged", () => {
+  it("keeps a saturated or mid ink in the shared container, unchanged", () => {
     expect(effectiveInk("multiply", "#fff14d", backdrop("#fff"), doc)).toEqual({
-      blend: "multiply",
+      layer: null,
       color: "#fff14d",
     });
     expect(effectiveInk("multiply", "#cccccc", backdrop("#000"), doc)).toEqual({
-      blend: "multiply",
+      layer: null,
       color: "#cccccc",
     });
   });
 
-  it("paints a near-white ink as a normal wash on a dark backdrop", () => {
+  it("gives a near-white ink its own normal layer on a dark backdrop", () => {
     expect(effectiveInk("multiply", "#ffffff", backdrop("#0a0a0a"), doc)).toEqual({
-      blend: "normal",
+      layer: "normal",
       color: "#ffffff",
     });
   });
 
-  it("darkens a near-white ink to an off-white multiply wash on a light backdrop", () => {
+  it("darkens a near-white ink to an off-white in the shared container on a light backdrop", () => {
     const r = effectiveInk("multiply", "#ffffff", backdrop("#fbfbf9"), doc);
-    expect(r.blend).toBe("multiply");
+    expect(r.layer).toBeNull(); // stays in the shared multiply container, no private layer
     expect(r.color).not.toBe("#ffffff");
     expect(colorMinChannel(r.color)).toBeLessThan(255); // an actual off-white, not pure white
   });
 
   it("assumes a light page when no opaque backdrop is found", () => {
     const r = effectiveInk("multiply", "#ffffff", backdrop("transparent"), doc);
-    expect(r.blend).toBe("multiply");
+    expect(r.layer).toBeNull();
     expect(r.color).not.toBe("#ffffff");
   });
 
-  it("respects an explicit non-multiply blend regardless of colour or backdrop", () => {
+  it("leaves an explicit non-multiply blend to the shared container untouched", () => {
     expect(effectiveInk("screen", "#ffffff", backdrop("#000"), doc)).toEqual({
-      blend: "screen",
+      layer: null,
       color: "#ffffff",
     });
     expect(effectiveInk("normal", "#fff14d", backdrop("#fff"), doc)).toEqual({
-      blend: "normal",
+      layer: null,
       color: "#fff14d",
     });
   });
