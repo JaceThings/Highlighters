@@ -65,8 +65,10 @@ export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
   const stacked = previewOptions.stack !== false;
   // Steady ink alpha. The mark-type fade rides swap.fade (compositor opacity), not this.
   const liveOpacity = core.opacity ?? 0.5;
-  const words = quote.text.split(" ");
-  const plan = planMarks(quote, words, strategy);
+  // Which words are marked depends only on the quote + strategy, never the per-frame animated
+  // options — memoize so spring frames don't rerun the (non-trivial) planner or resplit the text.
+  const words = useMemo(() => quote.text.split(" "), [quote.text]);
+  const plan = useMemo(() => planMarks(quote, words, strategy), [quote, words, strategy]);
 
   // Overlap doubles stay mounted (toggling opacity, not nodes, avoids a draw-on replay); the Stack
   // toggle fades them via this 0..1 amount. Can't use a compositor layer here: opacity there would

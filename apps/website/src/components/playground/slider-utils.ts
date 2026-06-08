@@ -44,6 +44,16 @@ export const reservedChars = (
   return Math.max(...lengths);
 };
 
-export const prefersReducedMotion = (): boolean =>
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+// Cache the MediaQueryList at module scope: `matchMedia()` allocates and can force a style flush on
+// every call, and this is read dozens of times per frame during a drag. One `change` listener keeps
+// the cached `.matches` fresh, so the exported reader is a plain boolean lookup.
+const reducedMotionQuery =
+  typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)")
+    : null;
+let reducedMotionMatches = reducedMotionQuery?.matches ?? false;
+reducedMotionQuery?.addEventListener("change", (e) => {
+  reducedMotionMatches = e.matches;
+});
+
+export const prefersReducedMotion = (): boolean => reducedMotionMatches;

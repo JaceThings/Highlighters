@@ -113,12 +113,27 @@ export function FocusRingOverlay({
     const getSection = (el: HTMLElement | null): string | null =>
       el?.closest(SECTION_SELECTOR)?.getAttribute("data-focus-section") ?? null;
 
+    // Poll only while a ring is visible (see `follow`); idle pages schedule no rAF.
+    let rafId = 0;
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let reduced = mql.matches;
+
+    const startFollow = () => {
+      if (rafId || reduced) return;
+      rafId = requestAnimationFrame(follow);
+    };
+    const stopFollow = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = 0;
+    };
+
     const hide = () => {
       if (!visible.current) return;
       visible.current = false;
       targetRef.current = null;
       fadingOut = false;
       pendingTarget = null;
+      stopFollow();
       fadeTo(0, FADE_OUT);
     };
 
@@ -142,6 +157,7 @@ export function FocusRingOverlay({
         snap(dest);
         visible.current = true;
         targetRef.current = t;
+        startFollow();
         fadeTo(1, FADE_IN);
         return;
       }
@@ -197,25 +213,35 @@ export function FocusRingOverlay({
 
     // Targets can move externally (footer slides on route change); the poll re-feeds raw values so
     // springs follow. Bail on removed/mid-exit elements: getBoundingClientRect on a detached node
-    // returns the zero-rect and the ring snaps to the viewport origin.
-    let rafId = 0;
-    const follow = () => {
-      if (visible.current && targetRef.current && !fadingOut) {
+    // returns the zero-rect and the ring snaps to the viewport origin. Runs only while visible so an
+    // idle page schedules no recurring rAF.
+    function follow() {
+      rafId = 0;
+      if (!visible.current) return;
+      if (targetRef.current && !fadingOut) {
         const el = targetRef.current;
         if (!el.isConnected || isMidExit(el)) {
           hide();
-        } else {
-          slide(measure(el));
+          return;
         }
+        slide(measure(el));
       }
       rafId = requestAnimationFrame(follow);
+    }
+
+    // Reduced motion: never poll; focus events still position the ring via snap/slide.
+    const onMotionPref = () => {
+      reduced = mql.matches;
+      if (reduced) stopFollow();
+      else if (visible.current) startFollow();
     };
-    rafId = requestAnimationFrame(follow);
+    mql.addEventListener("change", onMotionPref);
 
     document.addEventListener("focusin", onFocusIn);
     document.addEventListener("focusout", onFocusOut);
     return () => {
-      cancelAnimationFrame(rafId);
+      stopFollow();
+      mql.removeEventListener("change", onMotionPref);
       document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("focusout", onFocusOut);
       fadeRef.current?.stop();

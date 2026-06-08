@@ -101,11 +101,13 @@ function buildLines(
   container: HTMLElement,
   flowReversed = false,
   profileFor?: (local: LineRect) => LineSpeedProfile | undefined,
+  cachedOrigin?: DOMRect,
 ): MarkGeometry[] {
   if (ranges.length === 0) return [];
   // `getClientRects()` is viewport-relative; subtracting the container's rect ties a line's seed
   // and position to its document position alone, stable under scroll and either drag direction.
-  const origin = container.getBoundingClientRect();
+  // A caller mid-frame can pass `cachedOrigin` so several builds share one layout read.
+  const origin = cachedOrigin ?? container.getBoundingClientRect();
   const lineRects: LineRect[] = rangesToLineRects(
     ranges,
     computeAnchor(ranges),
@@ -334,6 +336,9 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     tracker?.reset();
   };
   const endDrag = (): void => {
+    // Paint any frame still pending while the drag is "live" so the settled mark keeps the last
+    // sampled speed look, matching the pre-coalescing behaviour where the final event rendered sync.
+    flushRender();
     dragging = false;
   };
   if (tracker) {
@@ -345,7 +350,11 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     window.addEventListener("blur", endDrag);
   }
 
-  const rebuild = (ranges: Range[], flowReversed: boolean): RenderContext => {
+  const rebuild = (
+    ranges: Range[],
+    flowReversed: boolean,
+    origin?: DOMRect,
+  ): RenderContext => {
     const snapped = snapRanges(ranges, resolved.snap);
     // Speed profile only while a drag actively feeds the tracker; gating on `dragging` stops a
     // post-release selection from reusing a finished gesture's stale samples. The look persists
@@ -358,7 +367,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
             resolved.speed,
           )
       : undefined;
-    const lines = buildLines(snapped, resolved, container, flowReversed, profileFor);
+    const lines = buildLines(snapped, resolved, container, flowReversed, profileFor, origin);
     return { container, options: resolved, lines, ranges };
   };
 
@@ -375,6 +384,25 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     container.style.opacity = "";
   };
 
+  // Sample the focus-caret velocity on EVERY selectionchange (cheap; the field's fidelity depends
+  // on per-event sampling), but coalesce the expensive geometry+paint into one rAF per frame. Each
+  // frame still reads the latest selection, so intermediate states that would be overwritten anyway
+  // are skipped rather than drawn.
+  const sample = (): void => {
+    if (!tracker || !dragging || !resolved.speed.enabled) return;
+    const selection = document.getSelection();
+    if (!selection || selection.isCollapsed) return;
+    // Same container-local px space buildLines projects into, so the lookup is exact during the drag.
+    const origin = container.getBoundingClientRect();
+    tracker.recordSample(
+      selection,
+      origin.left,
+      origin.top,
+      performance.now(),
+      resolved.speed.smoothing,
+    );
+  };
+
   const renderSelection = (): void => {
     const selection = document.getSelection();
     const ranges: Range[] = [];
@@ -382,17 +410,6 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     let flowReversed = false;
     if (selection && !selection.isCollapsed) {
       flowReversed = isSelectionBackward(selection);
-      // Sample in the same container-local px space buildLines projects into, so the lookup is exact during the drag.
-      if (tracker && dragging && resolved.speed.enabled) {
-        const origin = container.getBoundingClientRect();
-        tracker.recordSample(
-          selection,
-          origin.left,
-          origin.top,
-          performance.now(),
-          resolved.speed.smoothing,
-        );
-      }
       for (let i = 0; i < selection.rangeCount; i++) {
         ranges.push(selection.getRangeAt(i).cloneRange());
       }
@@ -414,7 +431,9 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     }
     cancelClearFade();
 
-    const context = rebuild(ranges, flowReversed);
+    // One layout read per frame, shared by every line's build.
+    const origin = ranges.length > 0 ? container.getBoundingClientRect() : undefined;
+    const context = rebuild(ranges, flowReversed, origin);
     if (!renderer) {
       const tier = selectTier(resolved.renderer, env, context.lines.length);
       renderer = rendererForTier(tier);
@@ -424,7 +443,27 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     }
   };
 
-  const onSelectionChange = (): void => renderSelection();
+  let rafId = 0;
+  const scheduleRender = (): void => {
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => {
+      rafId = 0;
+      renderSelection();
+    });
+  };
+  // Flush a pending coalesced frame synchronously (e.g. on drag-settle), so the final selection is
+  // painted now rather than a frame later, while `dragging` is still true and the speed look holds.
+  const flushRender = (): void => {
+    if (!rafId) return;
+    cancelAnimationFrame(rafId);
+    rafId = 0;
+    renderSelection();
+  };
+
+  const onSelectionChange = (): void => {
+    sample();
+    scheduleRender();
+  };
   document.addEventListener("selectionchange", onSelectionChange);
   renderSelection();
 
@@ -451,12 +490,18 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       if (removed) return;
       userOptions = mergeOptions(userOptions, opts as HighlightOptions);
       resolved = resolveOptions(userOptions);
+      // An option change renders synchronously; drop any pending coalesced frame (same selection).
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
       renderSelection();
     },
     remove(): void {
       if (removed) return;
       removed = true;
       showing = false;
+      if (rafId) cancelAnimationFrame(rafId);
       if (clearTimer !== null) clearTimeout(clearTimer);
       document.removeEventListener("selectionchange", onSelectionChange);
       if (tracker) {
