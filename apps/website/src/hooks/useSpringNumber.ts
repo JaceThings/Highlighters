@@ -5,6 +5,11 @@ import {
   useMotionValueEvent,
   type MotionValue,
 } from "framer-motion";
+// One cached MediaQueryList shared with the sliders, instead of a fresh matchMedia() per call
+// (read many times per frame during a drag). Re-exported for the animation hooks that import it here.
+import { prefersReducedMotion } from "../components/playground/slider-utils.ts";
+
+export { prefersReducedMotion };
 
 export interface SpringNumberOptions {
   duration: number;
@@ -12,10 +17,6 @@ export interface SpringNumberOptions {
   /** Drag-driven target: bypass the tween (input is already smooth; a tween on top would lag it). */
   fromDrag?: boolean;
 }
-
-export const prefersReducedMotion = (): boolean =>
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
 /**
  * Tween a `MotionValue<number>` toward `target` without mirroring to React state. Lets a caller
