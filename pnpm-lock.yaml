@@ -96,9 +96,6 @@ importers:
       dialkit:
         specifier: ^1.2.0
         version: 1.2.0(motion@12.40.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(svelte@5.55.10)(vue@3.5.35(typescript@5.9.3))
-      motion:
-        specifier: ^12.40.0
-        version: 12.40.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
