@@ -47,12 +47,10 @@ const EXPAND_FADE = 0.16;
 const COLLAPSE = { type: "spring", stiffness: 400, damping: 42 } as const;
 // Preview morph (circle <-> docked) and the live, anchored transitions.
 const MORPH = { type: "spring", stiffness: 460, damping: 42 } as const;
-// Commit settle (release -> docked bottom/side): softer + slower than MORPH so the circle eases into the
-// dock unhurriedly and lands with a small, gentle overshoot (~2%) that oscillates back slowly rather than
-// snapping. Lower stiffness = the slower travel AND the slower, gentler bounce; the slight underdamping
-// is the overshoot. `velocity: 0` starts it from rest so the overshoot is a designed, constant amount
-// rather than scaling with how hard the release was thrown. The pen's rotation + reveal stay on MORPH so
-// the marker never over-rotates.
+// Commit settle (release -> docked): softer/slower than MORPH so the circle eases in and lands with a
+// small, gentle overshoot (~2%) from the slight underdamping. `velocity: 0` makes that overshoot a
+// constant designed amount, not one scaling with how hard the release was thrown. Pen rotation + reveal
+// stay on MORPH so the marker never over-rotates.
 const SETTLE = { type: "spring", stiffness: 300, damping: 27, velocity: 0 } as const;
 // Rotation snap: the pen jumps (springs) fully to its docked angle on entering an edge zone, back to
 // upright on leaving - it does NOT track the cursor angle.
@@ -317,14 +315,11 @@ export function useDockDrag({
     [runWhen, isCircle, track, penRotation, width, height],
   );
 
-  // Feather controller: the soft mask edge is driven by the shape's SPEED, not by events/timers. Each
-  // frame we read the tray box velocity (width+height px/s) and ease the feather toward speed/SPEED_FULL.
-  // Because velocity is 0 at rest, ramps up smoothly when a morph accelerates, and decays smoothly as the
-  // spring settles, the feather can't flash or re-trigger: it rises with the motion and fades AS the
-  // motion slows (not after a settle timer, so no lingering-at-full or spring-tail blips). Asymmetric
-  // easing (quick rise, gentle fall) makes the dissolve linger softly. The loop self-pauses when settled
-  // and re-arms on the next box change; instant `.set()`s at rest (placeBottom/placeSide, resize) are
-  // gated out so a reposition never blips it.
+  // Feather controller: the soft mask edge is driven by the shape's SPEED, not events/timers. Each frame
+  // it eases the feather toward (width+height velocity)/SPEED_FULL. Velocity is 0 at rest and decays as
+  // the spring settles, so the feather rises with the motion and fades AS it slows - never a flash or a
+  // settle-timer linger. Asymmetric easing (quick rise, gentle fall) keeps the dissolve soft. The loop
+  // self-pauses when idle and re-arms on the next box change; at-rest `.set()`s (place, resize) are gated out.
   useEffect(() => {
     const SPEED_FULL = 900; // combined |dW|+|dH| (px/s) at which the feather is fully on
     let raf = 0;
@@ -499,6 +494,22 @@ export function useDockDrag({
     return null;
   }, []);
 
+  // Animate the tray box + carried pen to the centred circle on `transition`. Shared by the lift
+  // collapse (COLLAPSE spring) and the docked->free-circle revert (MORPH spring): the box/pen targets
+  // are identical, only the transition differs. Returns the width control so a caller can await the morph.
+  const animateToCircle = useCallback(
+    (transition: Transition): Cancelable => {
+      const wCtrl = track(animate(width, CIRCLE, transition));
+      track(animate(height, CIRCLE, transition));
+      track(animate(cornerRadius, CIRCLE / 2, transition));
+      track(animate(markerOffsetX, 0, transition));
+      track(animate(markerOffsetY, 0, transition));
+      track(animate(markerReveal, 1, transition));
+      return wCtrl;
+    },
+    [track, width, height, cornerRadius, markerOffsetX, markerOffsetY, markerReveal],
+  );
+
   // Morph the collapsed circle to/from a previewed dock as it enters/leaves an edge zone. The carried
   // pen glides to the dock's slot (or back to centre) - it stays the same visible pen the whole time.
   const previewTo = useCallback(
@@ -519,13 +530,11 @@ export function useDockDrag({
         const rot = isSide ? sideRotation(target) : 0;
         const slot = slotFor(target);
         rotateTargetRef.current = rot;
-        // The carried pen stands in for the row's (hidden) selected pen, and the row's rotation + slot
-        // layout snap INSTANTLY (penDeg is a plain re-render, no tween). So whenever the side row is
-        // already on screen - crossing straight from one side dock to the other, or reversing before a
-        // brief free-circle dip has faded it out - the carried pen must SNAP its rotation and slot to
-        // match. Springing them would leave it lagging at the old side's angle/slot while the row sits
-        // at the new one, reading as a second, mismatched-angle pen (the doubled marker). A genuine
-        // circle->side entry (row still hidden) gets the rotate-in-the-circle-then-expand sequence below.
+        // The row's rotation + slot snap INSTANTLY (penDeg is a plain re-render, no tween). So when the
+        // side row is already on screen - crossing side-to-side, or reversing before a brief free-circle
+        // dip faded it out - the carried pen must SNAP its rotation/slot to match; springing them would
+        // leave it lagging at the old angle while the row sits at the new one (the doubled marker). A
+        // genuine circle->side entry (row still hidden) gets the rotate-in-circle-then-expand below.
         const rowShowing =
           isSide &&
           (prevPreview === "left" || prevPreview === "right" || verticalOpacity.get() > 0.1);
@@ -597,12 +606,7 @@ export function useDockDrag({
       // shape is still wide (that was the "full-width pill flash"); the morph owns position until it settles.
       followRef.current = false;
       freeMorphRef.current = true;
-      const wCtrl = track(animate(width, CIRCLE, MORPH));
-      track(animate(height, CIRCLE, MORPH));
-      track(animate(cornerRadius, CIRCLE / 2, MORPH));
-      track(animate(markerOffsetX, 0, MORPH));
-      track(animate(markerOffsetY, 0, MORPH));
-      track(animate(markerReveal, 1, MORPH));
+      const wCtrl = animateToCircle(MORPH);
       // Hold the pen at its current (docked) angle while the pill collapses; only swing it to the free-
       // circle facing once the shape has actually rounded into the circle - never tilt inside the oval.
       rotateWhenCircular(rot, ROT_SNAP);
@@ -622,7 +626,7 @@ export function useDockDrag({
         recenter();
       });
     },
-    [stopAll, track, setPreview, boxFor, slotFor, runWhen, rotateWhenCircular, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, feather, frozen, horizontalOpacity, verticalOpacity, retargetFreePos, recenter],
+    [stopAll, track, setPreview, boxFor, slotFor, runWhen, rotateWhenCircular, animateToCircle, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, feather, frozen, horizontalOpacity, verticalOpacity, retargetFreePos, recenter],
   );
 
   // Pinch the (lifted) pill into the circle: spring-driven collapse, fade the contents out, carry the
@@ -640,11 +644,10 @@ export function useDockDrag({
       freezeCx.set(x.get() + width.get() / 2);
       freezeCy.set(y.get() + height.get() / 2);
       frozen.set(1);
-      // The carried overlay is ALREADY visible at the selected pen's slot (seeded on grab during the
-      // lift, standing in for the now-hidden row pen) at its docked facing. So collapse just glides it
-      // from there to centre as the shape pinches - identical to the in-grab circle<->dock morph, with
-      // no opacity flip or instant offset jump on the first grab (that was the "jumping pen"). Rotation
-      // is left to onMove's rotateWhenCircular, so the pen only un-rotates once it's actually a circle.
+      // The carried overlay is ALREADY at the selected pen's slot (seeded on grab) at its docked facing,
+      // so collapse just glides it to centre as the shape pinches - no opacity flip or offset jump on the
+      // first grab (the "jumping pen"). Rotation is left to onMove's rotateWhenCircular, so the pen only
+      // un-rotates once it's actually a circle.
       if (prefersReducedMotion()) {
         width.set(CIRCLE);
         height.set(CIRCLE);
@@ -662,21 +665,14 @@ export function useDockDrag({
       // so they ramp up gently and the contents visibly clear before the pinch reads as "moving".
       track(animate(horizontalOpacity, 0, { duration: FADE, ease: "easeOut" }));
       track(animate(verticalOpacity, 0, { duration: FADE, ease: "easeOut" }));
-      // Pinch the pill to the circle, carrying the pen to centre on the SAME spring as the shape, so
-      // they move in lockstep. The pen offset shrinks proportionally faster than the shape's half-
-      // width (the pen always sits well within the pill, and the circle is small), so the pen stays
-      // comfortably inside the shrinking shape every frame - never stranded to one side, riding the
-      // clipped edge, or briefly clipping to an empty disc on a long (side-dock) offset. The fast
-      // contents fade (FADE) still clears them before the slower pinch reads as "moving", preserving
-      // "contents clear, then the marker glides to centre". All retarget from current value+velocity.
-      track(animate(width, CIRCLE, COLLAPSE));
-      track(animate(height, CIRCLE, COLLAPSE));
-      track(animate(cornerRadius, CIRCLE / 2, COLLAPSE));
-      track(animate(markerOffsetX, 0, COLLAPSE));
-      track(animate(markerOffsetY, 0, COLLAPSE));
-      track(animate(markerReveal, 1, COLLAPSE));
+      // Pinch to the circle, carrying the pen to centre on the SAME spring as the shape (lockstep). The
+      // pen offset shrinks faster than the shape's half-width, so the pen stays well inside every frame -
+      // never stranded on the shrinking edge or clipped to an empty disc on a long side-dock offset. The
+      // fast contents fade (FADE) clears them before the slower pinch reads as "moving" ("contents clear,
+      // then the marker glides to centre"). All retarget from current value+velocity.
+      animateToCircle(COLLAPSE);
     },
-    [stopAll, track, setCollapsed, setPreview, markerOffsetX, markerOffsetY, markerReveal, width, height, cornerRadius, x, y, freezeCx, freezeCy, frozen, feather, horizontalOpacity, verticalOpacity, recenter],
+    [stopAll, track, setCollapsed, setPreview, animateToCircle, markerOffsetX, markerOffsetY, markerReveal, width, height, cornerRadius, x, y, freezeCx, freezeCy, frozen, feather, horizontalOpacity, verticalOpacity, recenter],
   );
 
   const onMove = useCallback(
@@ -821,12 +817,11 @@ export function useDockDrag({
       setCollapsed(false);
       setPreview(null);
       setPhase("dragging");
-      // Lift phase: keep the intact pill + its contents and let it follow the pointer (onMove) until
-      // lifted past LIFT_DISTANCE. Seed the carried overlay RIGHT NOW, sitting exactly on the selected
-      // pen's slot at its docked facing: it stands in for the row's selected pen (hidden atomically via
-      // markerOpacity), so when the collapse fires the overlay is already visible at the slot and simply
-      // springs to centre - no opacity flip / instant offset jump on the first grab (the "jumping pen").
-      // This makes the first collapse identical to the smooth in-grab circle<->dock morph.
+      // Lift phase: keep the intact pill following the pointer (onMove) until lifted past LIFT_DISTANCE.
+      // Seed the carried overlay NOW at the selected pen's slot + docked facing, standing in for the row
+      // pen (hidden atomically via markerOpacity). So when collapse fires the overlay is already at the
+      // slot and just springs to centre - no opacity flip / offset jump on the first grab (the "jumping
+      // pen"), making the first collapse identical to the smooth in-grab circle<->dock morph.
       const originRot = sideRef.current ? sideRotation(sideRef.current) : 0;
       markerOffsetX.set(slot.x);
       markerOffsetY.set(slot.y);

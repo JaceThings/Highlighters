@@ -72,7 +72,6 @@ export function Dock() {
   // while collapsed - the circle/preview, where everything else has faded too. Keying it to `collapsed`
   // (not the phase) means a sub-threshold grab+release, which never collapses, never blinks the handle out.
   const handleVisible = !collapsed;
-  const sideDocked = side !== null;
   const penColor = oklchToCss(hexToOklch(style.color));
   // Pens lie sideways with nibs pointing inward, toward the canvas (left dock -> +90, right -> -90).
   const penDeg = shownSide === "right" ? -90 : 90;
@@ -139,7 +138,7 @@ export function Dock() {
               ref={refs.horizontalLayer}
               inert={phase !== "bottom"}
               className="absolute inset-0 flex items-center justify-center"
-              style={{ opacity: 1, pointerEvents: phase === "bottom" ? "auto" : "none" }}
+              style={{ opacity: 1 }}
             >
               <div
                 ref={refs.horizontal}
@@ -164,7 +163,7 @@ export function Dock() {
               ref={refs.verticalLayer}
               inert={phase !== "side"}
               className="absolute inset-0 flex items-center justify-center"
-              style={{ opacity: 0, pointerEvents: phase === "side" ? "auto" : "none" }}
+              style={{ opacity: 0 }}
             >
               <div
                 ref={refs.vertical}
@@ -230,7 +229,6 @@ export function Dock() {
           <DockHandle
             phase={phase}
             side={side}
-            sideDocked={sideDocked}
             visible={handleVisible}
             onPointerDown={onHandlePointerDown}
           />

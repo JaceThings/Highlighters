@@ -20,7 +20,7 @@ const clamp = (v: number, max: number) => (v > max ? max : v < -max ? -max : v);
 // clips down to nothing while it's pinned to a shrinking edge. The marker frame is screen-aligned
 // (offsets translate after the rotate), so clamping the bounding box per-axis is exact at the centre
 // line where the side pen actually lives (and conservative for the rotated, narrower side pen).
-const EDGE_INSET = 28;
+const CLAMP_INSET = 28;
 
 export function CollapsedMarker({
   pen,
@@ -62,8 +62,8 @@ export function CollapsedMarker({
   // the pen can never be left clipped to an empty disc. It normally doesn't bind.
   const applyMove = useCallback(
     (el: HTMLElement | SVGElement) => {
-      const maxX = Math.max(0, shapeWidth.get() / 2 - EDGE_INSET);
-      const maxY = Math.max(0, shapeHeight.get() / 2 - EDGE_INSET);
+      const maxX = Math.max(0, shapeWidth.get() / 2 - CLAMP_INSET);
+      const maxY = Math.max(0, shapeHeight.get() / 2 - CLAMP_INSET);
       const ox = clamp(offsetX.get(), maxX);
       const oy = clamp(offsetY.get(), maxY);
       el.style.transform = `translate(${ox}px, ${oy}px) rotate(${rotation.get()}deg)`;

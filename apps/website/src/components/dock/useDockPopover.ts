@@ -116,5 +116,5 @@ export function useDockPopover({
     };
   }, [open, trayRef]);
 
-  return { popover, open, close, handleActivate, handleActivateCustom, handleCustomColor, handleSelectColor };
+  return { popover, close, handleActivate, handleActivateCustom, handleCustomColor, handleSelectColor };
 }

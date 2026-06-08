@@ -7,16 +7,15 @@ import type { DockPhase, DockSide } from "./useDockDrag.ts";
 export function DockHandle({
   phase,
   side,
-  sideDocked,
   visible,
   onPointerDown,
 }: {
   phase: DockPhase;
   side: DockSide | null;
-  sideDocked: boolean;
   visible: boolean;
   onPointerDown: (e: PointerEvent) => void;
 }) {
+  const sideDocked = side !== null;
   const position: CSSProperties = sideDocked
     ? {
         position: "absolute",
