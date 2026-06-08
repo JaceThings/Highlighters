@@ -62,9 +62,8 @@ export function Dock() {
   useDockMeasure(refs, syncSizes);
   useDockBindings(geometry, refs);
 
-  const contentAxis = dockContentAxis(phase, side, preview, collapsed);
-  const vertical = contentAxis === "height";
-  const popoverShowColors = vertical ? heightTier.showColors : widthTier.showColors;
+  const vertical = dockContentAxis(phase, side, preview, collapsed) === "height";
+  const activeTier = vertical ? heightTier : widthTier;
 
   const {
     popover: activePopover,
@@ -73,15 +72,10 @@ export function Dock() {
     handleActivateCustom,
     handleCustomColor,
     handleSelectColor,
-  } = useDockPopover({ trayRef: refs.tray, color: style.color, setColor, showColors: popoverShowColors });
+  } = useDockPopover({ trayRef: refs.tray, color: style.color, setColor, showColors: activeTier.showColors });
   closePopoverRef.current = closePopover;
-  // The side layout's orientation follows the side being shown. A live side `preview` wins over the
-  // committed `side`: dragging straight from one side dock to the other never clears `side`, so honouring
-  // it would keep the row facing the origin during the opposite preview and only flip on release.
+  // Live side `preview` wins over committed `side` so cross-side drags flip orientation immediately.
   const shownSide = preview === "left" || preview === "right" ? preview : side;
-  // The handle tracks the dock contents: shown whenever they are (rest, lifting, settling), hidden only
-  // while collapsed - the circle/preview, where everything else has faded too. Keying it to `collapsed`
-  // (not the phase) means a sub-threshold grab+release, which never collapses, never blinks the handle out.
   const handleVisible = !collapsed;
   const penColor = oklchToCss(hexToOklch(style.color));
   // Pens lie sideways with nibs pointing inward, toward the canvas (left dock -> +90, right -> -90).
@@ -142,15 +136,11 @@ export function Dock() {
             cornerRadius={geometry.cornerRadius}
           />
 
-          {/* Clips the controls to the morphing shape so fades never spill outside it. Always on; the
-              carried pen is masked by this same shape (round in the circle, flat at a dock slot). */}
           <div ref={refs.clip} className="absolute inset-0 overflow-hidden">
-            {/* Horizontal (bottom) layout. inert keeps the hidden layout out of the tab order. */}
             <div
               ref={refs.horizontalLayer}
               inert={phase !== "bottom"}
               className="absolute inset-0 flex items-center justify-center"
-              style={{ opacity: 1 }}
             >
               <div
                 ref={refs.horizontal}
@@ -168,9 +158,7 @@ export function Dock() {
               </div>
             </div>
 
-            {/* Vertical (side-docked) layout: nav -> pens -> colours -> links, pens rotated inward.
-                Spacing mirrors the bottom capsule exactly (rotated 90deg): 32px edges (py-32), nav->pens
-                57px (nav pb-25 + the 32 gap), pens->colours 40px (inner group), colours->links 32px. */}
+            {/* Side layout: nav → pens → colours → links; spacing mirrors the bottom capsule rotated 90°. */}
             <div
               ref={refs.verticalLayer}
               inert={phase !== "side"}
@@ -208,9 +196,6 @@ export function Dock() {
               </div>
             </div>
 
-            {/* Feathered mask edge: a soft white inset over the content so items dissolve into the
-                capsule near the boundary rather than meeting the clip as a hard cut. Shown (opacity)
-                only while the shape is morphing; invisible at rest and in the circle. */}
             <div
               ref={refs.feather}
               aria-hidden
@@ -218,9 +203,6 @@ export function Dock() {
               style={{ boxShadow: "inset 0 0 16px 5px #fff", opacity: 0 }}
             />
 
-            {/* Capsule-white backdrop behind the carried marker: above the content layers (masking the
-                still-fading contents so they can't ghost around the pen) and below the marker. Clipped
-                by the same morphing shape; opacity is markerReveal (0 at a slot/preview, 1 in the circle). */}
             <div
               ref={refs.backdrop}
               aria-hidden

@@ -54,6 +54,9 @@ const SETTLE = { type: "spring", stiffness: 300, damping: 27, velocity: 0 } as c
 // upright on leaving - it does NOT track the cursor angle.
 const ROT_SNAP = { type: "spring", stiffness: 520, damping: 38 } as const;
 
+const layoutFadeTransition = (appearing: boolean) =>
+  ({ duration: FADE, ease: "easeInOut" as const, delay: appearing ? EXPAND_FADE : 0 });
+
 // One useState whose latest value is also mirrored to a ref, so the stable pointer handlers can read it
 // synchronously (state lags a render; the ref doesn't). Returns [value, ref, set]; `set` updates both.
 function useStateRef<T>(initial: T) {
@@ -67,6 +70,8 @@ function useStateRef<T>(initial: T) {
 }
 
 const sideRotation = (s: DockSide): number => (s === "left" ? 90 : -90);
+const targetFromRotation = (deg: number): DockTarget =>
+  deg === 90 ? "left" : deg === -90 ? "right" : "bottom";
 // Pen facing for a free circle centered at `cx`: faces the nearer edge (inward) within a generous
 // band, upright only in the centre. Hysteresis (`current`) keeps it sticky so a side dock grabbed
 // into a circle holds its facing until dragged well toward the middle. Left -> +90, right -> -90.
@@ -261,12 +266,15 @@ export function useDockDrag({
     animsRef.current.push(c);
     return c;
   }, []);
+  const stopSlotFollow = () => {
+    slotFollowCtrls.current.forEach((c) => c.stop());
+    slotFollowCtrls.current = [];
+  };
   const stopAll = useCallback(() => {
     genRef.current += 1;
     animsRef.current.forEach((c) => c.stop());
     animsRef.current = [];
-    slotFollowCtrls.current.forEach((c) => c.stop());
-    slotFollowCtrls.current = [];
+    stopSlotFollow();
     rotateUnsubs.current.forEach((u) => u());
     rotateUnsubs.current = [];
   }, []);
@@ -453,9 +461,7 @@ export function useDockDrag({
       const controls = geom.map(([mv, v, tr]) => track(animate(mv, v, tr ?? SETTLE)));
       // Expand timing: let the carried pen land in its slot before the contents arrive. The appearing
       // layer (target 1) fades in after EXPAND_FADE; the layer fading OUT (target 0) is not delayed.
-      const fadeControls = fades.map(([mv, v]) =>
-        track(animate(mv, v, { duration: FADE, ease: "easeInOut", delay: v > 0 ? EXPAND_FADE : 0 })),
-      );
+      const fadeControls = fades.map(([mv, v]) => track(animate(mv, v, layoutFadeTransition(v > 0))));
       // allSettled (not all) so an interrupted tween still resolves; the gen guard drops it if a newer
       // transition has since taken over, so `done` (the phase flip) fires exactly once, for this settle.
       // Gate on the fades too: the rest-place reset that `done` triggers would otherwise snap the
@@ -526,8 +532,7 @@ export function useDockDrag({
   const retargetSlot = useCallback(
     (target: DockTarget, snap: boolean) => {
       const slot = slotFor(target);
-      slotFollowCtrls.current.forEach((c) => c.stop());
-      slotFollowCtrls.current = [];
+      stopSlotFollow();
       if (snap) {
         markerOffsetX.set(slot.x);
         markerOffsetY.set(slot.y);
@@ -549,8 +554,7 @@ export function useDockDrag({
       );
       const cleanup = () => {
         unsubs.forEach((u) => u());
-        slotFollowCtrls.current.forEach((c) => c.stop());
-        slotFollowCtrls.current = [];
+        stopSlotFollow();
       };
       rotateUnsubs.current.push(cleanup);
     },
@@ -598,8 +602,8 @@ export function useDockDrag({
           track(animate(x, b.x, MORPH));
           track(animate(y, b.y, MORPH));
           track(animate(markerReveal, 0, MORPH));
-          track(animate(horizontalOpacity, hTarget, { duration: FADE, ease: "easeInOut", delay: hTarget > 0 ? EXPAND_FADE : 0 }));
-          track(animate(verticalOpacity, vTarget, { duration: FADE, ease: "easeInOut", delay: vTarget > 0 ? EXPAND_FADE : 0 }));
+          track(animate(horizontalOpacity, hTarget, layoutFadeTransition(hTarget > 0)));
+          track(animate(verticalOpacity, vTarget, layoutFadeTransition(vTarget > 0)));
         };
         if (rowShowing || !isSide) {
           // Side<->side crossing: snap rotation/slot to the new side (no partial-angle tween). Bottom:
@@ -803,9 +807,7 @@ export function useDockDrag({
       if (wasCollapsed) {
         // Commit whatever was previewed; otherwise a free circle commits to the way the marker is
         // facing (its on-screen destination), and only an upright circle returns to the bottom.
-        const dest: DockTarget =
-          target ??
-          (rotateTargetRef.current === 90 ? "left" : rotateTargetRef.current === -90 ? "right" : "bottom");
+        const dest: DockTarget = target ?? targetFromRotation(rotateTargetRef.current);
         commitTo(dest);
       } else {
         // Released during the lift, before collapse: settle back to where it came from (or bottom).

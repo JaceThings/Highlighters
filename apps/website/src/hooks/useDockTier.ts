@@ -21,10 +21,9 @@ const TIER_CONFIG: Record<TierAxis, { colors: number; pens: number }> = {
 
 function read(axis: TierAxis): DockTier {
   const { colors, pens } = TIER_CONFIG[axis];
-  const dim = axis === "width" ? "width" : "height";
   return {
-    showColors: window.matchMedia(`(min-${dim}: ${colors}px)`).matches,
-    showPens: window.matchMedia(`(min-${dim}: ${pens}px)`).matches,
+    showColors: window.matchMedia(`(min-${axis}: ${colors}px)`).matches,
+    showPens: window.matchMedia(`(min-${axis}: ${pens}px)`).matches,
   };
 }
 
@@ -52,9 +51,8 @@ export function useDockTier(axis: TierAxis = "width"): DockTier {
 
   useEffect(() => {
     const { colors, pens } = TIER_CONFIG[axis];
-    const dim = axis === "width" ? "width" : "height";
-    const colorsMq = window.matchMedia(`(min-${dim}: ${colors}px)`);
-    const pensMq = window.matchMedia(`(min-${dim}: ${pens}px)`);
+    const colorsMq = window.matchMedia(`(min-${axis}: ${colors}px)`);
+    const pensMq = window.matchMedia(`(min-${axis}: ${pens}px)`);
     const update = () => setTier({ showColors: colorsMq.matches, showPens: pensMq.matches });
     colorsMq.addEventListener("change", update);
     pensMq.addEventListener("change", update);

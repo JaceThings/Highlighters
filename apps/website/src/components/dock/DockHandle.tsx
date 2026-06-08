@@ -17,6 +17,12 @@ export function DockHandle({
   onPointerDown: (e: PointerEvent) => void;
 }) {
   const sideDocked = side !== null;
+  const pe = visible ? "auto" : "none";
+  const innerEdge: CSSProperties | undefined = sideDocked
+    ? side === "left"
+      ? { right: 0 }
+      : { left: 0 }
+    : undefined;
   const position: CSSProperties = sideDocked
     ? {
         position: "absolute",
@@ -37,12 +43,7 @@ export function DockHandle({
         <div
           aria-hidden
           className="absolute inset-y-0"
-          style={{
-            width: GRABBER_SAFETY_STRIP,
-            zIndex: 1,
-            pointerEvents: visible ? "auto" : "none",
-            ...(side === "left" ? { right: 0 } : { left: 0 }),
-          }}
+          style={{ width: GRABBER_SAFETY_STRIP, zIndex: 1, pointerEvents: pe, ...innerEdge }}
         />
       )}
       <m.div
@@ -54,7 +55,7 @@ export function DockHandle({
           zIndex: 2,
           cursor: phase === "dragging" ? "grabbing" : "grab",
           touchAction: "none",
-          pointerEvents: visible ? "auto" : "none",
+          pointerEvents: pe,
         }}
         initial={false}
         animate={{ opacity: visible ? 1 : 0 }}
