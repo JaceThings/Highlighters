@@ -267,7 +267,7 @@ function useAnimatedOptions(
       paper: { ...o.paper, absorbency: absorbencyV },
       glow: { ...o.glow, intensity: glowIntensityV, spread: glowSpreadV },
     }),
-    [o, color, nums, opacityV, angleV, overshootV, overshootJitterV, flowV, viscosityV, featheringV, streakinessV, dryoutV, startEndBuildupV, wavinessV, frequencyV, roughnessV, radiusV, absorbencyV, glowIntensityV, glowSpreadV],
+    [o, color, opacityV, angleV, overshootV, overshootJitterV, flowV, viscosityV, featheringV, streakinessV, dryoutV, startEndBuildupV, wavinessV, frequencyV, roughnessV, radiusV, absorbencyV, glowIntensityV, glowSpreadV],
   );
 }
 
