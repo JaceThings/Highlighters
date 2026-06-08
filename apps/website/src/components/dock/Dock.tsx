@@ -10,11 +10,11 @@ import { DockHandle } from "./DockHandle.tsx";
 import { DockPopover } from "./DockPopover.tsx";
 import { useDockPopover } from "./useDockPopover.ts";
 import { useDockBindings } from "./useDockBindings.ts";
-import { useSlotOffset, useDockMeasure } from "./useDockLayout.ts";
+import { readDockSizes, useSlotOffset, useDockMeasure } from "./useDockLayout.ts";
 import { hexToOklch, oklchToCss } from "./oklch.ts";
 import { useSelectionStyle, type PenTip } from "../../selection-style.tsx";
 import { useDockEntrance, useSkipDockEntrance } from "../../dock-entrance.tsx";
-import { useDockTier } from "../../hooks/useDockTier.ts";
+import { dockContentAxis, useDockTier } from "../../hooks/useDockTier.ts";
 import { useDockDrag } from "./useDockDrag.ts";
 import type { DockRefs } from "./dockRefs.ts";
 import { DOCK_H, ROW_W, ROW_H } from "./constants.ts";
@@ -33,8 +33,9 @@ export function Dock() {
   // Hold the entrance until the page's text cascade has landed.
   const { ready } = useDockEntrance();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // Shed the colour palette as the window narrows (below the pen tier RootLayout swaps to MobileDock).
-  const { showColors } = useDockTier();
+  // Each stack measures against its own axis so bottom<->side morphs never read a stale height/width.
+  const widthTier = useDockTier("width");
+  const heightTier = useDockTier("height");
   const skipEntrance = useSkipDockEntrance();
 
   const refs: DockRefs = {
@@ -49,6 +50,22 @@ export function Dock() {
     verticalLayer: useRef<HTMLDivElement>(null),
   };
 
+  const getSlotOffset = useSlotOffset(refs, style.pen);
+  // Popover close is wired into drag-start after useDockPopover runs; ref avoids a TDZ on showColors.
+  const closePopoverRef = useRef<() => void>(() => {});
+  const dock = useDockDrag({
+    onDragStart: () => closePopoverRef.current(),
+    getSlotOffset,
+    measureSizes: () => readDockSizes(refs),
+  });
+  const { phase, side, collapsed, preview, geometry, onHandlePointerDown, syncSizes } = dock;
+  useDockMeasure(refs, syncSizes);
+  useDockBindings(geometry, refs);
+
+  const contentAxis = dockContentAxis(phase, side, preview, collapsed);
+  const vertical = contentAxis === "height";
+  const popoverShowColors = vertical ? heightTier.showColors : widthTier.showColors;
+
   const {
     popover: activePopover,
     close: closePopover,
@@ -56,14 +73,8 @@ export function Dock() {
     handleActivateCustom,
     handleCustomColor,
     handleSelectColor,
-  } = useDockPopover({ trayRef: refs.tray, color: style.color, setColor, showColors });
-  const getSlotOffset = useSlotOffset(refs, style.pen);
-  const dock = useDockDrag({ onDragStart: closePopover, getSlotOffset });
-  const { phase, side, collapsed, preview, geometry, onHandlePointerDown, syncSizes } = dock;
-  useDockMeasure(refs, syncSizes);
-  useDockBindings(geometry, refs);
-
-  const vertical = phase === "side" || phase === "snapping";
+  } = useDockPopover({ trayRef: refs.tray, color: style.color, setColor, showColors: popoverShowColors });
+  closePopoverRef.current = closePopover;
   // The side layout's orientation follows the side being shown. A live side `preview` wins over the
   // committed `side`: dragging straight from one side dock to the other never clears `side`, so honouring
   // it would keep the row facing the origin during the opposite preview and only flip on release.
@@ -75,6 +86,7 @@ export function Dock() {
   const penColor = oklchToCss(hexToOklch(style.color));
   // Pens lie sideways with nibs pointing inward, toward the canvas (left dock -> +90, right -> -90).
   const penDeg = shownSide === "right" ? -90 : 90;
+  const handleSide = shownSide === "left" || shownSide === "right" ? shownSide : null;
 
   // Switching to a different pen closes the popover (it belongs to the prior pen).
   const handleSelectPen = useCallback(
@@ -150,7 +162,7 @@ export function Dock() {
                   <div className="flex h-full items-end">
                     <MarkerRow {...markerRowProps} />
                   </div>
-                  {showColors && <ColorPalette {...paletteProps} />}
+                  {widthTier.showColors && <ColorPalette {...paletteProps} />}
                 </div>
                 <DockLinks className="pr-[32px]" />
               </div>
@@ -171,23 +183,27 @@ export function Dock() {
                 style={{ width: "max-content" }}
               >
                 <DockNav pathname={pathname} className="flex-col pb-[25px]" />
-                <div className="flex flex-col items-center gap-[40px]">
-                  <div ref={refs.penBox} style={{ position: "relative", width: ROW_H, height: ROW_W }}>
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: `translate(-50%, -50%) rotate(${penDeg}deg)`,
-                      }}
-                    >
-                      <MarkerRow {...markerRowProps} />
-                    </div>
+                {(heightTier.showPens || heightTier.showColors) && (
+                  <div className="flex flex-col items-center gap-[40px]">
+                    {heightTier.showPens && (
+                      <div ref={refs.penBox} style={{ position: "relative", width: ROW_H, height: ROW_W }}>
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            transform: `translate(-50%, -50%) rotate(${penDeg}deg)`,
+                          }}
+                        >
+                          <MarkerRow {...markerRowProps} />
+                        </div>
+                      </div>
+                    )}
+                    {heightTier.showColors && (
+                      <ColorPalette {...paletteProps} columns={2} mirror={shownSide === "left"} />
+                    )}
                   </div>
-                  {showColors && (
-                    <ColorPalette {...paletteProps} columns={2} mirror={shownSide === "left"} />
-                  )}
-                </div>
+                )}
                 <DockLinks className="flex-col" />
               </div>
             </div>
@@ -228,7 +244,7 @@ export function Dock() {
 
           <DockHandle
             phase={phase}
-            side={side}
+            side={handleSide}
             visible={handleVisible}
             onPointerDown={onHandlePointerDown}
           />

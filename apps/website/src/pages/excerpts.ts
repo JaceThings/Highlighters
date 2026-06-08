@@ -80,6 +80,34 @@ export const EXCERPTS: Excerpt[] = [
     author: "Jonathan Crane",
     text: "You ever notice how people talk about monsters like they just appear? Like they crawl out of the dark fully formed, teeth bared, ready to ruin lives? Like evil just wakes up one morning and decides to exist? Well, that's a comforting story, lets everyone off the hook. But monsters aren't born, they're assembled piece by piece, word by word, silence by silence. You take a kid, just a kid, and you tell them they're nothing long enough, and they start to believe it. You show them that kindness is weakness, trust gets you hurt, love is something that disappears the second you need it most, and what do you think happens? You think they just stay soft? Stay hopeful? No. They adapt. They build armour where their skin used to be. They sharpen their instincts into weapons. They learn how to survive in a world that only ever taught them how to endure pain. And then one day, when they stop asking for permission to exist, you look at them and say, 'Oh, what happened to you?' Like you weren't there for every step of the transformation. We love to point fingers at the final product. Call them broken, dangerous, too far gone. Nobody wants to rewind the tape. Nobody wants to sit with the uncomfortable truth that maybe, just maybe, the monster is the group project. You ignore them. You dismiss them. You hurt them. You left them to figure it out alone. And when they did, when they became something unrecognisable just to survive, you decided they were the problem. Just they don't forget who they are and they don't stay hidden forever.",
   },
+  {
+    author: "Lemony Snicket",
+    text: "For Beatrice —\n\nYou will always be in my heart, in my mind, and in your grave.",
+  },
+  {
+    author: "Bo Burnham",
+    text: "Forever and an instant met up one day, had a short but lovely talk, then each went on its way.",
+  },
+  {
+    author: "Paul Cornell",
+    text: "He never raised his voice. That was the worst thing–the fury of the Time Lord–and then we discovered why. Why this Doctor, who had fought with gods and demons, why he had run away from us and hidden. He was being kind. He wrapped my father in unbreakable chains forged in the heart of a dwarf star. He tricked my mother into the event horizon of a collapsing galaxy to be imprisoned there, forever. He still visits my sister, once a year, every year. I wonder if one day he might forgive her, but there she is. Can you see? He trapped her inside a mirror. Every mirror. If ever you look at your reflection and see something move behind you just for a second, that's her. That's always her. As for me, I was suspended in time and the Doctor put me to work standing over the fields of England, as their protector. We wanted to live forever. So the Doctor made sure we did.",
+  },
+  {
+    author: "Patrick Rothfuss",
+    text: "There are three things all wise men fear: the sea in storm, a night with no moon, and the anger of a gentle man.",
+  },
+  {
+    author: "Steven Moffat",
+    text: "Good men don't need rules. Today is not the day to learn why I have so many.",
+  },
+  {
+    author: "Dustin Muriel",
+    text: "He was born on the day when the sun didn't shine and the birds didn't chirp and the clouds weren't in sight. Can't control what he says, he was flawed by design.\n\nIn the halls of the school, he could not stay in line. His teeth are all crooked and so is his spine. He looks like a monster and is one inside. Please don't speak all your truths, you'd be wasting your time. He'll never conform, he's a one of a kind.",
+  },
+  {
+    author: "Rebecca Sugar",
+    text: "If I could begin to be, half of what you think of me. I could do about anything, I could even learn how to love.\n\nWhen I see the way you act, wondering when I'm coming back. I could do about anything, I could even learn how to love like you.",
+  },
 ];
 
 // localStorage so "no repeats" holds across reloads.

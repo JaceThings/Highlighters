@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { animate, useMotionValue, type MotionValue, type Transition } from "framer-motion";
 import { prefersReducedMotion } from "../playground/slider-utils.ts";
-import { DOCK_H } from "./constants.ts";
+import { DOCK_H, EDGE_INSET } from "./constants.ts";
 
 // Drag-to-dock state machine. `useDockDrag` owns all pointer math, snap detection, and the
 // animated geometry MotionValues so `Dock.tsx` stays declarative: it reads `phase`/`side`/`collapsed`
@@ -17,8 +17,6 @@ export type DockSide = "left" | "right";
 // (a free circle following the pointer).
 export type DockTarget = "left" | "right" | "bottom";
 
-// Inset from the viewport edge, shared by the bottom rest position and the side dock.
-const EDGE_INSET = 24;
 const CIRCLE = DOCK_H;
 // Circle-center distance from the edge once docked (the circle's near edge then rests at EDGE_INSET).
 const DOCK_CENTER_DIST = EDGE_INSET + CIRCLE / 2;
@@ -169,11 +167,14 @@ interface Cancelable {
 export function useDockDrag({
   onDragStart,
   getSlotOffset,
+  measureSizes,
 }: {
   onDragStart?: () => void;
   /** Selected pen center offset from the tray center for a dock layout, so the overlay glides to the
    *  exact slot in each layout (carry the real pen rather than crossfade between two SVGs). */
   getSlotOffset?: (target: DockTarget) => { x: number; y: number };
+  /** Synchronous layout read before preview/snap so cross-layout morphs use the right stack size. */
+  measureSizes?: () => DockSizes;
 } = {}): DockDrag {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -233,8 +234,12 @@ export function useDockDrag({
   // the live position springs so they can be hard-stopped at hand-off (a bare `.set()` wouldn't stop them).
   const freeMorphRef = useRef(false);
   const freePosCtrls = useRef<Cancelable[]>([]);
+  // Live slot-follow springs (retargeted as the tray morphs); hard-stopped in `stopAll`.
+  const slotFollowCtrls = useRef<Cancelable[]>([]);
   const slotOffsetRef = useRef<typeof getSlotOffset>(getSlotOffset);
   slotOffsetRef.current = getSlotOffset;
+  const measureSizesRef = useRef(measureSizes);
+  measureSizesRef.current = measureSizes;
   const slotFor = useCallback(
     (target: DockTarget) => slotOffsetRef.current?.(target) ?? { x: 0, y: 0 },
     [],
@@ -260,6 +265,8 @@ export function useDockDrag({
     genRef.current += 1;
     animsRef.current.forEach((c) => c.stop());
     animsRef.current = [];
+    slotFollowCtrls.current.forEach((c) => c.stop());
+    slotFollowCtrls.current = [];
     rotateUnsubs.current.forEach((u) => u());
     rotateUnsubs.current = [];
   }, []);
@@ -364,7 +371,9 @@ export function useDockDrag({
   // or a side pill (DOCK_H wide, full height, anchored to its edge). Used for both the instant rest
   // placement and the animated preview/snap targets.
   const boxFor = useCallback((target: DockTarget): TrayBox => {
-    const { horizontal, vertical, viewport } = sizesRef.current;
+    const sizes = measureSizesRef.current?.() ?? sizesRef.current;
+    sizesRef.current = sizes;
+    const { horizontal, vertical, viewport } = sizes;
     if (target === "bottom") {
       const w = horizontal.width;
       const h = DOCK_H;
@@ -510,6 +519,44 @@ export function useDockDrag({
     [track, width, height, cornerRadius, markerOffsetX, markerOffsetY, markerReveal],
   );
 
+  // Spring the carried pen toward the selected row pen as the tray morphs. Slot reads track the live
+  // DOM (flex-centred contents inside the growing pill); each retarget carries velocity so cross-layout
+  // moves (bottom<->side) glide instead of hard-snapping. Side<->side crossings snap to avoid a doubled
+  // marker while the row rotation flips instantly.
+  const retargetSlot = useCallback(
+    (target: DockTarget, snap: boolean) => {
+      const slot = slotFor(target);
+      slotFollowCtrls.current.forEach((c) => c.stop());
+      slotFollowCtrls.current = [];
+      if (snap) {
+        markerOffsetX.set(slot.x);
+        markerOffsetY.set(slot.y);
+        return;
+      }
+      slotFollowCtrls.current = [
+        track(animate(markerOffsetX, slot.x, MORPH)),
+        track(animate(markerOffsetY, slot.y, MORPH)),
+      ];
+    },
+    [slotFor, track, markerOffsetX, markerOffsetY],
+  );
+  const bindSlotFollow = useCallback(
+    (target: DockTarget, snap = false) => {
+      retargetSlot(target, snap);
+      const sync = () => retargetSlot(target, snap);
+      const unsubs = [width, height, x, y, horizontalOpacity, verticalOpacity].map((mv) =>
+        mv.on("change", sync),
+      );
+      const cleanup = () => {
+        unsubs.forEach((u) => u());
+        slotFollowCtrls.current.forEach((c) => c.stop());
+        slotFollowCtrls.current = [];
+      };
+      rotateUnsubs.current.push(cleanup);
+    },
+    [retargetSlot, width, height, x, y, horizontalOpacity, verticalOpacity],
+  );
+
   // Morph the collapsed circle to/from a previewed dock as it enters/leaves an edge zone. The carried
   // pen glides to the dock's slot (or back to centre) - it stays the same visible pen the whole time.
   const previewTo = useCallback(
@@ -528,7 +575,6 @@ export function useDockDrag({
         const b = boxFor(target);
         const isSide = target !== "bottom";
         const rot = isSide ? sideRotation(target) : 0;
-        const slot = slotFor(target);
         rotateTargetRef.current = rot;
         // The row's rotation + slot snap INSTANTLY (penDeg is a plain re-render, no tween). So when the
         // side row is already on screen - crossing side-to-side, or reversing before a brief free-circle
@@ -545,13 +591,12 @@ export function useDockDrag({
         // Expand the circle into the dock's box (shape, position, slot, contents). The pen rotation is
         // handled separately so it can be confined to the circle phase.
         const expand = () => {
+          bindSlotFollow(target, rowShowing);
           track(animate(width, b.w, MORPH));
           track(animate(height, b.h, MORPH));
           track(animate(cornerRadius, b.radius, MORPH));
           track(animate(x, b.x, MORPH));
           track(animate(y, b.y, MORPH));
-          track(animate(markerOffsetX, slot.x, MORPH));
-          track(animate(markerOffsetY, slot.y, MORPH));
           track(animate(markerReveal, 0, MORPH));
           track(animate(horizontalOpacity, hTarget, { duration: FADE, ease: "easeInOut", delay: hTarget > 0 ? EXPAND_FADE : 0 }));
           track(animate(verticalOpacity, vTarget, { duration: FADE, ease: "easeInOut", delay: vTarget > 0 ? EXPAND_FADE : 0 }));
@@ -559,14 +604,8 @@ export function useDockDrag({
         if (rowShowing || !isSide) {
           // Side<->side crossing: snap rotation/slot to the new side (no partial-angle tween). Bottom:
           // no rotation at all (pen stays upright). Either way the shape can expand immediately.
-          if (rowShowing) {
-            penRotation.set(rot);
-            markerOffsetX.set(slot.x);
-            markerOffsetY.set(slot.y);
-            markerReveal.set(0);
-          } else {
-            track(animate(penRotation, 0, MORPH));
-          }
+          if (rowShowing) penRotation.set(rot);
+          else track(animate(penRotation, 0, MORPH));
           expand();
           return;
         }
@@ -626,7 +665,7 @@ export function useDockDrag({
         recenter();
       });
     },
-    [stopAll, track, setPreview, boxFor, slotFor, runWhen, rotateWhenCircular, animateToCircle, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, feather, frozen, horizontalOpacity, verticalOpacity, retargetFreePos, recenter],
+    [stopAll, track, setPreview, boxFor, bindSlotFollow, runWhen, rotateWhenCircular, animateToCircle, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, feather, frozen, horizontalOpacity, verticalOpacity, retargetFreePos, recenter],
   );
 
   // Pinch the (lifted) pill into the circle: spring-driven collapse, fade the contents out, carry the
@@ -721,20 +760,15 @@ export function useDockDrag({
       setSide(bottom ? null : target);
       setPhase(bottom ? "returning" : "snapping");
       const b = boxFor(target);
-      const slot = slotFor(target);
+      const rot = bottom ? 0 : sideRotation(target);
       settle(
         [
-          // Shape + position + the pen's slot ride the bouncy SETTLE so the dock lands with a tiny
-          // overshoot; the pen's rotation + reveal stay on MORPH so the marker doesn't over-rotate.
           [width, b.w],
           [height, b.h],
           [cornerRadius, b.radius],
           [x, b.x],
           [y, b.y],
-          [penRotation, bottom ? 0 : sideRotation(target), MORPH],
-          [markerOffsetX, slot.x],
-          [markerOffsetY, slot.y],
-          [markerReveal, 0, MORPH],
+          [penRotation, rot, MORPH],
         ],
         [
           [horizontalOpacity, bottom ? 1 : 0],
@@ -742,8 +776,10 @@ export function useDockDrag({
         ],
         () => setPhase(bottom ? "bottom" : "side"),
       );
+      bindSlotFollow(target);
+      track(animate(markerReveal, 0, MORPH));
     },
-    [setSide, setPhase, settle, boxFor, slotFor, width, height, cornerRadius, x, y, penRotation, markerOffsetX, markerOffsetY, markerReveal, horizontalOpacity, verticalOpacity],
+    [setSide, setPhase, settle, boxFor, bindSlotFollow, track, width, height, cornerRadius, x, y, penRotation, markerReveal, horizontalOpacity, verticalOpacity],
   );
 
   const onUp = useCallback(

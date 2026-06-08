@@ -1,6 +1,7 @@
-import { useRef, type CSSProperties } from "react";
+import { useCallback, useRef, type CSSProperties } from "react";
 import checkerUrl from "./checker.svg";
 import { INK_FADE_MS } from "./constants.ts";
+import { DEFAULT_OPACITY } from "../../selection-style.tsx";
 import {
   TRACK_H,
   capsuleMask,
@@ -31,6 +32,11 @@ export function OpacitySlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useCapsuleDrag({ trackRef, value, min: 0, max: 1, onChange });
   const pct = Math.round(value * 100);
+
+  const resetOpacity = useCallback(() => {
+    if (Math.abs(value - DEFAULT_OPACITY) < 0.001) return;
+    drag.glideTo(DEFAULT_OPACITY);
+  }, [drag, value]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1
@@ -75,7 +81,7 @@ export function OpacitySlider({
           } as CSSProperties}
         />
       </div>
-      <CapsuleKnob left={knobLeftPercent(value, 0, 1)} />
+      <CapsuleKnob left={knobLeftPercent(value, 0, 1)} onDoubleClick={resetOpacity} />
     </div>
   );
 }

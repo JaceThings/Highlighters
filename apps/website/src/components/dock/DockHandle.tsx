@@ -1,5 +1,6 @@
 import { m } from "framer-motion";
 import type { CSSProperties, PointerEvent } from "react";
+import { GRABBER_SAFETY_STRIP } from "./constants.ts";
 import type { DockPhase, DockSide } from "./useDockDrag.ts";
 
 // Grab handle: a small nub at the tray's top-centre in the bottom layout, on the inner-edge centre when
@@ -31,21 +32,36 @@ export function DockHandle({
     : { width: 42.787, height: 5.943 };
 
   return (
-    <m.div
-      aria-hidden
-      onPointerDown={onPointerDown}
-      className="flex items-center justify-center"
-      style={{
-        ...position,
-        cursor: phase === "dragging" ? "grabbing" : "grab",
-        touchAction: "none",
-        pointerEvents: visible ? "auto" : "none",
-      }}
-      initial={false}
-      animate={{ opacity: visible ? 1 : 0 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
-    >
-      <span className="rounded-full bg-[#efeeed]" style={pill} />
-    </m.div>
+    <>
+      {sideDocked && (
+        <div
+          aria-hidden
+          className="absolute inset-y-0"
+          style={{
+            width: GRABBER_SAFETY_STRIP,
+            zIndex: 1,
+            pointerEvents: visible ? "auto" : "none",
+            ...(side === "left" ? { right: 0 } : { left: 0 }),
+          }}
+        />
+      )}
+      <m.div
+        aria-hidden
+        onPointerDown={onPointerDown}
+        className="flex items-center justify-center"
+        style={{
+          ...position,
+          zIndex: 2,
+          cursor: phase === "dragging" ? "grabbing" : "grab",
+          touchAction: "none",
+          pointerEvents: visible ? "auto" : "none",
+        }}
+        initial={false}
+        animate={{ opacity: visible ? 1 : 0 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+      >
+        <span className="rounded-full bg-[#efeeed]" style={pill} />
+      </m.div>
+    </>
   );
 }
