@@ -10,7 +10,9 @@ coverage/
 
 # planning / process docs - kept local, never committed
 blueprint.md
+*_PLAN.md
+*_REPORT.md
+*_RESEARCH.md
 CONTRACT.md
 *_CONTRACT.md
-BUILD_REPORT.md
 .shots/
