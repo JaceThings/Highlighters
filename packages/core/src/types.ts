@@ -27,7 +27,10 @@ export type TipType = "chisel" | "bullet" | "fine";
 /** End-cap rendering for a band's leading/trailing edge. */
 export type EdgeCap = "flat" | "round" | "square";
 
-/** Compositing model for the ink layer. Default `multiply` gives subtractive ink optics. */
+/**
+ * Compositing model for the ink layer. Default `multiply` gives subtractive ink optics; a near-white
+ * ink under `multiply` is auto-adapted so it stays visible on any backdrop (see {@link HighlightOptions.blendMode}).
+ */
 export type BlendMode =
   | "multiply"
   | "normal"
@@ -235,7 +238,11 @@ export interface HighlightOptions {
   gradient?: GradientConfig;
   /** Overall ink alpha, `0`-`1`. */
   opacity?: number;
-  /** Ink compositing model. Default `multiply`. */
+  /**
+   * Ink compositing model. Default `multiply` (subtractive). Under `multiply`, a near-white ink is
+   * adapted so it stays visible instead of vanishing: composited `normal` over a dark backdrop, or
+   * darkened to a soft off-white over a light one. Any explicit non-`multiply` value is used as-is.
+   */
   blendMode?: BlendMode;
 
   /** Nib geometry. */
