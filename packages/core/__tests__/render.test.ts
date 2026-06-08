@@ -16,7 +16,7 @@ import { createCssRenderer, poolGradientToCss } from "../src/render/tier-b-css.j
 import { createSvgRenderer } from "../src/render/tier-a-svg.js";
 import { createHighlightApiRenderer } from "../src/render/tier-c-highlight-api.js";
 import { createMarkHandle } from "../src/render/mark-handle.js";
-import { highlight, group } from "../src/render/highlight.js";
+import { highlight, highlightSelection, group } from "../src/render/highlight.js";
 import { resolveOptions } from "../src/config/merge.js";
 import type {
   MarkGeometry,
@@ -903,6 +903,31 @@ describe("highlight", () => {
     }
   });
 
+  async function flushRaf(): Promise<void> {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+
+  it("reflows overlay positions on window resize", async () => {
+    const spy = vi.spyOn(Range.prototype, "getClientRects");
+    spy.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    try {
+      const handle = highlight(target, { renderer: "css", animation: { draw: false } });
+      const overlay = () =>
+        document.body.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+      expect(overlay().style.top).toBe("98px");
+
+      spy.mockReturnValue(domRectList([dr(10, 180, 200, 18)]));
+      window.dispatchEvent(new Event("resize"));
+      await flushRaf();
+
+      // Re-query: a reflow that shifts the line seed swaps the pooled wrapper node.
+      expect(overlay().style.top).toBe("178px");
+      handle.remove();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("update() reshaping the mark refreshes the draw-on wrapper clip (no stale crop)", () => {
     // The draw-on clips the WRAPPER to the mark shape; the ink child carries the same
     // geometry. An option change that reshapes the mark (a tip swap) must re-point the
@@ -927,6 +952,81 @@ describe("highlight", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("highlightSelection reflow", () => {
+  let target: HTMLElement;
+  let mockRange: Range;
+  let article: HTMLElement;
+
+  beforeEach(() => {
+    article = document.createElement("article");
+    article.style.position = "relative";
+    target = document.createElement("p");
+    target.textContent = "Selected text here";
+    article.appendChild(target);
+    document.body.appendChild(article);
+    mockRange = document.createRange();
+    mockRange.selectNodeContents(target);
+  });
+
+  afterEach(() => {
+    article.remove();
+    document.getElementById("highlighters-shared-defs")?.remove();
+    vi.restoreAllMocks();
+  });
+
+  it("mounts the overlay on the selection anchor, not document.body", () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects");
+    rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    const mockSelection = {
+      isCollapsed: false,
+      rangeCount: 1,
+      getRangeAt: () => mockRange.cloneRange(),
+      anchorNode: target.firstChild,
+      focusNode: target.firstChild,
+      anchorOffset: 0,
+      focusOffset: 5,
+    };
+    vi.spyOn(document, "getSelection").mockReturnValue(mockSelection as unknown as Selection);
+    const handle = highlightSelection({ renderer: "css", animation: { draw: false } });
+    expect(article.querySelector("[data-highlighters-overlay]")).not.toBeNull();
+    expect(document.body.querySelector(":scope > [data-highlighters-overlay]")).toBeNull();
+    handle.remove();
+    rects.mockRestore();
+  });
+
+  async function flushRaf(): Promise<void> {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+
+  it("reflows on window resize while a selection is active", async () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects");
+    rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+
+    const mockSelection = {
+      isCollapsed: false,
+      rangeCount: 1,
+      getRangeAt: () => mockRange.cloneRange(),
+      anchorNode: target.firstChild,
+      focusNode: target.firstChild,
+      anchorOffset: 0,
+      focusOffset: 5,
+    };
+    vi.spyOn(document, "getSelection").mockReturnValue(mockSelection as unknown as Selection);
+
+    const handle = highlightSelection({ renderer: "css", animation: { draw: false } });
+    const overlay = () =>
+      article.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+    expect(overlay().style.top).toBe("98px");
+
+    rects.mockReturnValue(domRectList([dr(10, 180, 200, 18)]));
+    window.dispatchEvent(new Event("resize"));
+    await flushRaf();
+
+    expect(overlay().style.top).toBe("178px");
+    handle.remove();
   });
 });
 
