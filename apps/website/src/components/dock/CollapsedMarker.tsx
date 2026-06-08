@@ -14,7 +14,6 @@ const CENTER_SHIFT = FRAME_H / 2 - (REST_TOP - SELECTED_RISE + FRAME_H) / 2;
 // ...then drop it a few px below dead-centre, which reads better (nib has more headroom) in the circle.
 const CIRCLE_DROP = 7;
 const CIRCLE_SHIFT = CENTER_SHIFT + CIRCLE_DROP;
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp = (v: number, max: number) => (v > max ? max : v < -max ? -max : v);
 // Keep the carried pen's frame centre this far inside the shape's edge, so its visible body never
 // clips down to nothing while it's pinned to a shrinking edge. The marker frame is screen-aligned
@@ -73,7 +72,7 @@ export function CollapsedMarker({
   // Nudge the clipped unit up to sit (a touch below) centred in the circle (no shrink, no un-clip).
   const applyReveal = useCallback(
     (el: HTMLElement | SVGElement) => {
-      el.style.transform = `translateY(${lerp(0, CIRCLE_SHIFT, reveal.get())}px)`;
+      el.style.transform = `translateY(${CIRCLE_SHIFT * reveal.get()}px)`;
     },
     [reveal],
   );
