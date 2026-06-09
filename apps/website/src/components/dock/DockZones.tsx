@@ -20,19 +20,20 @@ interface ZoneStyle {
   labelBottom?: boolean;
 }
 
-// One distinct colour per region; rotate bands are border-only so they read through the side fills.
+// One distinct colour per region. Dashed = a soft zone (release/magnetise only, no auto-expand): the
+// top safe zone and the side pen-facing bands. Solid = a hard snap that expands the dock while dragging.
 const ZONE_STYLES: ZoneStyle[] = [
-  { key: "bottom", color: "#14b8a6", label: "bottom dock" },
-  { key: "top", color: "#0ea5e9", label: "top dock" },
-  { key: "left", color: "#f97316", label: "left dock" },
-  { key: "right", color: "#ec4899", label: "right dock" },
-  { key: "rotateLeft", color: "#8b5cf6", label: "rotate band", dashed: true },
-  { key: "rotateRight", color: "#8b5cf6", label: "rotate band", dashed: true },
+  { key: "bottom", color: "#14b8a6", label: "bottom snap" },
+  { key: "top", color: "#0ea5e9", label: "top safe zone", dashed: true },
+  { key: "left", color: "#f97316", label: "left snap" },
+  { key: "right", color: "#ec4899", label: "right snap" },
+  { key: "rotateLeft", color: "#8b5cf6", label: "pen facing", dashed: true },
+  { key: "rotateRight", color: "#8b5cf6", label: "pen facing", dashed: true },
   { key: "lift", color: "#eab308", label: "lift to collapse", circle: true },
-  { key: "grab", color: "#ef4444", label: "grab" },
-  { key: "marker0", color: "#22c55e", label: "pen", labelBottom: true },
-  { key: "marker1", color: "#22c55e", label: "pen", labelBottom: true },
-  { key: "marker2", color: "#22c55e", label: "pen", labelBottom: true },
+  { key: "grab", color: "#ef4444", label: "grab area" },
+  { key: "marker0", color: "#22c55e", label: "pen hitbox", labelBottom: true },
+  { key: "marker1", color: "#22c55e", label: "pen hitbox", labelBottom: true },
+  { key: "marker2", color: "#22c55e", label: "pen hitbox", labelBottom: true },
 ];
 
 interface Box {
@@ -43,31 +44,34 @@ interface Box {
 }
 
 export function DockZones() {
+  // Groups read as "what dock, and what you're sliding". The first four reach into the viewport from
+  // their edge; "Pen facing" is the band where the carried pen rotates toward a side; "Collapse" is the
+  // drag distance before the pill pinches to a circle; the two guides inflate the measured overlays.
   const p = useDialKit("Dock zones", {
-    bottom: { reach: [DEFAULT_ZONES.bottomZone, 40, 400, 5] as N4 },
-    top: { reach: [DEFAULT_ZONES.topZone, 40, 400, 5] as N4 },
-    sides: { reach: [DEFAULT_ZONES.snapZone, 40, 400, 5] as N4 },
-    rotate: { reach: [DEFAULT_ZONES.rotateDist, 80, 700, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
-    lift: { radius: [DEFAULT_ZONES.liftDistance, 20, 320, 5] as N4 },
-    markerGuide: { x: [6, -40, 120, 1] as N4, y: [-22, -160, 120, 1] as N4 },
-    grabGuide: { x: [0, -20, 120, 1] as N4, y: [3, -20, 120, 1] as N4 },
+    bottomDock: { reach: [DEFAULT_ZONES.bottomZone, 40, 400, 5] as N4 },
+    topSafeZone: { reach: [DEFAULT_ZONES.topZone, 40, 400, 5] as N4 },
+    sideDocks: { reach: [DEFAULT_ZONES.snapZone, 40, 400, 5] as N4 },
+    penFacing: { reach: [DEFAULT_ZONES.rotateDist, 80, 700, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
+    collapse: { liftRadius: [DEFAULT_ZONES.liftDistance, 20, 320, 5] as N4 },
+    penHitbox: { width: [6, -40, 120, 1] as N4, height: [-22, -160, 120, 1] as N4 },
+    grabArea: { width: [0, -20, 120, 1] as N4, height: [3, -20, 120, 1] as N4 },
   });
 
   // Live-wire the behavioural zones into the drag state machine (and thus the overlay, which reads zones()).
   useEffect(() => {
     setDockZones({
-      bottomZone: p.bottom.reach,
-      topZone: p.top.reach,
-      snapZone: p.sides.reach,
-      rotateDist: p.rotate.reach,
-      rotateHyst: p.rotate.hysteresis,
-      liftDistance: p.lift.radius,
+      bottomZone: p.bottomDock.reach,
+      topZone: p.topSafeZone.reach,
+      snapZone: p.sideDocks.reach,
+      rotateDist: p.penFacing.reach,
+      rotateHyst: p.penFacing.hysteresis,
+      liftDistance: p.collapse.liftRadius,
     });
-  }, [p.bottom.reach, p.top.reach, p.sides.reach, p.rotate.reach, p.rotate.hysteresis, p.lift.radius]);
+  }, [p.bottomDock.reach, p.topSafeZone.reach, p.sideDocks.reach, p.penFacing.reach, p.penFacing.hysteresis, p.collapse.liftRadius]);
 
   // Guide inflation for the measured (marker/grab) overlays; read by the rAF loop without a re-render.
   const guide = useRef({ mx: 0, my: 0, gx: 0, gy: 0 });
-  guide.current = { mx: p.markerGuide.x, my: p.markerGuide.y, gx: p.grabGuide.x, gy: p.grabGuide.y };
+  guide.current = { mx: p.penHitbox.width, my: p.penHitbox.height, gx: p.grabArea.width, gy: p.grabArea.height };
 
   const els = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -98,13 +102,13 @@ export function DockZones() {
       const z = zones();
       const { mx, my, gx, gy } = guide.current;
 
-      // Drop zones, in targetFor's precedence: the bottom then top bands win the corners, so the side
-      // bands are drawn only in the strip between them.
+      // Hard snaps in targetFor precedence: the bottom band wins its corners, the side bands run from the
+      // top down to it. The top safe zone (dashed) is release-only and overlays the side tops freely.
       const bottomTop = vh - z.bottomZone;
       place("bottom", { x: 0, y: bottomTop, w: vw, h: z.bottomZone });
       place("top", { x: 0, y: 0, w: vw, h: z.topZone });
-      place("left", { x: 0, y: z.topZone, w: z.snapZone, h: bottomTop - z.topZone });
-      place("right", { x: vw - z.snapZone, y: z.topZone, w: z.snapZone, h: bottomTop - z.topZone });
+      place("left", { x: 0, y: 0, w: z.snapZone, h: bottomTop });
+      place("right", { x: vw - z.snapZone, y: 0, w: z.snapZone, h: bottomTop });
       place("rotateLeft", { x: 0, y: 0, w: z.rotateDist, h: vh });
       place("rotateRight", { x: vw - z.rotateDist, y: 0, w: z.rotateDist, h: vh });
 

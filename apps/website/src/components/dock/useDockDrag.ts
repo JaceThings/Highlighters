@@ -218,6 +218,9 @@ export function useDockDrag({
   // this includes the BOTTOM: grabbing the bottom dock disarms the bottom band, so a horizontal drag
   // along the floor becomes a pointer-following circle (iPadOS-style) instead of snapping to centre.
   const disarmedRef = useRef<DockTarget | null>(null);
+  // The collapsed circle is over the top safe zone: a release commits to the top dock (when upright),
+  // but dragging through it never previews/expands - the soft, non-forcing counterpart to the side snap.
+  const topMagnetRef = useRef(false);
   const sessionRef = useRef<DragSession | null>(null);
   // Live subscriptions that recenter the circle during the collapse spring; torn down on release.
   const recenterUnsubs = useRef<Array<() => void>>([]);
@@ -504,12 +507,13 @@ export function useDockDrag({
   // The bottom band wins FIRST (incl. the bottom corners): the side zones are only the edges ABOVE it, so
   // dragging along the floor previews the bottom dock instead of flipping to a side pill that snaps up to
   // mid-screen. (The bottom corners overlap both zones; without this they'd read as a side dock.)
+  // The dock the circle should preview (expand into, anchored) while dragging. The top is deliberately
+  // absent: it is a soft "safe zone" that only commits on release (topMagnet), so dragging near the top
+  // never auto-expands the pill and forces your hand. The bottom band still wins its corners.
   const targetFor = useCallback((cx: number, cy: number): DockTarget | null => {
     const { width: vw, height: vh } = sizesRef.current.viewport;
-    const { bottomZone, topZone, snapZone } = zones();
-    // Bottom then top win the horizontal bands (incl. their corners); the side zones are the edges between.
+    const { bottomZone, snapZone } = zones();
     if (cy >= vh - bottomZone && disarmedRef.current !== "bottom") return "bottom";
-    if (cy <= topZone && disarmedRef.current !== "top") return "top";
     if (cx <= snapZone && disarmedRef.current !== "left") return "left";
     if (cx >= vw - snapZone && disarmedRef.current !== "right") return "right";
     return null;
@@ -749,6 +753,8 @@ export function useDockDrag({
       else if (dr === "top" && s.centerY > topZone) disarmedRef.current = null;
       // Collapsed: preview the dock at whatever edge/bottom the circle is over (or stay a free circle).
       const target = targetFor(s.centerX, s.centerY);
+      // Top safe zone: a free circle here releases to the top (no preview/expand while dragging).
+      topMagnetRef.current = target === null && s.centerY <= topZone;
       if (target !== previewRef.current) previewTo(target, s);
       // Mid-revert (free-circle morph): keep the position spring aimed at the live pointer so the shrink
       // tracks the cursor instead of landing at a stale point and snapping when 1:1 follow resumes.
@@ -817,9 +823,13 @@ export function useDockDrag({
       setCollapsed(false);
       setPreview(null);
       if (wasCollapsed) {
-        // Commit whatever was previewed; otherwise a free circle commits to the way the marker is
-        // facing (its on-screen destination), and only an upright circle returns to the bottom.
-        const dest: DockTarget = target ?? targetFromRotation(rotateTargetRef.current);
+        // Commit whatever was previewed; else an upright circle in the top safe zone goes to the top,
+        // a circle facing a side commits there, and any other upright circle returns to the bottom.
+        const dest: DockTarget =
+          target ??
+          (topMagnetRef.current && rotateTargetRef.current === 0
+            ? "top"
+            : targetFromRotation(rotateTargetRef.current));
         commitTo(dest);
       } else {
         // Released during the lift, before collapse: settle back to where it came from.
@@ -864,6 +874,7 @@ export function useDockDrag({
       // Keep the dock we came from from instantly re-docking until we leave its zone (bottom included,
       // so a horizontal drag off the floor becomes a free circle instead of snapping back to centre).
       disarmedRef.current = originTarget;
+      topMagnetRef.current = false;
       setCollapsed(false);
       setPreview(null);
       setPhase("dragging");
