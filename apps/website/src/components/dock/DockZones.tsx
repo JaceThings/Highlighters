@@ -16,6 +16,8 @@ interface ZoneStyle {
   label: string;
   dashed?: boolean;
   circle?: boolean;
+  /** Pin the label to the box's bottom-left (the pens, so it clears the nib silhouette at the top). */
+  labelBottom?: boolean;
 }
 
 // One distinct colour per region; rotate bands are border-only so they read through the side fills.
@@ -27,9 +29,9 @@ const ZONE_STYLES: ZoneStyle[] = [
   { key: "rotateRight", color: "#8b5cf6", label: "rotate band", dashed: true },
   { key: "lift", color: "#eab308", label: "lift to collapse", circle: true },
   { key: "grab", color: "#ef4444", label: "grab" },
-  { key: "marker0", color: "#22c55e", label: "pen" },
-  { key: "marker1", color: "#22c55e", label: "pen" },
-  { key: "marker2", color: "#22c55e", label: "pen" },
+  { key: "marker0", color: "#22c55e", label: "pen", labelBottom: true },
+  { key: "marker1", color: "#22c55e", label: "pen", labelBottom: true },
+  { key: "marker2", color: "#22c55e", label: "pen", labelBottom: true },
 ];
 
 interface Box {
@@ -144,7 +146,9 @@ export function DockZones() {
             }}
           >
             <span
-              className="absolute top-0 left-0 rounded-br px-1 py-0.5 text-[10px] leading-none font-semibold text-white"
+              className={`absolute left-0 px-1 py-0.5 text-[10px] leading-none font-semibold text-white ${
+                z.labelBottom ? "bottom-0 rounded-tr" : "top-0 rounded-br"
+              }`}
               style={{ background: z.color }}
             >
               {z.label}
