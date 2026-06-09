@@ -34,9 +34,9 @@ export function dockContentAxis(
   preview: DockTarget | null,
   collapsed: boolean,
 ): TierAxis {
-  if (preview === "bottom") return "width";
+  if (preview === "bottom" || preview === "top") return "width";
   if (preview === "left" || preview === "right") return "height";
-  if (phase === "bottom") return "width";
+  if (phase === "bottom" || phase === "top") return "width";
   if (phase === "side" || phase === "snapping") return "height";
   // Intact-pill lift: still the side layout until collapse; bottom lift uses width tiers.
   if (phase === "dragging" && !collapsed) return side ? "height" : "width";

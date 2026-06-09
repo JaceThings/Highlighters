@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react";
-import { DOCK_H, EDGE_INSET } from "./constants.ts";
 
 // Live-tunable drag zones for the dock. The defaults reproduce the shipped constants exactly, so
 // production behaviour is unchanged: the drag state machine reads these via zones() at pointer-time,
@@ -8,6 +7,8 @@ import { DOCK_H, EDGE_INSET } from "./constants.ts";
 export interface DockZoneTuning {
   /** Circle-centre within this of the floor previews/commits the bottom dock. */
   bottomZone: number;
+  /** Circle-centre within this of the top edge previews/commits the top dock. */
+  topZone: number;
   /** Circle-centre within this of a side edge previews/commits that dock. */
   snapZone: number;
   /** A free circle's pen faces the nearer edge within this of it (upright only in the centre band). */
@@ -18,15 +19,13 @@ export interface DockZoneTuning {
   liftDistance: number;
 }
 
-// Circle-center distance from the edge once docked; the +28 is the extra reach beyond the resting circle.
-const DOCK_CENTER_DIST = EDGE_INSET + DOCK_H / 2;
-
 export const DEFAULT_ZONES: DockZoneTuning = {
   bottomZone: 170,
-  snapZone: DOCK_CENTER_DIST + 28,
-  rotateDist: 340,
-  rotateHyst: 50,
-  liftDistance: 80,
+  topZone: 170,
+  snapZone: 175,
+  rotateDist: 490,
+  rotateHyst: 65,
+  liftDistance: 75,
 };
 
 let state: DockZoneTuning = { ...DEFAULT_ZONES };

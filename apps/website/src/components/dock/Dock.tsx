@@ -58,7 +58,7 @@ export function Dock() {
     getSlotOffset,
     measureSizes: () => readDockSizes(refs),
   });
-  const { phase, side, collapsed, preview, geometry, onHandlePointerDown, syncSizes } = dock;
+  const { phase, side, atTop, collapsed, preview, geometry, onHandlePointerDown, syncSizes } = dock;
   useDockMeasure(refs, syncSizes);
   useDockBindings(geometry, refs);
 
@@ -140,7 +140,7 @@ export function Dock() {
           <div ref={refs.clip} className="absolute inset-0 overflow-hidden">
             <div
               ref={refs.horizontalLayer}
-              inert={phase !== "bottom"}
+              inert={phase !== "bottom" && phase !== "top"}
               className="absolute inset-0 flex items-center justify-center"
             >
               <div
@@ -228,6 +228,7 @@ export function Dock() {
           <DockHandle
             phase={phase}
             side={handleSide}
+            atTop={atTop}
             visible={handleVisible}
             onPointerDown={onHandlePointerDown}
           />

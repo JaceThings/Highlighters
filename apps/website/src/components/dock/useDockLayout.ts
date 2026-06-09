@@ -16,7 +16,7 @@ export function useSlotOffset({ horizontal, penBox, tray }: DockRefs, pen: PenTi
       if (!trayRect) return { x: 0, y: 0 };
       const tc = rectCenter(trayRect);
 
-      if (target === "bottom") {
+      if (target === "bottom" || target === "top") {
         const row = horizontal.current;
         const sel = row?.querySelector<HTMLElement>('.dock-pen[aria-pressed="true"]');
         if (!row || !sel) return { x: 0, y: 0 };

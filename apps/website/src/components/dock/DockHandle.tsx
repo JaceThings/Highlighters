@@ -8,11 +8,14 @@ import type { DockPhase, DockSide } from "./useDockDrag.ts";
 export function DockHandle({
   phase,
   side,
+  atTop,
   visible,
   onPointerDown,
 }: {
   phase: DockPhase;
   side: DockSide | null;
+  /** Top-docked: the inner edge is the bottom, so the nub sits there instead of the top. */
+  atTop?: boolean;
   visible: boolean;
   onPointerDown: (e: PointerEvent) => void;
 }) {
@@ -32,7 +35,7 @@ export function DockHandle({
         height: 64,
         ...(side === "left" ? { right: 2 } : { left: 2 }),
       }
-    : { position: "absolute", top: 2, left: "50%", transform: "translateX(-50%)", width: 64, height: 16 };
+    : { position: "absolute", left: "50%", transform: "translateX(-50%)", width: 64, height: 16, ...(atTop ? { bottom: 2 } : { top: 2 }) };
   const pill: CSSProperties = sideDocked
     ? { width: 5.943, height: 42.787 }
     : { width: 42.787, height: 5.943 };
