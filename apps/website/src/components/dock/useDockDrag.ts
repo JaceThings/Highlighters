@@ -123,7 +123,7 @@ export interface DockGeometry {
 export interface DockDrag {
   phase: DockPhase;
   side: DockSide | null;
-  /** Resting at the top dock (vs bottom) - positions the grab handle on the inner (bottom) edge. */
+  /** Resting at the top dock (vs bottom). The grab handle stays top-centred either way (matches the bottom dock). */
   atTop: boolean;
   /** True once a drag has pinched the pill into the circle (drives handle hiding). */
   collapsed: boolean;

@@ -58,7 +58,7 @@ export function Dock() {
     getSlotOffset,
     measureSizes: () => readDockSizes(refs),
   });
-  const { phase, side, atTop, collapsed, preview, geometry, onHandlePointerDown, syncSizes } = dock;
+  const { phase, side, collapsed, preview, geometry, onHandlePointerDown, syncSizes } = dock;
   useDockMeasure(refs, syncSizes);
   useDockBindings(geometry, refs);
 
@@ -228,7 +228,6 @@ export function Dock() {
           <DockHandle
             phase={phase}
             side={handleSide}
-            atTop={atTop}
             visible={handleVisible}
             onPointerDown={onHandlePointerDown}
           />
