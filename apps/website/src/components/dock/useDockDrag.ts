@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { animate, useMotionValue, type MotionValue, type Transition } from "framer-motion";
 import { prefersReducedMotion } from "../playground/slider-utils.ts";
 import { DOCK_H, EDGE_INSET } from "./constants.ts";
+import { zones } from "./dock-zone-tuning.ts";
 
 // Drag-to-dock state machine. `useDockDrag` owns all pointer math, snap detection, and the
 // animated geometry MotionValues so `Dock.tsx` stays declarative: it reads `phase`/`side`/`collapsed`
@@ -18,19 +19,8 @@ export type DockSide = "left" | "right";
 export type DockTarget = "left" | "right" | "bottom";
 
 const CIRCLE = DOCK_H;
-// Circle-center distance from the edge once docked (the circle's near edge then rests at EDGE_INSET).
-const DOCK_CENTER_DIST = EDGE_INSET + CIRCLE / 2;
-// Circle center within this distance of a vertical edge previews/commits that side dock.
-const SNAP_ZONE = DOCK_CENTER_DIST + 28;
-// Circle center within this distance of the bottom previews/commits the bottom dock.
-const BOTTOM_ZONE = 170;
-// The lone circle's pen faces the nearer edge within this (generous) distance of it, and only swings
-// upright in the central band; ROTATE_HYST adds hysteresis so it never flickers at the boundary.
-const ROTATE_DIST = 340;
-const ROTATE_HYST = 50;
-// Lift distance (px from the rest center) before the intact pill collapses into the circle. Until
-// then you drag the whole dock around; past it, it pinches to a circle around the selected pen.
-const LIFT_DISTANCE = 80;
+// The snap/rotate/lift distances live in dock-zone-tuning.ts so the dev-only ?zones panel can dial
+// them live; read via zones() at pointer-time. Its defaults reproduce the shipped values exactly.
 // Content opacity crossfade (requirement 2: <=180ms).
 const FADE = 0.18;
 // Expand (circle -> dock): the carried pen glides to its slot first; the surrounding contents
@@ -76,13 +66,14 @@ const targetFromRotation = (deg: number): DockTarget =>
 // band, upright only in the centre. Hysteresis (`current`) keeps it sticky so a side dock grabbed
 // into a circle holds its facing until dragged well toward the middle. Left -> +90, right -> -90.
 const rotationTarget = (cx: number, vw: number, current: number): number => {
+  const { rotateDist, rotateHyst } = zones();
   const dl = cx;
   const dr = vw - cx;
-  const exit = ROTATE_DIST + ROTATE_HYST;
-  if (current === 90) return dl <= exit ? 90 : dr <= ROTATE_DIST ? -90 : 0;
-  if (current === -90) return dr <= exit ? -90 : dl <= ROTATE_DIST ? 90 : 0;
-  if (dl <= ROTATE_DIST) return 90;
-  if (dr <= ROTATE_DIST) return -90;
+  const exit = rotateDist + rotateHyst;
+  if (current === 90) return dl <= exit ? 90 : dr <= rotateDist ? -90 : 0;
+  if (current === -90) return dr <= exit ? -90 : dl <= rotateDist ? 90 : 0;
+  if (dl <= rotateDist) return 90;
+  if (dr <= rotateDist) return -90;
   return 0;
 };
 
@@ -503,9 +494,10 @@ export function useDockDrag({
   // mid-screen. (The bottom corners overlap both zones; without this they'd read as a side dock.)
   const targetFor = useCallback((cx: number, cy: number): DockTarget | null => {
     const { width: vw, height: vh } = sizesRef.current.viewport;
-    if (cy >= vh - BOTTOM_ZONE && disarmedRef.current !== "bottom") return "bottom";
-    if (cx <= SNAP_ZONE && disarmedRef.current !== "left") return "left";
-    if (cx >= vw - SNAP_ZONE && disarmedRef.current !== "right") return "right";
+    const { bottomZone, snapZone } = zones();
+    if (cy >= vh - bottomZone && disarmedRef.current !== "bottom") return "bottom";
+    if (cx <= snapZone && disarmedRef.current !== "left") return "left";
+    if (cx >= vw - snapZone && disarmedRef.current !== "right") return "right";
     return null;
   }, []);
 
@@ -728,17 +720,18 @@ export function useDockDrag({
       if (!collapsedRef.current) {
         // Lift phase: drag the whole pill; only collapse once lifted past the threshold.
         const dist = Math.hypot(s.centerX - s.startCenterX, s.centerY - s.startCenterY);
-        if (dist > LIFT_DISTANCE) collapse();
+        if (dist > zones().liftDistance) collapse();
         return;
       }
       const { width: vw, height: vh } = sizesRef.current.viewport;
+      const { snapZone, bottomZone } = zones();
       // Re-arm a dock's preview/snap once the circle has left that zone (so the origin re-arms). The
       // bottom re-arms by lifting clear of the floor band, so the floor only re-docks on a deliberate
       // return — a horizontal drag stays a free circle until then.
       const dr = disarmedRef.current;
-      if (dr === "left" && s.centerX > SNAP_ZONE) disarmedRef.current = null;
-      else if (dr === "right" && s.centerX < vw - SNAP_ZONE) disarmedRef.current = null;
-      else if (dr === "bottom" && s.centerY < vh - BOTTOM_ZONE) disarmedRef.current = null;
+      if (dr === "left" && s.centerX > snapZone) disarmedRef.current = null;
+      else if (dr === "right" && s.centerX < vw - snapZone) disarmedRef.current = null;
+      else if (dr === "bottom" && s.centerY < vh - bottomZone) disarmedRef.current = null;
       // Collapsed: preview the dock at whatever edge/bottom the circle is over (or stay a free circle).
       const target = targetFor(s.centerX, s.centerY);
       if (target !== previewRef.current) previewTo(target, s);

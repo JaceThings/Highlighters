@@ -48,6 +48,7 @@ export function DockHandle({
       )}
       <m.div
         aria-hidden
+        data-dock-grab
         onPointerDown={onPointerDown}
         className="flex items-center justify-center"
         style={{
