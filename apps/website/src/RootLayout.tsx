@@ -61,7 +61,7 @@ export function RootLayout() {
 
   // Decode every marker sound on first interaction or post-load idle, whichever lands first, so the
   // first press is instant; the engine singleton carries buffers across nav. The idle path waits for
-  // window load: browser idle before load fires mid-critical-path, racing 35 audio fetches against LCP.
+  // window load: browser idle before load fires mid-critical-path, racing the full clip set against LCP.
   useEffect(() => {
     let primed = false;
     const events = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel"] as const;

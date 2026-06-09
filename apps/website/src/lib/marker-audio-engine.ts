@@ -125,8 +125,6 @@ function decode(url: string): Promise<AudioBuffer | null> {
   return p;
 }
 
-/** Warm the context and decode every clip before the first real trigger. Idempotent (cached/inflight),
- *  so callers can fire it on any early opportunity (idle, first interaction, control hover). */
 export function primeMarkerAudio(): void {
   if (!createCtx()) return;
   for (const u of ALL_URLS) void decode(u);
@@ -302,7 +300,6 @@ function fadeOutSlider(): void {
   );
 }
 
-/** Call repeatedly while a slider is being scrubbed; the voice fades itself out once feeds stop. */
 export function feedSliderSound(): void {
   if (!ensureRunning() || !master) return;
   active = true;
@@ -328,7 +325,6 @@ export function feedSliderSound(): void {
   });
 }
 
-/** Force the slider voice to fade now (e.g. on drag release or unmount). */
 export function stopSliderSound(): void {
   active = false;
   clearTimeout(idleTimer);
@@ -436,7 +432,6 @@ function fadeOutRumble(): void {
   );
 }
 
-/** Call repeatedly while a popup slider moves; the rumble fades itself out once feeds stop. */
 export function feedRumble(): void {
   if (!ensureRunning() || !master) return;
   clearTimeout(rumbleStopTimer);

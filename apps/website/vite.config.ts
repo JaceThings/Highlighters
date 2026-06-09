@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { brotliCompressSync, gzipSync, constants as zlib } from "node:zlib";
 
+const dist = fileURLToPath(new URL("./dist/", import.meta.url));
+
 // Social crawlers don't run JS, so /docs needs its own real HTML to get a different preview card.
 // After the build, emit dist/docs/index.html from the built index.html with the docs OG/Twitter
 // image and a matching canonical (else crawlers fall back to the home card). server.mjs returns
@@ -15,7 +17,6 @@ function docsOgVariant(): Plugin {
     name: "docs-og-variant",
     apply: "build",
     closeBundle() {
-      const dist = fileURLToPath(new URL("./dist/", import.meta.url));
       const src = readFileSync(`${dist}index.html`, "utf8");
       const html = src
         .replaceAll("/og-image.jpg", "/og-image-docs.jpg")
@@ -41,7 +42,6 @@ function precompress(): Plugin {
     closeBundle: {
       sequential: true,
       handler() {
-        const dist = fileURLToPath(new URL("./dist/", import.meta.url));
         for (const entry of readdirSync(dist, { recursive: true, withFileTypes: true })) {
           if (!entry.isFile() || !compressible.test(entry.name)) continue;
           const path = join(entry.parentPath, entry.name);
