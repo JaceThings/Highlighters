@@ -139,7 +139,7 @@ export function Dock() {
           <div ref={refs.clip} className="absolute inset-0 overflow-hidden">
             <div
               ref={refs.horizontalLayer}
-              inert={phase !== "bottom"}
+              inert={phase !== "bottom" && phase !== "top"}
               className="absolute inset-0 flex items-center justify-center"
             >
               <div
