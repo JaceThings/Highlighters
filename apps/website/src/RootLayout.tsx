@@ -15,6 +15,7 @@ import { SelectionStyleProvider } from "./selection-style.tsx";
 import { DockEntranceContext } from "./dock-entrance.tsx";
 import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
 import { useDockTier } from "./hooks/useDockTier.ts";
+import { primeMarkerAudio } from "./lib/marker-audio.ts";
 
 // The agentation dev-feedback toolbar, dev only.
 function DevAgentation() {
@@ -58,8 +59,9 @@ export function RootLayout() {
     return () => clearTimeout(t);
   }, []);
 
-  // Decode every marker sound at the first opportunity, browser idle or the first user interaction,
-  // whichever lands first, so the first press is instant; the engine singleton carries buffers across nav.
+  // Decode every marker sound on first interaction or post-load idle, whichever lands first, so the
+  // first press is instant; the engine singleton carries buffers across nav. The idle path waits for
+  // window load: browser idle before load fires mid-critical-path, racing 35 audio fetches against LCP.
   useEffect(() => {
     let primed = false;
     const events = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel"] as const;
@@ -69,15 +71,24 @@ export function RootLayout() {
       if (primed) return;
       primed = true;
       stop();
-      void import("./lib/marker-audio.ts").then((m) => m.primeMarkerAudio()).catch(() => {});
+      primeMarkerAudio();
     }
     events.forEach((e) => window.addEventListener(e, prime, opts));
     const hasIdle = typeof window.requestIdleCallback === "function";
-    const id = hasIdle ? window.requestIdleCallback(prime, { timeout: 3000 }) : window.setTimeout(prime, 1500);
+    let id: number | undefined;
+    const armIdle = () => {
+      if (primed) return;
+      id = hasIdle ? window.requestIdleCallback(prime, { timeout: 3000 }) : window.setTimeout(prime, 1500);
+    };
+    if (document.readyState === "complete") armIdle();
+    else window.addEventListener("load", armIdle, { once: true });
     return () => {
       stop();
-      if (hasIdle) window.cancelIdleCallback(id as number);
-      else clearTimeout(id as number);
+      window.removeEventListener("load", armIdle);
+      if (id !== undefined) {
+        if (hasIdle) window.cancelIdleCallback(id);
+        else clearTimeout(id);
+      }
     };
   }, []);
 
