@@ -20,7 +20,7 @@ export type DockTarget = "left" | "right" | "bottom" | "top";
 
 // Top and bottom are the same horizontal capsule (pens upright), just anchored to opposite edges;
 // left/right are the rotated vertical pill. The horizontal/side split drives layout + rotation.
-const isHorizontal = (t: DockTarget): boolean => t === "bottom" || t === "top";
+const isHorizontal = (t: DockTarget): t is "bottom" | "top" => t === "bottom" || t === "top";
 
 const CIRCLE = DOCK_H;
 // The snap/rotate/lift distances live in dock-zones.ts (tuned, then baked to constants).
@@ -774,7 +774,7 @@ export function useDockDrag({
       setAtTop(target === "top");
       // Horizontal docks (bottom/top) animate via "returning"; sides via "snapping". The rest phase
       // is "bottom"/"top"/"side"; place() then keys off it (and atTop is already set for the handle).
-      const restPhase: DockPhase = target === "bottom" ? "bottom" : target === "top" ? "top" : "side";
+      const restPhase: DockPhase = isHorizontal(target) ? target : "side";
       setPhase(horizontal ? "returning" : "snapping");
       const b = boxFor(target);
       const rot = horizontal ? 0 : sideRotation(target as DockSide);
