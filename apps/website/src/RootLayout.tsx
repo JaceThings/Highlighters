@@ -42,19 +42,6 @@ function DevOutlineDials() {
   return Dials ? <Dials /> : null;
 }
 
-// DialKit panel + overlay visualising the dock drag zones, dev only. Opt in with `?zones`.
-function DevDockZones() {
-  const [Zones, setZones] = useState<ComponentType | null>(null);
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    if (!new URLSearchParams(window.location.search).has("zones")) return;
-    import("./components/dock/DockZones.tsx")
-      .then((m) => setZones(() => m.DockZones))
-      .catch(() => {});
-  }, []);
-  return Zones ? <Zones /> : null;
-}
-
 // The persistent app shell. Overlays + dock sit outside PageFade so they never re-animate between pages.
 export function RootLayout() {
   // The marker demo is pointer-driven, so the dock is dropped on touch; MobileNotice explains why.
@@ -122,7 +109,6 @@ export function RootLayout() {
             {isTouch && mobileDockShown && <MobileDock />}
             {!isTouch && <DevAgentation />}
             <DevOutlineDials />
-            <DevDockZones />
           </DockEntranceContext.Provider>
         </SelectionStyleProvider>
       </LazyMotion>

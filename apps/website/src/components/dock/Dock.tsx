@@ -113,7 +113,6 @@ export function Dock() {
     >
       <div
         ref={refs.tray}
-        data-dock-tray
         className="pointer-events-auto absolute"
         style={{ top: 0, left: 0, width: 0, height: DOCK_H, willChange: "transform, width, height" }}
       >
