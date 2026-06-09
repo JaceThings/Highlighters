@@ -16,8 +16,7 @@ function docsOgVariant(): Plugin {
       const dist = fileURLToPath(new URL("./dist/", import.meta.url));
       const src = readFileSync(`${dist}index.html`, "utf8");
       const html = src
-        .replaceAll("/og-image.jpg", "/og-image-docs.png")
-        .replace('content="image/jpeg"', 'content="image/png"')
+        .replaceAll("/og-image.jpg", "/og-image-docs.jpg")
         .replace('content="https://highlighte.rs/"', 'content="https://highlighte.rs/docs"')
         .replace('href="https://highlighte.rs/"', 'href="https://highlighte.rs/docs"');
       // Fail loud if index.html drifted and nothing matched, rather than shipping the home card on /docs.
