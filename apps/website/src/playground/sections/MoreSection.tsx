@@ -30,7 +30,20 @@ export function MoreSection() {
           data-focus-ring
           className="w-fit text-[14px] leading-[24px] font-medium tracking-[-0.25px] text-text-primary underline underline-offset-2 hover:opacity-70"
         >
-          See every option in the reference →
+          See every option in the reference
+          {/* SVG arrow: the Inter subset has no U+2192, a text arrow would render in the fallback font. */}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 12 12"
+            className="ml-[5px] inline-block size-[12px] align-[-1.5px]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M1.75 6h8.5M7 2.75 10.25 6 7 9.25" />
+          </svg>
         </a>
       </div>
     </Section>
