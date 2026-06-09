@@ -33,22 +33,13 @@ export function knobLeftPercent(value: number, min: number, max: number): string
   return `${(center / TRACK_W) * 100}%`;
 }
 
-/** White-ring knob, above the mask so its ring stays crisp at the extremes. `color` fills the centre; omit for a hollow ring. */
-export function CapsuleKnob({
-  left,
-  color,
-  onDoubleClick,
-}: {
-  left: string;
-  color?: string;
-  /** When set, the knob accepts pointer events (e.g. double-click to reset). */
-  onDoubleClick?: () => void;
-}) {
-  const interactive = onDoubleClick != null;
+/** White-ring knob, above the mask so its ring stays crisp at the extremes. `color` fills the centre; omit for a hollow ring.
+ *  Always pointer-transparent: an interactive knob would swallow pointerdown and kill drags that grab it. */
+export function CapsuleKnob({ left, color }: { left: string; color?: string }) {
   return (
     <div
-      aria-hidden={!interactive}
-      className={`absolute top-1/2 rounded-full border-[3.5px] border-white ${interactive ? "pointer-events-auto cursor-pointer" : "pointer-events-none"}`}
+      aria-hidden
+      className="pointer-events-none absolute top-1/2 rounded-full border-[3.5px] border-white"
       style={{
         width: KNOB,
         height: KNOB,
@@ -57,16 +48,6 @@ export function CapsuleKnob({
         background: color,
         filter: "drop-shadow(0 0 1px rgba(0, 0, 0, 0.3))",
       }}
-      onPointerDown={interactive ? (e) => e.stopPropagation() : undefined}
-      onDoubleClick={
-        interactive
-          ? (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onDoubleClick!();
-            }
-          : undefined
-      }
     />
   );
 }

@@ -65,6 +65,7 @@ export function OpacitySlider({
       onPointerMove={drag.onPointerMove}
       onPointerUp={drag.endDrag}
       onLostPointerCapture={drag.endDrag}
+      onDoubleClick={resetOpacity}
       onKeyDown={onKeyDown}
       className="relative w-full shrink-0 cursor-pointer touch-none select-none"
       style={{ height: TRACK_H }}
@@ -81,7 +82,7 @@ export function OpacitySlider({
           } as CSSProperties}
         />
       </div>
-      <CapsuleKnob left={knobLeftPercent(value, 0, 1)} onDoubleClick={resetOpacity} />
+      <CapsuleKnob left={knobLeftPercent(value, 0, 1)} />
     </div>
   );
 }
