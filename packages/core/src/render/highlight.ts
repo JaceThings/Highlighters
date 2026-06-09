@@ -116,6 +116,49 @@ function hostFor(ranges: Range[]): HTMLElement | null {
   return null;
 }
 
+/** The forced-layout phase: measure ranges into container-local {@link LineRect}s (raw seeds intact). */
+function measureLines(
+  ranges: Range[],
+  container: HTMLElement,
+  cachedOrigin?: DOMRect,
+  anchorHost?: HTMLElement,
+): LineRect[] {
+  if (ranges.length === 0) return [];
+  // `getClientRects()` is viewport-relative; subtracting the container's rect ties a line's seed
+  // and position to its document position alone, stable under scroll and either drag direction.
+  // A caller mid-frame can pass `cachedOrigin` so several builds share one layout read.
+  const origin = cachedOrigin ?? container.getBoundingClientRect();
+  const hostRect = anchorHost?.getBoundingClientRect();
+  const lineRects = rangesToLineRects(
+    ranges,
+    computeAnchor(ranges),
+    origin.top,
+    anchorHost && hostRect
+      ? { scope: anchorHost, columnBounds: { left: hostRect.left, right: hostRect.right } }
+      : undefined,
+  );
+  return lineRects.map((rect) => ({
+    ...rect,
+    left: rect.left - origin.left,
+    top: rect.top - origin.top,
+  }));
+}
+
+/** The pure phase: container-local line rects to per-line {@link MarkGeometry}. No DOM reads. */
+function linesToGeometry(
+  locals: LineRect[],
+  options: ResolvedOptions,
+  flowReversed = false,
+  profileFor?: (local: LineRect) => LineSpeedProfile | undefined,
+): MarkGeometry[] {
+  return locals.map((local) => {
+    // An explicit `options.seed` must still yield a distinct per-line seed, else every line's
+    // pooled wrapper keys to one value and collapses onto a single node, aliasing the draw-on.
+    const seed = options.seed == null ? local.seed : hashU32(options.seed + local.seed);
+    return buildMarkGeometry(local, options, seed, flowReversed, profileFor?.(local));
+  });
+}
+
 /** Compute per-line {@link MarkGeometry} for a set of ranges; shared by mount, `update()`, and reflow. */
 function buildLines(
   ranges: Range[],
@@ -126,31 +169,12 @@ function buildLines(
   cachedOrigin?: DOMRect,
   anchorHost?: HTMLElement,
 ): MarkGeometry[] {
-  if (ranges.length === 0) return [];
-  // `getClientRects()` is viewport-relative; subtracting the container's rect ties a line's seed
-  // and position to its document position alone, stable under scroll and either drag direction.
-  // A caller mid-frame can pass `cachedOrigin` so several builds share one layout read.
-  const origin = cachedOrigin ?? container.getBoundingClientRect();
-  const hostRect = anchorHost?.getBoundingClientRect();
-  const lineRects: LineRect[] = rangesToLineRects(
-    ranges,
-    computeAnchor(ranges),
-    origin.top,
-    anchorHost && hostRect
-      ? { scope: anchorHost, columnBounds: { left: hostRect.left, right: hostRect.right } }
-      : undefined,
+  return linesToGeometry(
+    measureLines(ranges, container, cachedOrigin, anchorHost),
+    options,
+    flowReversed,
+    profileFor,
   );
-  return lineRects.map((rect) => {
-    // An explicit `options.seed` must still yield a distinct per-line seed, else every line's
-    // pooled wrapper keys to one value and collapses onto a single node, aliasing the draw-on.
-    const seed = options.seed == null ? rect.seed : hashU32(options.seed + rect.seed);
-    const local: LineRect = {
-      ...rect,
-      left: rect.left - origin.left,
-      top: rect.top - origin.top,
-    };
-    return buildMarkGeometry(local, options, seed, flowReversed, profileFor?.(local));
-  });
 }
 
 /** Is the live selection dragged backward (focus before anchor)? Then ink pours from the right edge. Collapsed/detached read as forward. */
@@ -186,9 +210,18 @@ function mountMark(
   // so added nodes are painted and removed ones drop out.
   let activeRanges = ranges;
 
+  // Measured container-local line rects, keyed by the snap they were built with. Local rects are
+  // scroll-invariant, so the reflow observer + range re-collection + a snap change form the complete
+  // invalidation set; an ink-only update() rebuilds geometry with zero forced layout reads.
+  let cachedLines: LineRect[] | null = null;
+  let cachedSnap: SnapMode | null = null;
+
   const buildContext = (opts: ResolvedOptions): RenderContext => {
-    const snapped = snapRanges(activeRanges, opts.snap);
-    const lines = buildLines(snapped, opts, container);
+    if (cachedLines === null || cachedSnap !== opts.snap) {
+      cachedLines = measureLines(snapRanges(activeRanges, opts.snap), container);
+      cachedSnap = opts.snap;
+    }
+    const lines = linesToGeometry(cachedLines, opts);
     return { container, options: opts, lines, ranges: activeRanges };
   };
 
@@ -210,6 +243,7 @@ function mountMark(
   // Re-derive geometry and update the renderer without re-animating. An in-flight draw-on is
   // retargeted onto the corrected geometry so it finishes the right shape instead of snapping.
   const reflow = createReflowObserver(reflowTargetsFor(host, activeRanges), () => {
+    cachedLines = null;
     const ctx = buildContext(resolved);
     renderer.update(ctx);
     animDisconnect.retarget(ctx.lines);
@@ -230,7 +264,10 @@ function mountMark(
       Object.assign(resolved, opts);
       // A watched page mark re-collects here so a watcher-fired update() paints added and drops
       // removed nodes. Reflow calls buildContext directly, so a resize never re-scans the DOM.
-      if (rangeSource) activeRanges = rangeSource();
+      if (rangeSource) {
+        activeRanges = rangeSource();
+        cachedLines = null;
+      }
       return buildContext(resolved);
     },
   });
