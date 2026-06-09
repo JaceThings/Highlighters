@@ -17,6 +17,11 @@ export interface DockZoneTuning {
   rotateHyst: number;
   /** Drag this far (px) from the rest centre before the intact pill collapses into the circle. */
   liftDistance: number;
+  /** Px shaved off the TOP of each pen's hit region (clip-path), so the grab handle band above the pens
+   *  no longer steals their hover/click. The pen art sits well below this, so it is never clipped. */
+  penTopInset: number;
+  /** Px shaved off each SIDE of a pen's hit region. */
+  penSideInset: number;
 }
 
 export const DEFAULT_ZONES: DockZoneTuning = {
@@ -26,6 +31,8 @@ export const DEFAULT_ZONES: DockZoneTuning = {
   rotateDist: 490,
   rotateHyst: 65,
   liftDistance: 75,
+  penTopInset: 22,
+  penSideInset: 0,
 };
 
 let state: DockZoneTuning = { ...DEFAULT_ZONES };

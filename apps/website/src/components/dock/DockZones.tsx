@@ -53,11 +53,12 @@ export function DockZones() {
     sideDocks: { reach: [DEFAULT_ZONES.snapZone, 40, 400, 5] as N4 },
     penFacing: { reach: [DEFAULT_ZONES.rotateDist, 80, 700, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
     collapse: { liftRadius: [DEFAULT_ZONES.liftDistance, 20, 320, 5] as N4 },
-    penHitbox: { width: [6, -40, 120, 1] as N4, height: [-22, -160, 120, 1] as N4 },
+    // Pen hitbox insets are REAL (clip-path on the live buttons), so the green guide is the true hit region.
+    penHitbox: { topInset: [DEFAULT_ZONES.penTopInset, 0, 120, 1] as N4, sideInset: [DEFAULT_ZONES.penSideInset, 0, 40, 1] as N4 },
     grabArea: { width: [0, -20, 120, 1] as N4, height: [3, -20, 120, 1] as N4 },
   });
 
-  // Live-wire the behavioural zones into the drag state machine (and thus the overlay, which reads zones()).
+  // Live-wire the behavioural zones + real pen-hit insets into the store (the overlay also reads zones()).
   useEffect(() => {
     setDockZones({
       bottomZone: p.bottomDock.reach,
@@ -66,12 +67,14 @@ export function DockZones() {
       rotateDist: p.penFacing.reach,
       rotateHyst: p.penFacing.hysteresis,
       liftDistance: p.collapse.liftRadius,
+      penTopInset: p.penHitbox.topInset,
+      penSideInset: p.penHitbox.sideInset,
     });
-  }, [p.bottomDock.reach, p.topSafeZone.reach, p.sideDocks.reach, p.penFacing.reach, p.penFacing.hysteresis, p.collapse.liftRadius]);
+  }, [p.bottomDock.reach, p.topSafeZone.reach, p.sideDocks.reach, p.penFacing.reach, p.penFacing.hysteresis, p.collapse.liftRadius, p.penHitbox.topInset, p.penHitbox.sideInset]);
 
-  // Guide inflation for the measured (marker/grab) overlays; read by the rAF loop without a re-render.
-  const guide = useRef({ mx: 0, my: 0, gx: 0, gy: 0 });
-  guide.current = { mx: p.penHitbox.width, my: p.penHitbox.height, gx: p.grabArea.width, gy: p.grabArea.height };
+  // The grab guide stays a visual prototyping inflation (read by the rAF loop without a re-render).
+  const guide = useRef({ gx: 0, gy: 0 });
+  guide.current = { gx: p.grabArea.width, gy: p.grabArea.height };
 
   const els = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -100,7 +103,7 @@ export function DockZones() {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const z = zones();
-      const { mx, my, gx, gy } = guide.current;
+      const { gx, gy } = guide.current;
 
       // Hard snaps in targetFor precedence: the bottom band wins its corners, the side bands run from the
       // top down to it. The top safe zone (dashed) is release-only and overlays the side tops freely.
@@ -131,10 +134,13 @@ export function DockZones() {
           place(`marker${i}`, null);
           continue;
         }
-        // Width inflates symmetrically; height is bottom-anchored, so Y<0 shortens from the top while
-        // the box's bottom stays glued to the pen's bottom (never a centre-aligned shrink).
-        const h = Math.max(1, r.height + my);
-        place(`marker${i}`, { x: r.left - mx, y: r.bottom - h, w: r.width + mx * 2, h });
+        // The true hit region: the button rect clipped by the same top/side insets the buttons apply.
+        place(`marker${i}`, {
+          x: r.left + z.penSideInset,
+          y: r.top + z.penTopInset,
+          w: r.width - z.penSideInset * 2,
+          h: r.height - z.penTopInset,
+        });
       }
       raf = requestAnimationFrame(tick);
     };
