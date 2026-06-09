@@ -34,7 +34,9 @@ export const DEFAULT_ZONES: DockZoneTuning = {
   topZone: 400,
   snapZone: 175,
   rotateFacingPct: 0.35,
-  rotateFacingMax: 600,
+  // 900px engages only beyond ~2570px wide, so 35% stays live on every normal desktop (the percent
+  // dial visibly moves the band); the cap then keeps a true ultrawide (3440+) from getting a massive band.
+  rotateFacingMax: 900,
   rotateHyst: 65,
   liftDistance: 75,
   penTopInset: 22,
