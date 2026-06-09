@@ -26,9 +26,9 @@ export interface DockZoneTuning {
 
 export const DEFAULT_ZONES: DockZoneTuning = {
   bottomZone: 170,
-  topZone: 170,
+  topZone: 400,
   snapZone: 175,
-  rotateDist: 490,
+  rotateDist: 410,
   rotateHyst: 65,
   liftDistance: 75,
   penTopInset: 22,

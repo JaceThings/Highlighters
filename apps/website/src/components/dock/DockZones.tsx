@@ -49,13 +49,13 @@ export function DockZones() {
   // drag distance before the pill pinches to a circle; the two guides inflate the measured overlays.
   const p = useDialKit("Dock zones", {
     bottomDock: { reach: [DEFAULT_ZONES.bottomZone, 40, 400, 5] as N4 },
-    topSafeZone: { reach: [DEFAULT_ZONES.topZone, 40, 400, 5] as N4 },
+    topSafeZone: { reach: [DEFAULT_ZONES.topZone, 40, 700, 5] as N4 },
     sideDocks: { reach: [DEFAULT_ZONES.snapZone, 40, 400, 5] as N4 },
     penFacing: { reach: [DEFAULT_ZONES.rotateDist, 80, 700, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
     collapse: { liftRadius: [DEFAULT_ZONES.liftDistance, 20, 320, 5] as N4 },
     // Pen hitbox insets are REAL (clip-path on the live buttons), so the green guide is the true hit region.
     penHitbox: { topInset: [DEFAULT_ZONES.penTopInset, 0, 120, 1] as N4, sideInset: [DEFAULT_ZONES.penSideInset, 0, 40, 1] as N4 },
-    grabArea: { width: [0, -20, 120, 1] as N4, height: [3, -20, 120, 1] as N4 },
+    grabArea: { width: [8, -20, 120, 1] as N4, height: [4, -20, 120, 1] as N4 },
   });
 
   // Live-wire the behavioural zones + real pen-hit insets into the store (the overlay also reads zones()).
