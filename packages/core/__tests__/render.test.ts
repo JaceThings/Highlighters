@@ -16,7 +16,7 @@ import { createCssRenderer, poolGradientToCss } from "../src/render/tier-b-css.j
 import { createSvgRenderer } from "../src/render/tier-a-svg.js";
 import { createHighlightApiRenderer } from "../src/render/tier-c-highlight-api.js";
 import { createMarkHandle } from "../src/render/mark-handle.js";
-import { highlight, highlightSelection, group } from "../src/render/highlight.js";
+import { highlight, highlightAll, highlightSelection, group } from "../src/render/highlight.js";
 import { resolveOptions } from "../src/config/merge.js";
 import type {
   MarkGeometry,
@@ -951,6 +951,132 @@ describe("highlight", () => {
       handle.remove();
     } finally {
       spy.mockRestore();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // Static-mark measurement cache: ink-only update() forces zero layout reads
+  // -------------------------------------------------------------------------
+
+  it("serves ink-only update()s from the measurement cache: zero forced layout reads", () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    const origin = vi.spyOn(Element.prototype, "getBoundingClientRect");
+    try {
+      const handle = highlight(target, { renderer: "css", animation: { draw: false } });
+      // Mount performs the single measurement pass.
+      const rectReads = rects.mock.calls.length;
+      const originReads = origin.mock.calls.length;
+      expect(rectReads).toBeGreaterThan(0);
+      expect(originReads).toBeGreaterThan(0);
+
+      handle.update({ color: "#ff0000" });
+      handle.update({ opacity: 0.4 });
+
+      // Both updates re-synthesized geometry from the cached rects: no layout touched.
+      expect(rects.mock.calls.length).toBe(rectReads);
+      expect(origin.mock.calls.length).toBe(originReads);
+      handle.remove();
+    } finally {
+      rects.mockRestore();
+      origin.mockRestore();
+    }
+  });
+
+  it("re-measures when the reflow observer fires, then serves updates from the fresh rects", async () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    const origin = vi.spyOn(Element.prototype, "getBoundingClientRect");
+    try {
+      const handle = highlight(target, { renderer: "css", animation: { draw: false } });
+      handle.update({ opacity: 0.4 }); // cached: pins the post-mount baseline
+      const rectReads = rects.mock.calls.length;
+      const originReads = origin.mock.calls.length;
+
+      rects.mockReturnValue(domRectList([dr(10, 180, 200, 18)]));
+      window.dispatchEvent(new Event("resize"));
+      await flushRaf();
+
+      // The reflow re-render measured the moved layout instead of reusing the cache.
+      expect(rects.mock.calls.length).toBeGreaterThan(rectReads);
+      expect(origin.mock.calls.length).toBeGreaterThan(originReads);
+      const overlay = () =>
+        document.body.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+      expect(overlay().style.top).toBe("178px");
+
+      // The reflow refilled the cache: a following ink update reads no layout and keeps the corrected position.
+      const reflowedReads = rects.mock.calls.length;
+      handle.update({ color: "#ff0000" });
+      expect(rects.mock.calls.length).toBe(reflowedReads);
+      expect(overlay().style.top).toBe("178px");
+      handle.remove();
+    } finally {
+      rects.mockRestore();
+      origin.mockRestore();
+    }
+  });
+
+  it("re-measures when update() changes the resolved snap, once per snap value", () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    const origin = vi.spyOn(Element.prototype, "getBoundingClientRect");
+    try {
+      // An element target resolves snap to "line".
+      const handle = highlight(target, { renderer: "css", animation: { draw: false } });
+      const rectReads = rects.mock.calls.length;
+      const originReads = origin.mock.calls.length;
+
+      handle.update({ snap: "none" });
+      expect(rects.mock.calls.length).toBeGreaterThan(rectReads);
+      expect(origin.mock.calls.length).toBeGreaterThan(originReads);
+
+      // Same resolved snap again: back on the cache.
+      const snapReads = rects.mock.calls.length;
+      handle.update({ snap: "none" });
+      expect(rects.mock.calls.length).toBe(snapReads);
+      handle.remove();
+    } finally {
+      rects.mockRestore();
+      origin.mockRestore();
+    }
+  });
+
+  it("a cached rebuild yields geometry identical to a fresh measurement of the same layout", () => {
+    const twoLines = domRectList([dr(10, 100, 200, 18), dr(10, 124, 200, 18)]);
+    const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(twoLines);
+    try {
+      const readGeometry = () =>
+        Array.from(document.body.querySelector("[data-highlighters-overlay]")!.children).map((w) => {
+          const el = w as HTMLElement;
+          return [el.style.top, el.style.left, el.style.width, el.style.height, el.style.clipPath];
+        });
+
+      const handle = highlight(target, { renderer: "css", animation: { draw: false } });
+      handle.update({ tip: { type: "bullet", angle: 0 } }); // reshapes from the cached rects
+      const cached = readGeometry();
+      handle.remove();
+
+      const fresh = highlight(target, { renderer: "css", animation: { draw: false }, tip: { type: "bullet", angle: 0 } });
+      expect(readGeometry()).toEqual(cached);
+      fresh.remove();
+    } finally {
+      rects.mockRestore();
+    }
+  });
+
+  it("a watched mark's update() re-collects ranges and re-measures", () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    const origin = vi.spyOn(Element.prototype, "getBoundingClientRect");
+    try {
+      const handle = highlightAll({ renderer: "css", animation: { draw: false } });
+      const rectReads = rects.mock.calls.length;
+      const originReads = origin.mock.calls.length;
+      expect(rectReads).toBeGreaterThan(0);
+
+      handle.update({});
+      expect(rects.mock.calls.length).toBeGreaterThan(rectReads);
+      expect(origin.mock.calls.length).toBeGreaterThan(originReads);
+      handle.remove();
+    } finally {
+      rects.mockRestore();
+      origin.mockRestore();
     }
   });
 });

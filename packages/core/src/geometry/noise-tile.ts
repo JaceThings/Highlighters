@@ -46,6 +46,11 @@ function fmt(value: number): string {
   return String(Math.round(value * 1000) / 1000);
 }
 
+/** Clamp then snap a density knob to its 0.02 bucket; sub-bucket alpha deltas are below perceptual threshold. */
+function quantizeKnob(value: number): number {
+  return Math.round(clamp(value, 0, 1) * 50) / 50;
+}
+
 // ASCII-only base64; avoids `btoa` (a DOM global absent in some SSR runtimes) while encoding identically everywhere.
 const B64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -68,10 +73,7 @@ function toBase64Ascii(input: string): string {
 
 /** Build the SVG source for the dual-`feTurbulence` tile; arithmetic `feComposite` multiplies the two layers so dark streak and dark patch reinforce. */
 function buildNoiseTileSvg(opts: Required<NoiseTileOptions>): string {
-  const { width, height, seed } = opts;
-  const streakiness = clamp(opts.streakiness, 0, 1);
-  const feathering = clamp(opts.feathering, 0, 1);
-  const dryout = clamp(opts.dryout, 0, 1);
+  const { width, height, seed, streakiness, feathering, dryout } = opts;
 
   // Decorrelate the two layers' seeds; `% 256` keeps them in feTurbulence's documented range.
   const striationSeed = hashU32(seed * 2 + 3) % 256;
@@ -116,21 +118,27 @@ function dryoutTransfer(dryout: number): string {
   return values.join(" ");
 }
 
-/** Build a bare `data:image/svg+xml;base64,…` URL for the noise tile. Deterministic from `seed` and the density knobs. Memoised (most drags never touch these inputs). */
+/** Build a bare `data:image/svg+xml;base64,…` URL for the noise tile. Deterministic from `seed` and the density knobs (quantized to 0.02 buckets). Memoised, so a knob drag rebuilds at most one tile per bucket. */
 const tileCache = new Map<string, string>();
 
 export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
+  // Quantize before both the key and the SVG, so cache identity and emitted tile always agree.
   const resolved: Required<NoiseTileOptions> = {
     width: opts.width ?? DEFAULT_TILE_WIDTH,
     height: opts.height ?? DEFAULT_TILE_HEIGHT,
     seed: opts.seed,
-    streakiness: opts.streakiness,
-    feathering: opts.feathering,
-    dryout: opts.dryout ?? 0,
+    streakiness: quantizeKnob(opts.streakiness),
+    feathering: quantizeKnob(opts.feathering),
+    dryout: quantizeKnob(opts.dryout ?? 0),
   };
   const key = `${resolved.width}x${resolved.height}|${resolved.seed}|${resolved.streakiness}|${resolved.feathering}|${resolved.dryout}`;
   const hit = tileCache.get(key);
-  if (hit !== undefined) return hit;
+  if (hit !== undefined) {
+    // Re-promote so the oldest-half eviction approximates LRU; a drag can't evict its own hot tiles.
+    tileCache.delete(key);
+    tileCache.set(key, hit);
+    return hit;
+  }
   const url = `data:image/svg+xml;base64,${toBase64Ascii(buildNoiseTileSvg(resolved))}`;
   // Evict the oldest half rather than clearing all, so a continuous drag keeps its hot working set.
   if (tileCache.size > 512) {

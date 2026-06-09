@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { LineRect, ResolvedOptions } from "../src/types.js";
 import { hashJitter, hashU32, mulberry } from "../src/geometry/rng.js";
 import { buildEdge } from "../src/geometry/edges.js";
@@ -7,6 +7,7 @@ import { buildPoolGradient } from "../src/geometry/pool.js";
 import {
   buildNoiseTile,
   buildNoiseTileDataUrl,
+  type NoiseTileOptions,
 } from "../src/geometry/noise-tile.js";
 import { buildMarkGeometry } from "../src/geometry/mark-space.js";
 import { snapRangeToBounds } from "../src/geometry/snap.js";
@@ -650,6 +651,13 @@ describe("buildPoolGradient", () => {
 // ---------------------------------------------------------------------------
 
 describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
+  // A fresh module registry gives a fresh (empty) tileCache, so the call runs the
+  // real build path instead of returning a memoized hit.
+  async function coldBuild(opts: NoiseTileOptions): Promise<string> {
+    vi.resetModules();
+    return (await import("../src/geometry/noise-tile.js")).buildNoiseTileDataUrl(opts);
+  }
+
   it("emits a base64 data URL with two stitched feTurbulence layers", () => {
     const url = buildNoiseTileDataUrl({ seed: 5, streakiness: 0.5, feathering: 0.4 });
     expect(url.startsWith("data:image/svg+xml;base64,")).toBe(true);
@@ -696,6 +704,84 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
     } finally {
       (globalThis as { btoa?: unknown }).btoa = original;
     }
+  });
+
+  it("quantizes the knobs to 0.02 buckets - same-bucket inputs share one cache entry", () => {
+    const a = buildNoiseTileDataUrl({ seed: 41, streakiness: 0.491, feathering: 0.299, dryout: 0.105 });
+    // A rebuild hashes the layer seeds (hashU32 → Math.imul); a cache hit never does,
+    // so a silent spy proves the second call resolved to the first call's entry.
+    const imul = vi.spyOn(Math, "imul");
+    try {
+      const b = buildNoiseTileDataUrl({ seed: 41, streakiness: 0.509, feathering: 0.301, dryout: 0.095 });
+      expect(b).toBe(a);
+      expect(imul).not.toHaveBeenCalled();
+      // Proxy self-check: a fresh seed must rebuild and reach Math.imul, so a hashU32
+      // rewrite that drops imul fails here instead of silently vacating the spy above.
+      buildNoiseTileDataUrl({ seed: 410001, streakiness: 0.491, feathering: 0.299, dryout: 0.105 });
+      expect(imul).toHaveBeenCalled();
+    } finally {
+      imul.mockRestore();
+    }
+  });
+
+  it("quantizes the emitted tile, not just the cache key - off-bucket knobs build the bucket-aligned bytes", async () => {
+    // Cold caches force both calls through the build path; if the SVG were emitted
+    // from the raw knobs the bytes would diverge even though the keys collide.
+    const offBucket = await coldBuild({ seed: 41, streakiness: 0.491, feathering: 0.299, dryout: 0.105 });
+    const aligned = await coldBuild({ seed: 41, streakiness: 0.5, feathering: 0.3, dryout: 0.1 });
+    expect(offBucket).toBe(aligned);
+  });
+
+  it("inputs in distinct 0.02 buckets produce distinct tiles, per knob", () => {
+    const base = { seed: 42, streakiness: 0.5, feathering: 0.3, dryout: 0.1 };
+    const ref = buildNoiseTileDataUrl(base);
+    expect(buildNoiseTileDataUrl({ ...base, streakiness: 0.52 })).not.toBe(ref);
+    expect(buildNoiseTileDataUrl({ ...base, feathering: 0.32 })).not.toBe(ref);
+    expect(buildNoiseTileDataUrl({ ...base, dryout: 0.12 })).not.toBe(ref);
+  });
+
+  it("is deterministic across cache instances (cold caches build byte-identical strings)", async () => {
+    const opts = { seed: 43, streakiness: 0.513, feathering: 0.297, dryout: 0.101 };
+    expect(await coldBuild(opts)).toBe(await coldBuild(opts));
+  });
+
+  it("a cache hit re-promotes its entry, so it survives an oldest-half eviction cycle", () => {
+    const knobs = { streakiness: 0.34, feathering: 0.42, dryout: 0.1 };
+    const hot = { seed: 700001, ...knobs };
+    const cold = { seed: 700002, ...knobs };
+    buildNoiseTileDataUrl(hot);
+    buildNoiseTileDataUrl(cold);
+    // A rebuild hashes the layer seeds (hashU32 → Math.imul); a cache hit never does.
+    const imul = vi.spyOn(Math, "imul");
+    try {
+      // Flood with 600 fresh seeds (eviction trips past 512 entries), re-touching
+      // the hot tile every 100 inserts the way a drag re-requests its working set.
+      for (let i = 0; i < 600; i++) {
+        buildNoiseTileDataUrl({ seed: 800000 + i, ...knobs });
+        if (i % 100 === 99) {
+          const calls = imul.mock.calls.length;
+          buildNoiseTileDataUrl(hot);
+          // Every re-touch must hit: without re-promotion the eviction sweep drops
+          // hot (among the oldest inserts) and the re-touch after it rebuilds.
+          expect(imul.mock.calls.length).toBe(calls);
+        }
+      }
+      const calls = imul.mock.calls.length;
+      buildNoiseTileDataUrl(cold);
+      // Never re-touched, so the flood evicted it and this call rebuilds. Doubles as
+      // the spy's self-check: fails loudly if hashU32 stops reaching Math.imul.
+      expect(imul.mock.calls.length).toBeGreaterThan(calls);
+    } finally {
+      imul.mockRestore();
+    }
+  });
+
+  it("does not quantize the seed - sub-0.02 seed deltas that hash apart still differ", () => {
+    // The seed feeds hashU32 via `seed * 2 + 3`, which truncates to an integer:
+    // 4.999 and 5.001 land on 12 vs 13 and draw different layer seeds.
+    const a = buildNoiseTileDataUrl({ seed: 4.999, streakiness: 0.5, feathering: 0.3 });
+    const b = buildNoiseTileDataUrl({ seed: 5.001, streakiness: 0.5, feathering: 0.3 });
+    expect(a).not.toBe(b);
   });
 });
 
