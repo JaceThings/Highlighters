@@ -159,24 +159,6 @@ function linesToGeometry(
   });
 }
 
-/** Compute per-line {@link MarkGeometry} for a set of ranges; shared by mount, `update()`, and reflow. */
-function buildLines(
-  ranges: Range[],
-  options: ResolvedOptions,
-  container: HTMLElement,
-  flowReversed = false,
-  profileFor?: (local: LineRect) => LineSpeedProfile | undefined,
-  cachedOrigin?: DOMRect,
-  anchorHost?: HTMLElement,
-): MarkGeometry[] {
-  return linesToGeometry(
-    measureLines(ranges, container, cachedOrigin, anchorHost),
-    options,
-    flowReversed,
-    profileFor,
-  );
-}
-
 /** Is the live selection dragged backward (focus before anchor)? Then ink pours from the right edge. Collapsed/detached read as forward. */
 function isSelectionBackward(selection: Selection): boolean {
   const { anchorNode, focusNode } = selection;
@@ -213,15 +195,13 @@ function mountMark(
   // Measured container-local line rects, keyed by the snap they were built with. Local rects are
   // scroll-invariant, so the reflow observer + range re-collection + a snap change form the complete
   // invalidation set; an ink-only update() rebuilds geometry with zero forced layout reads.
-  let cachedLines: LineRect[] | null = null;
-  let cachedSnap: SnapMode | null = null;
+  let cached: { snap: SnapMode; lines: LineRect[] } | null = null;
 
   const buildContext = (opts: ResolvedOptions): RenderContext => {
-    if (cachedLines === null || cachedSnap !== opts.snap) {
-      cachedLines = measureLines(snapRanges(activeRanges, opts.snap), container);
-      cachedSnap = opts.snap;
+    if (cached === null || cached.snap !== opts.snap) {
+      cached = { snap: opts.snap, lines: measureLines(snapRanges(activeRanges, opts.snap), container) };
     }
-    const lines = linesToGeometry(cachedLines, opts);
+    const lines = linesToGeometry(cached.lines, opts);
     return { container, options: opts, lines, ranges: activeRanges };
   };
 
@@ -243,7 +223,7 @@ function mountMark(
   // Re-derive geometry and update the renderer without re-animating. An in-flight draw-on is
   // retargeted onto the corrected geometry so it finishes the right shape instead of snapping.
   const reflow = createReflowObserver(reflowTargetsFor(host, activeRanges), () => {
-    cachedLines = null;
+    cached = null;
     const ctx = buildContext(resolved);
     renderer.update(ctx);
     animDisconnect.retarget(ctx.lines);
@@ -266,7 +246,7 @@ function mountMark(
       // removed nodes. Reflow calls buildContext directly, so a resize never re-scans the DOM.
       if (rangeSource) {
         activeRanges = rangeSource();
-        cachedLines = null;
+        cached = null;
       }
       return buildContext(resolved);
     },
@@ -464,14 +444,11 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
             resolved.speed,
           )
       : undefined;
-    const lines = buildLines(
-      snapped,
+    const lines = linesToGeometry(
+      measureLines(snapped, container!, origin, currentHost ?? undefined),
       resolved,
-      container!,
       flowReversed,
       profileFor,
-      origin,
-      currentHost ?? undefined,
     );
     return { container: container!, options: resolved, lines, ranges };
   };
@@ -501,7 +478,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     if (!container) return;
     const selection = document.getSelection();
     if (!selection || selection.isCollapsed) return;
-    // Same container-local px space buildLines projects into, so the lookup is exact during the drag.
+    // Same container-local px space measureLines projects into, so the lookup is exact during the drag.
     const origin = container.getBoundingClientRect();
     tracker.recordSample(
       selection,

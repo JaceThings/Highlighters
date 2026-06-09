@@ -46,7 +46,7 @@ function fmt(value: number): string {
   return String(Math.round(value * 1000) / 1000);
 }
 
-/** Clamp then snap a density knob to its 0.02 bucket (sub-bucket alpha deltas are below perceptual threshold), so a knob drag hits the cache instead of rebuilding per frame. */
+/** Clamp then snap a density knob to its 0.02 bucket; sub-bucket alpha deltas are below perceptual threshold. */
 function quantizeKnob(value: number): number {
   return Math.round(clamp(value, 0, 1) * 50) / 50;
 }
@@ -73,10 +73,7 @@ function toBase64Ascii(input: string): string {
 
 /** Build the SVG source for the dual-`feTurbulence` tile; arithmetic `feComposite` multiplies the two layers so dark streak and dark patch reinforce. */
 function buildNoiseTileSvg(opts: Required<NoiseTileOptions>): string {
-  const { width, height, seed } = opts;
-  const streakiness = clamp(opts.streakiness, 0, 1);
-  const feathering = clamp(opts.feathering, 0, 1);
-  const dryout = clamp(opts.dryout, 0, 1);
+  const { width, height, seed, streakiness, feathering, dryout } = opts;
 
   // Decorrelate the two layers' seeds; `% 256` keeps them in feTurbulence's documented range.
   const striationSeed = hashU32(seed * 2 + 3) % 256;
@@ -125,7 +122,7 @@ function dryoutTransfer(dryout: number): string {
 const tileCache = new Map<string, string>();
 
 export function buildNoiseTileDataUrl(opts: NoiseTileOptions): string {
-  // Knobs quantize before both the key and the SVG, so cache identity and emitted tile always agree. seed/width/height stay raw.
+  // Quantize before both the key and the SVG, so cache identity and emitted tile always agree.
   const resolved: Required<NoiseTileOptions> = {
     width: opts.width ?? DEFAULT_TILE_WIDTH,
     height: opts.height ?? DEFAULT_TILE_HEIGHT,
