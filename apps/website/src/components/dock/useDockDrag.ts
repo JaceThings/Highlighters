@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { animate, useMotionValue, type MotionValue, type Transition } from "framer-motion";
 import { prefersReducedMotion } from "../playground/slider-utils.ts";
 import { DOCK_H, EDGE_INSET } from "./constants.ts";
-import { zones } from "./dock-zone-tuning.ts";
+import { zones, facingReach } from "./dock-zone-tuning.ts";
 
 // Drag-to-dock state machine. `useDockDrag` owns all pointer math, snap detection, and the
 // animated geometry MotionValues so `Dock.tsx` stays declarative: it reads `phase`/`side`/`collapsed`
@@ -70,14 +70,15 @@ const targetFromRotation = (deg: number): DockTarget =>
 // band, upright only in the centre. Hysteresis (`current`) keeps it sticky so a side dock grabbed
 // into a circle holds its facing until dragged well toward the middle. Left -> +90, right -> -90.
 const rotationTarget = (cx: number, vw: number, current: number): number => {
-  const { rotateDist, rotateHyst } = zones();
+  const reach = facingReach(vw);
+  const { rotateHyst } = zones();
   const dl = cx;
   const dr = vw - cx;
-  const exit = rotateDist + rotateHyst;
-  if (current === 90) return dl <= exit ? 90 : dr <= rotateDist ? -90 : 0;
-  if (current === -90) return dr <= exit ? -90 : dl <= rotateDist ? 90 : 0;
-  if (dl <= rotateDist) return 90;
-  if (dr <= rotateDist) return -90;
+  const exit = reach + rotateHyst;
+  if (current === 90) return dl <= exit ? 90 : dr <= reach ? -90 : 0;
+  if (current === -90) return dr <= exit ? -90 : dl <= reach ? 90 : 0;
+  if (dl <= reach) return 90;
+  if (dr <= reach) return -90;
   return 0;
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { DialRoot, useDialKit } from "dialkit";
 import "dialkit/styles.css";
-import { DEFAULT_ZONES, setDockZones, zones } from "./dock-zone-tuning.ts";
+import { DEFAULT_ZONES, setDockZones, zones, facingReach } from "./dock-zone-tuning.ts";
 
 // Dev-only DialKit panel + overlay that visualises the dock's invisible drag zones (mounted with
 // ?zones). The bottom/side/rotate/lift dials are live-wired through dock-zone-tuning.ts, so dialing
@@ -51,7 +51,7 @@ export function DockZones() {
     bottomDock: { reach: [DEFAULT_ZONES.bottomZone, 40, 400, 5] as N4 },
     topSafeZone: { reach: [DEFAULT_ZONES.topZone, 40, 700, 5] as N4 },
     sideDocks: { reach: [DEFAULT_ZONES.snapZone, 40, 400, 5] as N4 },
-    penFacing: { reach: [DEFAULT_ZONES.rotateDist, 80, 700, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
+    penFacing: { percent: [DEFAULT_ZONES.rotateFacingPct * 100, 10, 60, 1] as N4, maxReach: [DEFAULT_ZONES.rotateFacingMax, 200, 1000, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
     collapse: { liftRadius: [DEFAULT_ZONES.liftDistance, 20, 320, 5] as N4 },
     // Pen hitbox insets are REAL (clip-path on the live buttons), so the green guide is the true hit region.
     penHitbox: { topInset: [DEFAULT_ZONES.penTopInset, 0, 120, 1] as N4, sideInset: [DEFAULT_ZONES.penSideInset, 0, 40, 1] as N4 },
@@ -64,13 +64,14 @@ export function DockZones() {
       bottomZone: p.bottomDock.reach,
       topZone: p.topSafeZone.reach,
       snapZone: p.sideDocks.reach,
-      rotateDist: p.penFacing.reach,
+      rotateFacingPct: p.penFacing.percent / 100,
+      rotateFacingMax: p.penFacing.maxReach,
       rotateHyst: p.penFacing.hysteresis,
       liftDistance: p.collapse.liftRadius,
       penTopInset: p.penHitbox.topInset,
       penSideInset: p.penHitbox.sideInset,
     });
-  }, [p.bottomDock.reach, p.topSafeZone.reach, p.sideDocks.reach, p.penFacing.reach, p.penFacing.hysteresis, p.collapse.liftRadius, p.penHitbox.topInset, p.penHitbox.sideInset]);
+  }, [p.bottomDock.reach, p.topSafeZone.reach, p.sideDocks.reach, p.penFacing.percent, p.penFacing.maxReach, p.penFacing.hysteresis, p.collapse.liftRadius, p.penHitbox.topInset, p.penHitbox.sideInset]);
 
   // The grab guide stays a visual prototyping inflation (read by the rAF loop without a re-render).
   const guide = useRef({ gx: 0, gy: 0 });
@@ -112,8 +113,9 @@ export function DockZones() {
       place("top", { x: 0, y: 0, w: vw, h: z.topZone });
       place("left", { x: 0, y: 0, w: z.snapZone, h: bottomTop });
       place("right", { x: vw - z.snapZone, y: 0, w: z.snapZone, h: bottomTop });
-      place("rotateLeft", { x: 0, y: 0, w: z.rotateDist, h: vh });
-      place("rotateRight", { x: vw - z.rotateDist, y: 0, w: z.rotateDist, h: vh });
+      const reach = facingReach(vw);
+      place("rotateLeft", { x: 0, y: 0, w: reach, h: vh });
+      place("rotateRight", { x: vw - reach, y: 0, w: reach, h: vh });
 
       // Lift radius: centred on the live tray centre (the rest centre a grab measures lift from).
       const tray = rect("[data-dock-tray]");

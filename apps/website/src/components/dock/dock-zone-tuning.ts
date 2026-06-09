@@ -11,9 +11,14 @@ export interface DockZoneTuning {
   topZone: number;
   /** Circle-centre within this of a side edge previews/commits that dock. */
   snapZone: number;
-  /** A free circle's pen faces the nearer edge within this of it (upright only in the centre band). */
-  rotateDist: number;
-  /** Hysteresis on rotateDist so the facing never flickers at the boundary. */
+  /** A free circle's pen faces the nearer edge within `facingReach(vw)` of it (upright only in the
+   *  centre band). The reach is a fraction of the viewport width so the upright band stays proportional
+   *  on any screen (a fixed px reach leaves no upright band on a narrow window). */
+  rotateFacingPct: number;
+  /** Cap (px) on the facing reach so an ultrawide doesn't get a massive facing band; above
+   *  `max / pct` the reach holds at this and the upright band simply grows. */
+  rotateFacingMax: number;
+  /** Hysteresis (px) on the facing reach so the facing never flickers at the boundary. */
   rotateHyst: number;
   /** Drag this far (px) from the rest centre before the intact pill collapses into the circle. */
   liftDistance: number;
@@ -28,12 +33,22 @@ export const DEFAULT_ZONES: DockZoneTuning = {
   bottomZone: 170,
   topZone: 400,
   snapZone: 175,
-  rotateDist: 410,
+  rotateFacingPct: 0.35,
+  rotateFacingMax: 600,
   rotateHyst: 65,
   liftDistance: 75,
   penTopInset: 22,
   penSideInset: 0,
 };
+
+// A small floor so a very narrow window (below the dock's min anyway) still gets a usable facing band.
+const FACING_MIN = 120;
+
+/** The pen-facing reach in px for a viewport `vw`: a % of width, floored and capped (fluid-with-a-cap). */
+export function facingReach(vw: number): number {
+  const z = state;
+  return Math.max(FACING_MIN, Math.min(vw * z.rotateFacingPct, z.rotateFacingMax));
+}
 
 let state: DockZoneTuning = { ...DEFAULT_ZONES };
 
