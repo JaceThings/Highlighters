@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { m, type MotionValue } from "framer-motion";
 import { useBindMotion } from "./bindMotion.ts";
-import { useDockZones } from "./dock-zone-tuning.ts";
+import { PEN_TOP_INSET, PEN_SIDE_INSET } from "./dock-zones.ts";
 import { DOCK_H, INK_FADE_MS } from "./constants.ts";
 import { Pen } from "./PenSvg.tsx";
 import { PEN_OUTLINES } from "./pen-outlines.ts";
@@ -197,8 +197,7 @@ export function MarkerRow({
   // Clip each pen's hit region in from the top/sides so the grab-handle band above the pens (and any
   // neighbour spill) can't steal their hover/click. The art sits well below the top inset, so it never
   // clips - even the selected pen's full -24px rise stays clear.
-  const { penTopInset, penSideInset } = useDockZones();
-  const hitClip = `inset(${penTopInset}px ${penSideInset}px 0px ${penSideInset}px)`;
+  const hitClip = `inset(${PEN_TOP_INSET}px ${PEN_SIDE_INSET}px 0px ${PEN_SIDE_INSET}px)`;
 
   // Fade the selected pen's art (and its readout) out as the carried overlay takes over, keyed off the
   // overlay's own opacity MotionValue. Both the overlay (its outer opacity) and this hide flush in the
