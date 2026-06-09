@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
-/* Official Inter v4.1, not the Google Fonts repackage (it drops the cv/ss features; we need cv05). */
+/* Official Inter v4.1, not the Google Fonts repackage (it drops the cv/ss features; we need cv05).
+   Subset to Latin + General Punctuation; non-Latin copy would fall back to system fonts. */
 @font-face {
   font-family: "Inter Variable";
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url("/fonts/InterVariable.woff2") format("woff2");
+  src: url("/fonts/InterVariable-latin.woff2") format("woff2");
 }
 
 /* Docs-quote handwriting face. Self-hosted because Safari blocks locally-installed fonts by name. */
