@@ -955,7 +955,7 @@ describe("highlight", () => {
   });
 
   // -------------------------------------------------------------------------
-  // Static-mark measurement cache (A2): ink-only update() forces zero layout reads
+  // Static-mark measurement cache: ink-only update() forces zero layout reads
   // -------------------------------------------------------------------------
 
   it("serves ink-only update()s from the measurement cache: zero forced layout reads", () => {
@@ -1070,7 +1070,6 @@ describe("highlight", () => {
       const originReads = origin.mock.calls.length;
       expect(rectReads).toBeGreaterThan(0);
 
-      // A watched page mark re-collects ranges on every update(), invalidating the cache.
       handle.update({});
       expect(rects.mock.calls.length).toBeGreaterThan(rectReads);
       expect(origin.mock.calls.length).toBeGreaterThan(originReads);
