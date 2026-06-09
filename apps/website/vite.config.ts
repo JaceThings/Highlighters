@@ -1,8 +1,10 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { brotliCompressSync, gzipSync, constants as zlib } from "node:zlib";
 
 // Social crawlers don't run JS, so /docs needs its own real HTML to get a different preview card.
 // After the build, emit dist/docs/index.html from the built index.html with the docs OG/Twitter
@@ -27,10 +29,40 @@ function docsOgVariant(): Plugin {
   };
 }
 
+// Cloudflare only serves brotli to browsers when the origin supplies it, so emit .br/.gz
+// sidecars for server.mjs to negotiate. Must run after docsOgVariant so dist/docs/index.html
+// gets sidecars too: closeBundle is a parallel hook, so plugin position alone only orders
+// synchronous handlers; sequential makes Rollup await the earlier hooks first.
+function precompress(): Plugin {
+  const compressible = /\.(?:js|css|html|svg|json|xml|txt|webmanifest)$/;
+  return {
+    name: "precompress",
+    apply: "build",
+    closeBundle: {
+      sequential: true,
+      handler() {
+        const dist = fileURLToPath(new URL("./dist/", import.meta.url));
+        for (const entry of readdirSync(dist, { recursive: true, withFileTypes: true })) {
+          if (!entry.isFile() || !compressible.test(entry.name)) continue;
+          const path = join(entry.parentPath, entry.name);
+          const source = readFileSync(path);
+          if (source.length < 1024) continue;
+          const params = {
+            [zlib.BROTLI_PARAM_QUALITY]: zlib.BROTLI_MAX_QUALITY,
+            [zlib.BROTLI_PARAM_SIZE_HINT]: source.length,
+          };
+          writeFileSync(`${path}.br`, brotliCompressSync(source, { params }));
+          writeFileSync(`${path}.gz`, gzipSync(source, { level: 9 }));
+        }
+      },
+    },
+  };
+}
+
 const coreSrc = fileURLToPath(new URL("../../packages/core/src/index.ts", import.meta.url));
 
 export default defineConfig({
-  plugins: [tailwindcss(), react(), docsOgVariant()],
+  plugins: [tailwindcss(), react(), docsOgVariant(), precompress()],
   resolve: {
     // Dev resolves workspace package exports to stale dist; alias to source so core edits apply live.
     alias: {
