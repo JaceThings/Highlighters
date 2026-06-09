@@ -18,6 +18,10 @@ export interface DockZoneTuning {
   /** Cap (px) on the facing reach so an ultrawide doesn't get a massive facing band; above
    *  `max / pct` the reach holds at this and the upright band simply grows. */
   rotateFacingMax: number;
+  /** Minimum central upright band (px) the facing reach must leave. On a small viewport the reach is
+   *  held back to preserve this, so the effective facing % eases DOWN as the viewport shrinks
+   *  (`% = 0.5 - minCenter / (2*vw)`). 0 disables it (flat percentage at every width). */
+  rotateFacingMinCenter: number;
   /** Hysteresis (px) on the facing reach so the facing never flickers at the boundary. */
   rotateHyst: number;
   /** Drag this far (px) from the rest centre before the intact pill collapses into the circle. */
@@ -37,6 +41,8 @@ export const DEFAULT_ZONES: DockZoneTuning = {
   // 900px engages only beyond ~2570px wide, so 35% stays live on every normal desktop (the percent
   // dial visibly moves the band); the cap then keeps a true ultrawide (3440+) from getting a massive band.
   rotateFacingMax: 900,
+  // Below ~1170px wide, the reach eases back to keep a 350px upright centre (so the % drops on small screens).
+  rotateFacingMinCenter: 350,
   rotateHyst: 65,
   liftDistance: 75,
   penTopInset: 22,
@@ -46,10 +52,13 @@ export const DEFAULT_ZONES: DockZoneTuning = {
 // A small floor so a very narrow window (below the dock's min anyway) still gets a usable facing band.
 const FACING_MIN = 120;
 
-/** The pen-facing reach in px for a viewport `vw`: a % of width, floored and capped (fluid-with-a-cap). */
+/** The pen-facing reach in px for a viewport `vw`: a % of width, capped for ultrawide, and held back on
+ *  small screens so the central upright band stays >= minCenter (the % eases down as the viewport shrinks). */
 export function facingReach(vw: number): number {
   const z = state;
-  return Math.max(FACING_MIN, Math.min(vw * z.rotateFacingPct, z.rotateFacingMax));
+  const byPct = vw * z.rotateFacingPct;
+  const byCenter = (vw - z.rotateFacingMinCenter) / 2;
+  return Math.max(FACING_MIN, Math.min(byPct, z.rotateFacingMax, byCenter));
 }
 
 let state: DockZoneTuning = { ...DEFAULT_ZONES };

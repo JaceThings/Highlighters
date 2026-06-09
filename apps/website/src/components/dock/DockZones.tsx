@@ -51,7 +51,7 @@ export function DockZones() {
     bottomDock: { reach: [DEFAULT_ZONES.bottomZone, 40, 400, 5] as N4 },
     topSafeZone: { reach: [DEFAULT_ZONES.topZone, 40, 700, 5] as N4 },
     sideDocks: { reach: [DEFAULT_ZONES.snapZone, 40, 400, 5] as N4 },
-    penFacing: { percent: [DEFAULT_ZONES.rotateFacingPct * 100, 10, 60, 1] as N4, maxReach: [DEFAULT_ZONES.rotateFacingMax, 200, 1400, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
+    penFacing: { percent: [DEFAULT_ZONES.rotateFacingPct * 100, 10, 60, 1] as N4, maxReach: [DEFAULT_ZONES.rotateFacingMax, 200, 1400, 10] as N4, minCenter: [DEFAULT_ZONES.rotateFacingMinCenter, 0, 800, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
     collapse: { liftRadius: [DEFAULT_ZONES.liftDistance, 20, 320, 5] as N4 },
     // Pen hitbox insets are REAL (clip-path on the live buttons), so the green guide is the true hit region.
     penHitbox: { topInset: [DEFAULT_ZONES.penTopInset, 0, 120, 1] as N4, sideInset: [DEFAULT_ZONES.penSideInset, 0, 40, 1] as N4 },
@@ -66,12 +66,13 @@ export function DockZones() {
       snapZone: p.sideDocks.reach,
       rotateFacingPct: p.penFacing.percent / 100,
       rotateFacingMax: p.penFacing.maxReach,
+      rotateFacingMinCenter: p.penFacing.minCenter,
       rotateHyst: p.penFacing.hysteresis,
       liftDistance: p.collapse.liftRadius,
       penTopInset: p.penHitbox.topInset,
       penSideInset: p.penHitbox.sideInset,
     });
-  }, [p.bottomDock.reach, p.topSafeZone.reach, p.sideDocks.reach, p.penFacing.percent, p.penFacing.maxReach, p.penFacing.hysteresis, p.collapse.liftRadius, p.penHitbox.topInset, p.penHitbox.sideInset]);
+  }, [p.bottomDock.reach, p.topSafeZone.reach, p.sideDocks.reach, p.penFacing.percent, p.penFacing.maxReach, p.penFacing.minCenter, p.penFacing.hysteresis, p.collapse.liftRadius, p.penHitbox.topInset, p.penHitbox.sideInset]);
 
   // The grab guide stays a visual prototyping inflation (read by the rAF loop without a re-render).
   const guide = useRef({ gx: 0, gy: 0 });
