@@ -502,13 +502,11 @@ export function useDockDrag({
     [track, x, y],
   );
 
-  // Which dock the collapsed circle should preview for a center at (cx, cy), or null for a free circle.
-  // The bottom band wins FIRST (incl. the bottom corners): the side zones are only the edges ABOVE it, so
-  // dragging along the floor previews the bottom dock instead of flipping to a side pill that snaps up to
-  // mid-screen. (The bottom corners overlap both zones; without this they'd read as a side dock.)
-  // The dock the circle should preview (expand into, anchored) while dragging. The top is deliberately
-  // absent: it is a soft "safe zone" that only commits on release (topMagnet), so dragging near the top
-  // never auto-expands the pill and forces your hand. The bottom band still wins its corners.
+  // Which dock the collapsed circle should preview (expand into, anchored) at (cx, cy), or null for a
+  // free circle. The bottom band wins its corners: the side zones are only the edges ABOVE it, so
+  // dragging along the floor previews the bottom dock, not a side pill that snaps up to mid-screen. The
+  // top is deliberately absent - it is a soft "safe zone" committed only on release (topMagnet), never
+  // an auto-expand that forces your hand.
   const targetFor = useCallback((cx: number, cy: number): DockTarget | null => {
     const { width: vw, height: vh } = sizesRef.current.viewport;
     if (cy >= vh - BOTTOM_ZONE && disarmedRef.current !== "bottom") return "bottom";
