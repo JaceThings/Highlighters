@@ -47,7 +47,7 @@ export function DockZones() {
     sides: { reach: [DEFAULT_ZONES.snapZone, 40, 400, 5] as N4 },
     rotate: { reach: [DEFAULT_ZONES.rotateDist, 80, 700, 10] as N4, hysteresis: [DEFAULT_ZONES.rotateHyst, 0, 200, 5] as N4 },
     lift: { radius: [DEFAULT_ZONES.liftDistance, 20, 320, 5] as N4 },
-    markerGuide: { x: [0, -40, 120, 1] as N4, y: [0, -40, 120, 1] as N4 },
+    markerGuide: { x: [0, -40, 120, 1] as N4, y: [0, -160, 120, 1] as N4 },
     grabGuide: { x: [0, -20, 120, 1] as N4, y: [0, -20, 120, 1] as N4 },
   });
 
@@ -119,7 +119,14 @@ export function DockZones() {
       const pens = [...document.querySelectorAll<HTMLElement>(".dock-pen")].filter((el) => !el.closest("[inert]"));
       for (let i = 0; i < 3; i++) {
         const r = pens[i]?.getBoundingClientRect();
-        place(`marker${i}`, r && r.width > 0 ? { x: r.left - mx, y: r.top - my, w: r.width + mx * 2, h: r.height + my * 2 } : null);
+        if (!r || r.width <= 0) {
+          place(`marker${i}`, null);
+          continue;
+        }
+        // Width inflates symmetrically; height is bottom-anchored, so Y<0 shortens from the top while
+        // the box's bottom stays glued to the pen's bottom (never a centre-aligned shrink).
+        const h = Math.max(1, r.height + my);
+        place(`marker${i}`, { x: r.left - mx, y: r.bottom - h, w: r.width + mx * 2, h });
       }
       raf = requestAnimationFrame(tick);
     };
