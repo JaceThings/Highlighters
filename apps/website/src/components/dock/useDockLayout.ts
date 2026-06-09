@@ -55,17 +55,27 @@ export function useDockMeasure(
   }, [refs, syncSizes]);
 
   useLayoutEffect(() => {
+    let raf = 0;
+    let disposed = false; // fonts.ready can resolve after unmount
+    const schedule = () => {
+      if (disposed || raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        measure();
+      });
+    };
     measure();
-    const raf = requestAnimationFrame(measure);
-    const ro = new ResizeObserver(() => measure());
+    schedule();
+    const ro = new ResizeObserver(schedule);
     if (refs.horizontal.current) ro.observe(refs.horizontal.current);
     if (refs.vertical.current) ro.observe(refs.vertical.current);
-    window.addEventListener("resize", measure);
-    document.fonts?.ready.then(measure).catch(() => {});
+    window.addEventListener("resize", schedule);
+    document.fonts?.ready.then(schedule).catch(() => {});
     return () => {
-      cancelAnimationFrame(raf);
+      disposed = true;
+      if (raf) cancelAnimationFrame(raf);
       ro.disconnect();
-      window.removeEventListener("resize", measure);
+      window.removeEventListener("resize", schedule);
     };
   }, [measure, refs]);
 
