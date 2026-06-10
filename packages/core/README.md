@@ -30,7 +30,7 @@ handle.show();
 handle.remove(); // restores the DOM to its pre-highlight state
 ```
 
-`highlightAll()` marks the whole page (honouring `data-highlight` and include/exclude), and `highlightSelection()` paints the user's live selection in real time.
+`highlightAll()` marks the whole page and `highlightSelection()` paints the user's live selection in real time. Both honour `data-highlight`/`data-highlight-exclude` and include/exclude selectors, so opted-out subtrees stay clean even on a select-all.
 
 ### SSR-safe geometry subpath
 

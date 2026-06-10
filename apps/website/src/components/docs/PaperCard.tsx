@@ -41,6 +41,8 @@ export function PaperCard({
   return (
     <div
       ref={rootRef}
+      // Opt out of the SelectionMarker: user-select:none hides from copy, not from range-geometry painting.
+      data-highlight-exclude
       className={`demo-paper relative isolate flex select-none flex-col ${className ?? ""}`}
       style={{ minHeight: 288, ...style }}
     >
