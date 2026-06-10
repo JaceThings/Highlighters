@@ -3,7 +3,6 @@ import { Outlet, useRouterState } from "@tanstack/react-router";
 import { useRef, type ComponentType } from "react";
 import { Home } from "../pages/Home.tsx";
 import { Docs } from "../pages/Docs.tsx";
-import { EntranceEpoch } from "./Stagger.tsx";
 
 // Cross-fades page text on navigation; the shell stays mounted outside the fade. Pages come from a
 // map, not <Outlet/>, which snaps to the new route mid-fade in this router version. Unmapped routes fall back to Outlet.
@@ -40,10 +39,8 @@ export function PageFade() {
         animate="animate"
         exit="exit"
       >
-        {/* Fresh cascade anchor per navigation, so each page staggers in on arrival. */}
-        <EntranceEpoch>
-          <Page />
-        </EntranceEpoch>
+        {/* The `key` remounts the page on navigation, so its Staggers replay their CSS cascade on arrival. */}
+        <Page />
       </m.div>
     </AnimatePresence>
   );
