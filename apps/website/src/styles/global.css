@@ -99,6 +99,25 @@ h3 {
   }
 }
 
+/* Staggered page entrance: opacity + blur, the per-block delay computed by CSS from --stagger (the
+   block index). Driven by CSS, not a JS timeline, so the cascade always plays in full on every mount
+   and can never drop a block for "arriving late". Stagger.tsx adds .stagger-in the frame after mount. */
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.stagger-in {
+  animation: stagger-fade-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  /* 350ms blank hold, then the blocks fade in fast but still stepped one after another. */
+  animation-delay: calc(350ms + var(--stagger) * 50ms);
+}
+
 /* Dock pens: selected sits raised, others pop on hover. Selected rule comes LAST so a hovered
    selected pen stays raised rather than dropping to the hover pop. */
 .dock-pen-art {
@@ -210,6 +229,11 @@ html.selection-marker-ready .demo-paper *::selection {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Drop the per-block stagger delay too, so blocks appear at once (the global rule only zeros duration).
+     The animation still runs instantly, so its animationend - which marks the block done - still fires. */
+  .stagger-in {
+    animation-delay: 0ms !important;
   }
 }
 
