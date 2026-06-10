@@ -99,9 +99,8 @@ h3 {
   }
 }
 
-/* Staggered page entrance: opacity + blur, the per-block delay computed by CSS from --stagger (the
-   block index). Driven by CSS, not a JS timeline, so the cascade always plays in full on every mount
-   and can never drop a block for "arriving late". Stagger.tsx adds .stagger-in the frame after mount. */
+/* Staggered page entrance: each block fades up from blurred, its delay computed from --stagger (the
+   block index). Stagger.tsx adds .stagger-in the frame after mount; see there for why it's CSS-driven. */
 @keyframes stagger-fade-in {
   from {
     opacity: 0;
