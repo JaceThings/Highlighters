@@ -1,6 +1,6 @@
 {
   "name": "@highlighters/vue",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Vue composable and component for realistic highlighter marks",
   "author": "Jace Attard <hi@ja.mt> (https://ja.mt)",
   "license": "MIT",
