@@ -39,8 +39,10 @@ export function Stagger({ index, children, onComplete }: StaggerProps) {
       // Ignore animationend bubbling up from an animated child; only this block's own entrance counts.
       if (e.target !== el || e.animationName !== "stagger-fade-in") return;
       el.removeEventListener("animationend", onEnd);
-      el.style.opacity = "1";
-      el.style.removeProperty("filter");
+      // Pin the landed state with a class instead of leaning on the animation's `both` fill. The fill
+      // keeps filter:blur(0) live, and WebKit keeps that as a composited layer it re-rasterizes slightly
+      // soft on the next nearby repaint (the dock cueing in). .stagger-done drops animation + filter.
+      el.classList.add("stagger-done");
       setDone(true);
       onCompleteRef.current?.();
     };

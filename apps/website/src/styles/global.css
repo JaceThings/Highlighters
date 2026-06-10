@@ -117,6 +117,14 @@ h3 {
   /* 350ms blank hold, then the blocks fade in fast but still stepped one after another. */
   animation-delay: calc(350ms + var(--stagger) * 50ms);
 }
+/* Once a block lands, pin its final state and drop the animation. The `both` fill would otherwise keep
+   filter:blur(0) live, which WebKit holds as a composited layer that re-rasterizes the text slightly soft
+   on a later repaint. animation:none retires the fill so opacity/filter come from here, layer-free. */
+.stagger-done {
+  animation: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
 
 /* Dock pens: selected sits raised, others pop on hover. Selected rule comes LAST so a hovered
    selected pen stays raised rather than dropping to the hover pop. */
