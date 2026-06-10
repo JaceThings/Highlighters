@@ -114,7 +114,8 @@ h3 {
 }
 .stagger-in {
   animation: stagger-fade-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-  animation-delay: calc(150ms + var(--stagger) * 80ms);
+  /* 350ms blank hold, then the blocks fade in fast but still stepped one after another. */
+  animation-delay: calc(350ms + var(--stagger) * 50ms);
 }
 
 /* Dock pens: selected sits raised, others pop on hover. Selected rule comes LAST so a hovered
