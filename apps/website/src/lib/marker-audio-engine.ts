@@ -94,7 +94,9 @@ function createCtx(): AudioContext | null {
 
 function ensureRunning(): AudioContext | null {
   const c = createCtx();
-  if (c && c.state === "suspended") void c.resume();
+  // iOS parks the context in "suspended" before the first gesture and "interrupted" after a call/Siri;
+  // both need a resume, which is allowed from the gesture this runs in. Resume on anything but running.
+  if (c && c.state !== "running") void c.resume();
   return c;
 }
 
