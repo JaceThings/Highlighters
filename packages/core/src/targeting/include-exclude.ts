@@ -51,7 +51,7 @@ export function excludeMarkedSubtrees(ranges: Range[]): Range[] {
     // The opted-out elements this range crosses, outermost-only, in document order.
     const all = root ? Array.from(root.querySelectorAll(`[${EXCLUDE_ATTR}]`)) : [];
     const hits = all.filter(
-      (el) => range.intersectsNode(el) && !all.some((o) => o !== el && o.contains(el)),
+      (el) => range.intersectsNode(el) && !el.parentElement?.closest(`[${EXCLUDE_ATTR}]`),
     );
     if (hits.length === 0) {
       out.push(range); // nothing opted out here: keep the range whole
