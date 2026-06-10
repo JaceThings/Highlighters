@@ -5,6 +5,7 @@ import { toRanges } from "../src/targeting/normalize.js";
 import { findTextRanges } from "../src/targeting/text-search.js";
 import {
   collectPageRanges,
+  excludeMarkedSubtrees,
   isExcluded,
 } from "../src/targeting/include-exclude.js";
 import {
@@ -243,6 +244,63 @@ describe("include/exclude - structural exclusion precedence (R7)", () => {
     const root = setBody(`<style>.x{color:red}</style><p>visible</p><script>var x=1</script>`);
     const ranges = collectPageRanges({ root });
     expect(ranges.map(rangeText)).toEqual(["visible"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Live-selection exclusion: carving opted-out subtrees out of a select-all range
+// ---------------------------------------------------------------------------
+
+describe("excludeMarkedSubtrees - carves data-highlight-exclude from selection ranges", () => {
+  /** A range over all of `el`'s contents, standing in for a select-all. */
+  function contentsRange(el: Element): Range {
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    return r;
+  }
+
+  it("drops a paper in the middle, keeping the text before and after", () => {
+    const body = setBody(`
+      <p>before</p>
+      <div data-highlight-exclude><p>quote</p></div>
+      <p>after</p>
+    `);
+    const out = excludeMarkedSubtrees([contentsRange(body)]);
+    const text = out.map(rangeText).join(" | ");
+    expect(text).toContain("before");
+    expect(text).toContain("after");
+    expect(text).not.toContain("quote");
+  });
+
+  it("drops everything when the whole range sits inside an excluded subtree", () => {
+    const body = setBody(`<div data-highlight-exclude><p>only quote</p></div>`);
+    const excluded = body.querySelector("[data-highlight-exclude]")!;
+    expect(excludeMarkedSubtrees([contentsRange(excluded)])).toEqual([]);
+  });
+
+  it("returns the range untouched when nothing is opted out", () => {
+    const body = setBody(`<p>a</p><p>b</p>`);
+    const range = contentsRange(body);
+    const out = excludeMarkedSubtrees([range]);
+    expect(out).toHaveLength(1);
+    expect(rangeText(out[0])).toContain("a");
+    expect(rangeText(out[0])).toContain("b");
+  });
+
+  it("carves multiple papers, keeping each gap between them", () => {
+    const body = setBody(`
+      <p>one</p>
+      <div data-highlight-exclude><p>q1</p></div>
+      <p>two</p>
+      <div data-highlight-exclude><p>q2</p></div>
+      <p>three</p>
+    `);
+    const text = excludeMarkedSubtrees([contentsRange(body)]).map(rangeText).join(" | ");
+    expect(text).toContain("one");
+    expect(text).toContain("two");
+    expect(text).toContain("three");
+    expect(text).not.toContain("q1");
+    expect(text).not.toContain("q2");
   });
 });
 

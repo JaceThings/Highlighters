@@ -33,6 +33,43 @@ export function isExcluded(node: Node, excludeSelectors: string[]): boolean {
   return false;
 }
 
+/**
+ * Reshape live-selection ranges so every `[data-highlight-exclude]` subtree is carved out, while the
+ * runs between excluded elements stay whole (so their geometry is unchanged). The selection marker
+ * paints by range rectangles, which span `user-select: none` text too, so a select-all would
+ * otherwise band over opted-out regions. This only reshapes what gets painted; the document's own
+ * selection is left alone, so single-range browsers keep working.
+ */
+export function excludeMarkedSubtrees(ranges: Range[]): Range[] {
+  if (!hasDomWithRange()) return ranges;
+  const out: Range[] = [];
+  for (const range of ranges) {
+    if (range.collapsed) continue;
+    const root = elementOf(range.commonAncestorContainer);
+    // The whole range sits inside an opted-out subtree: paint none of it.
+    if (root?.closest(`[${EXCLUDE_ATTR}]`)) continue;
+    // The opted-out elements this range crosses, outermost-only, in document order.
+    const all = root ? Array.from(root.querySelectorAll(`[${EXCLUDE_ATTR}]`)) : [];
+    const hits = all.filter(
+      (el) => range.intersectsNode(el) && !all.some((o) => o !== el && o.contains(el)),
+    );
+    if (hits.length === 0) {
+      out.push(range); // nothing opted out here: keep the range whole
+      continue;
+    }
+    // Keep each gap (before, between, after the excluded elements) as one contiguous range.
+    const cursor = range.cloneRange();
+    for (const el of hits) {
+      const gap = cursor.cloneRange();
+      gap.setEndBefore(el);
+      if (!gap.collapsed) out.push(gap);
+      cursor.setStartAfter(el);
+    }
+    if (!cursor.collapsed) out.push(cursor);
+  }
+  return out;
+}
+
 /** With no include selectors the whole root is in scope (returns `true` for every node). */
 function isIncluded(node: Node, includeSelectors: string[]): boolean {
   if (includeSelectors.length === 0) return true;

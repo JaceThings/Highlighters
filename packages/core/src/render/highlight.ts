@@ -27,7 +27,7 @@ import { buildMarkGeometry } from "../geometry/mark-space.js";
 import { hashU32 } from "../geometry/rng.js";
 import { snapRangeToBounds } from "../geometry/snap.js";
 import { toRanges } from "../targeting/normalize.js";
-import { collectPageRanges } from "../targeting/include-exclude.js";
+import { collectPageRanges, excludeMarkedSubtrees } from "../targeting/include-exclude.js";
 import { computeAnchor, rangesToLineRects } from "../targeting/line-rects.js";
 import { SelectionVelocityTracker } from "../targeting/velocity.js";
 import { findSelectionAnchor } from "../targeting/anchor.js";
@@ -347,6 +347,9 @@ function wrapWithWatcher(
  *
  * Drives `selectionchange`-derived ranges into the same pipeline. On coarse pointers it defers to
  * native selection UI rather than painting an overlay. `remove()` detaches the listener.
+ *
+ * Subtrees marked `data-highlight-exclude` are carved out before painting, so a select-all never
+ * bands over opted-out regions (read-only content, code blocks, and the like).
  * @returns A {@link MarkHandle}; inert outside a DOM.
  */
 export function highlightSelection(options?: HighlightOptions): MarkHandle {
@@ -500,10 +503,13 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
         ranges.push(selection.getRangeAt(i).cloneRange());
       }
     }
+    // Carve out any data-highlight-exclude subtree before painting: range geometry covers
+    // user-select:none text too, so a select-all would otherwise band over opted-out regions.
+    const painted = excludeMarkedSubtrees(ranges);
 
     // Selection just emptied: fade out, then drop the bands when the fade lands (instant clear if disabled/reduced-motion).
-    const cleared = ranges.length === 0 && currentRanges.length > 0;
-    currentRanges = ranges;
+    const cleared = painted.length === 0 && currentRanges.length > 0;
+    currentRanges = painted;
     if (cleared && resolved.fadeOnClear && renderer && !env.prefersReducedMotion) {
       container!.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
       container!.style.opacity = "0";
@@ -519,16 +525,16 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     }
     cancelClearFade();
 
-    if (ranges.length > 0) {
-      const anchor = findSelectionAnchor(ranges[0].commonAncestorContainer);
-      if (ensureAnchor(anchor)) armReflow(anchor, ranges);
+    if (painted.length > 0) {
+      const anchor = findSelectionAnchor(painted[0].commonAncestorContainer);
+      if (ensureAnchor(anchor)) armReflow(anchor, painted);
     }
 
     if (!container) return;
 
     // One layout read per frame, shared by every line's build.
     const origin = container.getBoundingClientRect();
-    const context = rebuild(ranges, flowReversed, origin);
+    const context = rebuild(painted, flowReversed, origin);
     if (!renderer) {
       const tier = selectTier(resolved.renderer, env, context.lines.length);
       renderer = rendererForTier(tier);
