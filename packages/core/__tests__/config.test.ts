@@ -41,6 +41,7 @@ describe("DEFAULT_OPTIONS", () => {
   it("encodes the documented defaults and is frozen", () => {
     expect(DEFAULT_OPTIONS.markType).toBe("highlight");
     expect(DEFAULT_OPTIONS.blendMode).toBe("multiply");
+    expect(DEFAULT_OPTIONS.vivid).toBe(false);
     expect(DEFAULT_OPTIONS.color).toBe(defaultSwatch("mild"));
     expect(DEFAULT_OPTIONS.snap).toBe("word");
     expect(DEFAULT_OPTIONS.renderer).toBe("auto");
@@ -107,7 +108,13 @@ describe("resolveOptions", () => {
     expect(r.color).toBe(PALETTES.mild.swatches.yellow);
     expect(r.opacity).toBe(0.55);
     expect(r.blendMode).toBe("multiply");
+    expect(r.vivid).toBe(false);
     expect(r.snap).toBe("word");
+  });
+
+  it("passes vivid through when set", () => {
+    expect(resolveOptions({ vivid: true }).vivid).toBe(true);
+    expect(resolveOptions({ vivid: "screen" }).vivid).toBe("screen");
   });
 
   it("applies the precedence defaults → user (user wins)", () => {

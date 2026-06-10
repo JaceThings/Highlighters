@@ -245,6 +245,16 @@ export interface HighlightOptions {
    */
   blendMode?: BlendMode;
 
+  /**
+   * Keep the ink visible on dark or saturated surfaces, where the default `multiply` (backdrop x ink)
+   * sinks any non-near-white colour toward black. `vivid` lifts the ink onto a private layer over the
+   * page instead of under the shared `multiply` container; it wins over `blendMode` and keeps the ink's
+   * own blend for self-overlaps. `true` paints a translucent `normal` wash (works anywhere); `"screen"`
+   * mirrors `multiply` on dark for a bright band that keeps light text legible, but washes out on light.
+   * Default `false`; lifted text isn't guaranteed WCAG-legible (see `contrastBackground`). No effect on Tier C.
+   */
+  vivid?: boolean | "screen";
+
   /** Nib geometry. */
   tip?: TipOptions;
   /** Ink behavior. */
@@ -370,6 +380,7 @@ export interface ResolvedOptions {
   gradient: GradientConfig | null;
   opacity: number;
   blendMode: BlendMode;
+  vivid: boolean | "screen";
   tip: ResolvedTip;
   ink: ResolvedInk;
   speed: ResolvedSpeedDynamics;

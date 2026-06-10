@@ -341,6 +341,26 @@ describe("createCssRenderer", () => {
     renderer.unmount();
     expect(container.querySelectorAll("div").length).toBe(0);
   });
+
+  it("under vivid, mounts bands into a normal escape layer beside the multiply container", () => {
+    const renderer = createCssRenderer();
+    const container = createOverlayContainer(host);
+    renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0), geometry(20)], ranges: [] });
+
+    // A sibling escape layer is created on the host, with normal blend (not the container's multiply).
+    const layer = Array.from(host.children).find(
+      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
+    ) as HTMLElement | undefined;
+    expect(layer).toBeDefined();
+    expect(layer!.style.isolation).toBe("isolate");
+    // The wrappers ride the escape layer, leaving the multiply container empty.
+    expect(container.children.length).toBe(0);
+    expect(layer!.children.length).toBe(2);
+
+    // Teardown drops the escape layer too.
+    renderer.unmount();
+    expect(host.contains(layer!)).toBe(false);
+  });
 });
 
 describe("createSvgRenderer", () => {
@@ -398,6 +418,39 @@ describe("createSvgRenderer", () => {
       (n) => (n as HTMLElement).style.mixBlendMode === "screen",
     );
     expect(screenNodes.length).toBe(1);
+  });
+
+  it("under vivid, escapes the multiply container into a sibling normal layer on the host", () => {
+    const renderer = createSvgRenderer();
+    const container = createOverlayContainer(host);
+    renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
+
+    const layer = Array.from(host.children).find(
+      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
+    ) as HTMLElement | undefined;
+    expect(layer).toBeDefined();
+    expect(layer!.style.isolation).toBe("isolate");
+    // The per-line wrapper (and its ink node) live on the escape layer, not the multiply container.
+    expect(container.children.length).toBe(0);
+    expect(layer!.querySelector("div")).not.toBeNull();
+
+    renderer.unmount();
+    expect(host.contains(layer!)).toBe(false);
+  });
+
+  it('under vivid: "screen", the escape layer uses the screen blend', () => {
+    const renderer = createSvgRenderer();
+    const container = createOverlayContainer(host);
+    renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
+
+    const layer = Array.from(host.children).find(
+      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "screen",
+    ) as HTMLElement | undefined;
+    expect(layer).toBeDefined();
+    expect(layer!.style.isolation).toBe("isolate");
+    expect(container.children.length).toBe(0);
+
+    renderer.unmount();
   });
 });
 

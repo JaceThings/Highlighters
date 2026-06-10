@@ -98,13 +98,18 @@ function backdropIsLight(el: Element | null, doc: Document): boolean {
  * multiply container but darkens to a soft off-white (`layer: null`); on a dark backdrop it needs its
  * own `normal`-blend layer to escape multiply (`layer: "normal"`). Every other colour, and any
  * explicit non-multiply blend, is left to the shared container untouched (`layer: null`).
+ *
+ * When `vivid` is set, any ink escapes onto a private layer (no near-white gate): `true` paints a
+ * translucent `normal` wash, `"screen"` a `screen` band. It wins over `blendMode` and uses no probe.
  */
 export function effectiveInk(
   blendMode: BlendMode,
   color: ColorValue,
   backdrop: Element | null,
   doc: Document,
+  vivid: boolean | "screen" = false,
 ): InkPlan {
+  if (vivid) return { layer: vivid === "screen" ? "screen" : "normal", color };
   if (blendMode !== "multiply") return { layer: null, color };
   const min = minChannel(color, doc);
   if (min === null || min < NEAR_WHITE_MIN) return { layer: null, color };

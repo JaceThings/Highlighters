@@ -86,4 +86,41 @@ describe("effectiveInk", () => {
       color: "#fff14d",
     });
   });
+
+  describe("vivid", () => {
+    it("true lifts any ink onto a normal escape layer, even a saturated ink on a light backdrop", () => {
+      expect(effectiveInk("multiply", "#fff14d", backdrop("#fff"), doc, true)).toEqual({
+        layer: "normal",
+        color: "#fff14d",
+      });
+    });
+
+    it('"screen" composites the band with screen, on any backdrop', () => {
+      expect(effectiveInk("multiply", "#fff14d", backdrop("#0a0a0a"), doc, "screen")).toEqual({
+        layer: "screen",
+        color: "#fff14d",
+      });
+      expect(effectiveInk("multiply", "#fff14d", backdrop("#fff"), doc, "screen")).toEqual({
+        layer: "screen",
+        color: "#fff14d",
+      });
+    });
+
+    it("wins over an explicit blendMode", () => {
+      expect(effectiveInk("screen", "#fff14d", backdrop("#0a0a0a"), doc, true).layer).toBe("normal");
+      expect(effectiveInk("darken", "#fff14d", backdrop("#0a0a0a"), doc, "screen").layer).toBe("screen");
+    });
+
+    it("never substitutes the colour, and is deterministic (no backdrop probe)", () => {
+      // backdrop null: the near-white path would probe, but vivid short-circuits before it.
+      expect(effectiveInk("multiply", "#ffffff", null, doc, true)).toEqual({ layer: "normal", color: "#ffffff" });
+      expect(effectiveInk("multiply", "#ffffff", null, doc, "screen")).toEqual({ layer: "screen", color: "#ffffff" });
+    });
+
+    it("is a no-op when false (identical to the default path)", () => {
+      expect(effectiveInk("multiply", "#fff14d", backdrop("#fff"), doc, false)).toEqual(
+        effectiveInk("multiply", "#fff14d", backdrop("#fff"), doc),
+      );
+    });
+  });
 });
