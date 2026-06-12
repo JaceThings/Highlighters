@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Section } from "../../components/playground/Section.tsx";
 import { PaperCard } from "../../components/docs/PaperCard.tsx";
 import { ScribbleLegend } from "../../components/docs/ScribbleLegend.tsx";
 import { Preview } from "../Preview.tsx";
 import { StaticQuote } from "../quote-render.tsx";
 import { QUOTES } from "../quotes.ts";
+import { useSeen } from "../../hooks/useSeen.ts";
 
 // The `vivid` demo, on a dark `invert` card so multiply's dark-theme failure (and the fixes) show.
 // `vivid` is local to this card, not the shared options - else it would re-route every other card too.
@@ -19,33 +20,6 @@ const VIVID_OPTS = [
 ] as const;
 // A real quote with a clean central band (strategy "central" marks one phrase, no overlap doubles).
 const QUOTE = QUOTES[10]; // "If you judge a fish by its ability to climb a tree..."
-
-// Defer the live preview until the card nears the viewport, matching OptionDemo. One-way latch.
-function useSeen(rootMargin = "350px") {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [seen, setSeen] = useState(false);
-  useEffect(() => {
-    if (seen) return;
-    const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setSeen(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setSeen(true);
-          io.disconnect();
-        }
-      },
-      { rootMargin }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [seen, rootMargin]);
-  return { ref, seen };
-}
 
 export function VividDemo() {
   const { ref, seen } = useSeen();
