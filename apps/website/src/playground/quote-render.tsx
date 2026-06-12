@@ -27,7 +27,6 @@ export function QuoteFrame({
   author,
   children,
   markOpacity,
-  textColor = QUOTE_INK,
 }: {
   hostRef?: Ref<HTMLDivElement>;
   pRef?: Ref<HTMLParagraphElement>;
@@ -35,12 +34,10 @@ export function QuoteFrame({
   children: ReactNode;
   /** Compositor opacity for the marks layer (the mark-type swap fade). Defaults to fully opaque. */
   markOpacity?: MotionValue<number>;
-  /** Text ink, so a dark-surface preview can lift the quote to a light colour. Defaults to the paper {@link QUOTE_INK}. */
-  textColor?: string;
 }) {
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
-      <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: textColor }}>
+      <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
         {/* Marks layer. Absolute inset-0 keeps the overlay's coordinate origin identical to the
             wrapper while letting the mark-type swap fade it by compositor opacity, no re-raster. */}
         <m.div
@@ -62,9 +59,9 @@ export function QuoteFrame({
 
 // The quote at final size with NO marks, shown before Preview mounts. Frame matches Preview's so the
 // swap is height-neutral (a resize would re-raster the paper/scribble SVGs); no per-frame subscription.
-export function StaticQuote({ quote, textColor }: { quote: Quote; textColor?: string }) {
+export function StaticQuote({ quote }: { quote: Quote }) {
   return (
-    <QuoteFrame author={quote.author} textColor={textColor}>
+    <QuoteFrame author={quote.author}>
       {"“"}
       {quote.text}
       {"”"}

@@ -18,10 +18,6 @@ interface PreviewProps {
   strategy: MarkStrategy;
   /** Pin the nib type regardless of the shared tip.type, so a one-nib demo (slant needs chisel) keeps reading. */
   lockTipType?: TipType;
-  /** Route the ink onto an escape layer so it stays visible on a dark/coloured preview surface (`"screen"` keeps light text crisp). */
-  vivid?: boolean | "screen";
-  /** Quote ink, lifted to a light colour on a dark surface. Defaults to the paper {@link QUOTE_INK}. */
-  textColor?: string;
 }
 
 // Beat held after the card's text fades in before marks draw on, so the highlighter reads as marking
@@ -43,7 +39,7 @@ function useMarksReady(): boolean {
   return ready;
 }
 
-export function Preview({ quote, strategy, lockTipType, vivid, textColor }: PreviewProps) {
+export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
   const previewOptions = usePreviewOptions();
   const entered = useMarksReady();
   // Scope marks to this card's positioned wrapper so they ride the page-exit fade. Falls back to body if null.
@@ -91,7 +87,7 @@ export function Preview({ quote, strategy, lockTipType, vivid, textColor }: Prev
   const quoteBody = (color: HighlightOptions["color"]) => {
     // Band stays on multiply so the Stack toggle fades the overlap rather than flipping blend mode
     // (a blend-mode flip can't be tweened).
-    const opts: HighlightOptions = { ...core, markType: swap.markType, color, opacity: liveOpacity, blendMode: "multiply", vivid };
+    const opts: HighlightOptions = { ...core, markType: swap.markType, color, opacity: liveOpacity, blendMode: "multiply" };
     return buildQuotePieces(
       words,
       plan,
@@ -101,7 +97,7 @@ export function Preview({ quote, strategy, lockTipType, vivid, textColor }: Prev
   };
 
   return (
-    <QuoteFrame hostRef={setHost} author={quote.author} markOpacity={swap.fade} textColor={textColor}>
+    <QuoteFrame hostRef={setHost} author={quote.author} markOpacity={swap.fade}>
       {"“"}
       {quoteBody(core.color)}
       {"”"}
