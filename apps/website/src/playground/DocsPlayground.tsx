@@ -3,6 +3,7 @@ import { Stagger } from "../components/Stagger.tsx";
 import { RowGrid } from "../components/RowGrid.tsx";
 import { PlaygroundOptionsProvider } from "./options-context.tsx";
 import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
+import { VividDemo } from "./sections/VividDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
 import { buildCuratedQuotes } from "./quote-marks.ts";
 
@@ -21,6 +22,9 @@ export function DocsPlayground() {
           </Stagger>
         ))}
         <Stagger index={1 + OPTION_DEMOS.length}>
+          <VividDemo />
+        </Stagger>
+        <Stagger index={2 + OPTION_DEMOS.length}>
           <MoreSection />
         </Stagger>
       </RowGrid>

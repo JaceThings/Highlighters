@@ -341,6 +341,50 @@ describe("createCssRenderer", () => {
     renderer.unmount();
     expect(container.querySelectorAll("div").length).toBe(0);
   });
+
+  it("under vivid, mounts bands into a normal escape layer beside the multiply container", () => {
+    const renderer = createCssRenderer();
+    const container = createOverlayContainer(host);
+    renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0), geometry(20)], ranges: [] });
+
+    // A sibling escape layer is created on the host, with normal blend (not the container's multiply).
+    const layer = Array.from(host.children).find(
+      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
+    ) as HTMLElement | undefined;
+    expect(layer).toBeDefined();
+    expect(layer!.style.isolation).toBe("isolate");
+    // The wrappers ride the escape layer, leaving the multiply container empty.
+    expect(container.children.length).toBe(0);
+    expect(layer!.children.length).toBe(2);
+    // The band itself keeps the ink's own blend (multiply), so a self-overlap still darkens.
+    const bandBlends = Array.from(layer!.querySelectorAll("div")).map((n) => (n as HTMLElement).style.mixBlendMode);
+    expect(bandBlends).toContain("multiply");
+
+    // Teardown drops the escape layer too.
+    renderer.unmount();
+    expect(host.contains(layer!)).toBe(false);
+  });
+
+  it("reconciles the escape layer when vivid changes across updates (re-blends, tears down)", () => {
+    const renderer = createCssRenderer();
+    const container = createOverlayContainer(host);
+    const escapeLayers = () =>
+      Array.from(host.children).filter((el) => el !== container) as HTMLElement[];
+
+    // screen -> true must re-blend the surviving layer, not keep the stale screen blend.
+    renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
+    expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["screen"]);
+    renderer.update({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
+    expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["normal"]);
+    expect(container.children.length).toBe(0);
+
+    // vivid off must drop the layer entirely and move the band back into the multiply container.
+    renderer.update({ container, options: resolved({ vivid: false }), lines: [geometry(0)], ranges: [] });
+    expect(escapeLayers().length).toBe(0);
+    expect(container.children.length).toBe(1);
+
+    renderer.unmount();
+  });
 });
 
 describe("createSvgRenderer", () => {
@@ -398,6 +442,63 @@ describe("createSvgRenderer", () => {
       (n) => (n as HTMLElement).style.mixBlendMode === "screen",
     );
     expect(screenNodes.length).toBe(1);
+  });
+
+  it("under vivid, escapes the multiply container into a sibling normal layer on the host", () => {
+    const renderer = createSvgRenderer();
+    const container = createOverlayContainer(host);
+    renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
+
+    const layer = Array.from(host.children).find(
+      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
+    ) as HTMLElement | undefined;
+    expect(layer).toBeDefined();
+    expect(layer!.style.isolation).toBe("isolate");
+    // The per-line wrapper (and its ink node) live on the escape layer, not the multiply container.
+    expect(container.children.length).toBe(0);
+    expect(layer!.querySelector("div")).not.toBeNull();
+    // The ink keeps multiply on the escape layer, so a self-overlap still darkens.
+    const inkBlends = Array.from(layer!.querySelectorAll("div")).map((n) => (n as HTMLElement).style.mixBlendMode);
+    expect(inkBlends).toContain("multiply");
+
+    renderer.unmount();
+    expect(host.contains(layer!)).toBe(false);
+  });
+
+  it('under vivid: "screen", the escape layer uses the screen blend', () => {
+    const renderer = createSvgRenderer();
+    const container = createOverlayContainer(host);
+    renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
+
+    const layer = Array.from(host.children).find(
+      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "screen",
+    ) as HTMLElement | undefined;
+    expect(layer).toBeDefined();
+    expect(layer!.style.isolation).toBe("isolate");
+    expect(container.children.length).toBe(0);
+
+    renderer.unmount();
+  });
+
+  it("reconciles the escape layer when vivid changes across updates (re-blends, tears down)", () => {
+    const renderer = createSvgRenderer();
+    const container = createOverlayContainer(host);
+    const escapeLayers = () =>
+      Array.from(host.children).filter((el) => el !== container) as HTMLElement[];
+
+    // screen -> true must re-blend the surviving layer, not keep the stale screen blend.
+    renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
+    expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["screen"]);
+    renderer.update({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
+    expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["normal"]);
+    expect(container.children.length).toBe(0);
+
+    // vivid off must drop the layer entirely and move the band back into the multiply container.
+    renderer.update({ container, options: resolved({ vivid: false }), lines: [geometry(0)], ranges: [] });
+    expect(escapeLayers().length).toBe(0);
+    expect(container.children.length).toBe(1);
+
+    renderer.unmount();
   });
 });
 

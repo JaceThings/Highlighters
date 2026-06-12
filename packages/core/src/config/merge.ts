@@ -180,6 +180,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     gradient: merged.gradient ?? d.gradient,
     opacity: Math.max(0, Math.min(1, finiteOr(merged.opacity, d.opacity))),
     blendMode,
+    vivid: merged.vivid ?? d.vivid,
     tip,
     ink,
     speed,

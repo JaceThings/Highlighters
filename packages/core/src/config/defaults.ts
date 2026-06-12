@@ -9,6 +9,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   gradient: null,
   opacity: 0.55,
   blendMode: "multiply",
+  vivid: false,
   tip: Object.freeze({
     type: "chisel",
     width: 16,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ShapeType } from "@highlighters/core";
 import { AnimatePresence, m } from "framer-motion";
 import { Section } from "../../components/playground/Section.tsx";
@@ -14,33 +14,7 @@ import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
 import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
 import { playCircleSound, primeMarkerAudio } from "../../lib/marker-audio.ts";
-
-// Defer each Preview until its section nears the viewport. One-way latch: once painted it never unmounts.
-function useSeen(rootMargin = "350px") {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [seen, setSeen] = useState(false);
-  useEffect(() => {
-    if (seen) return;
-    const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setSeen(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setSeen(true);
-          io.disconnect();
-        }
-      },
-      { rootMargin },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [seen, rootMargin]);
-  return { ref, seen };
-}
+import { useSeen } from "../../hooks/useSeen.ts";
 
 function readPath(o: PlaygroundOptions, path: string): unknown {
   const s = path.split(".");

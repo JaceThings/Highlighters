@@ -10,7 +10,7 @@
  */
 
 import type { Renderer, RenderContext, MarkGeometry, PoolGradient, ColorValue } from "../types.js";
-import { NodePool, applyBoxPosition, backdropElement, createBlendLayer } from "./renderer.js";
+import { NodePool, applyBoxPosition, backdropElement, resolveBlendTarget } from "./renderer.js";
 import { effectiveInk } from "./blend.js";
 
 /**
@@ -102,10 +102,10 @@ export function createCssRenderer(): Renderer {
   function render(context: RenderContext): void {
     container = context.container;
     const doc = container.ownerDocument;
-    // Near-white ink on a dark backdrop gets its own normal-blend layer; everything else uses the shared container.
-    const plan = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc);
-    const host = container.parentElement;
-    const target = plan.layer && host ? (blendLayer ??= createBlendLayer(host, plan.layer)) : container;
+    // Near-white ink on a dark backdrop, or any ink under vivid, escapes onto its own blend layer; everything else uses the shared container.
+    const plan = effectiveInk(context.options.blendMode, context.options.color, backdropElement(context), doc, context.options.vivid);
+    const { target, layer } = resolveBlendTarget(container.parentElement, container, blendLayer, plan.layer);
+    blendLayer = layer;
     const inkColor = plan.color === context.options.color ? undefined : plan.color;
     const keep = new Set<number>();
 
