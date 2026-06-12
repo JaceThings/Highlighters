@@ -249,9 +249,11 @@ export interface HighlightOptions {
    * Keep the ink visible on dark or saturated surfaces, where the default `multiply` (backdrop x ink)
    * sinks any non-near-white colour toward black. `vivid` lifts the ink onto a private layer over the
    * page instead of under the shared `multiply` container; it wins over `blendMode` and keeps the ink's
-   * own blend for self-overlaps. `true` paints a translucent `normal` wash (works anywhere); `"screen"`
-   * mirrors `multiply` on dark for a bright band that keeps light text legible, but washes out on light.
-   * Default `false`; lifted text isn't guaranteed WCAG-legible (see `contrastBackground`). No effect on Tier C.
+   * own blend for self-overlaps. `true` paints a translucent `normal` wash (deterministic, no backdrop
+   * probe); `"screen"` mirrors `multiply` on dark for a brighter band that keeps light text legible, but
+   * washes out on light. Tune the ink itself for the surface: `true` shows best with a saturated colour,
+   * `"screen"` with a light one. Default `false`; lifted text isn't guaranteed WCAG-legible (see
+   * `contrastBackground`). No effect on the flat Tier C (Custom Highlight API) path.
    */
   vivid?: boolean | "screen";
 
