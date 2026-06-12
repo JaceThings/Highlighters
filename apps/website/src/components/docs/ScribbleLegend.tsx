@@ -15,13 +15,11 @@ export function ScribbleLegend({
   value,
   onChange,
   ariaLabel,
-  ink = INK,
 }: {
   options: ReadonlyArray<{ value: string; label: string }>;
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
-  ink?: string;
 }) {
   const [squiggle, setSquiggle] = useState(nextSquiggle);
   const [focused, setFocused] = useState<string | null>(null);
@@ -63,7 +61,7 @@ export function ScribbleLegend({
               style={{
                 fontSize: 14,
                 fontWeight: 500,
-                color: ink,
+                color: INK,
                 letterSpacing: "-0.25px",
                 whiteSpace: "nowrap",
                 opacity: isActive ? 1 : isPreview ? 0.85 : 0.6,
@@ -85,7 +83,7 @@ export function ScribbleLegend({
                   >
                     <MarkUnderline
                       squiggle={SQUIGGLES[squiggle]}
-                      color={ink}
+                      color={INK}
                       opacity={1}
                       animate={isActive}
                     />

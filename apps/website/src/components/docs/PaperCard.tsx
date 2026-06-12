@@ -16,15 +16,11 @@ export function PaperCard({
   children,
   className,
   style,
-  invert = false,
 }: {
   children?: ReactNode;
   className?: string;
   style?: CSSProperties;
-  invert?: boolean;
 }) {
-  // Invert only the sheet layer (not the content), so the same torn-paper card reads as dark paper.
-  const sheetFilter = invert ? "invert(1) hue-rotate(180deg)" : undefined;
   // Namespace the SVG's filter/gradient ids per instance, else every card resolves to the first's defs.
   const rootRef = useRef<HTMLDivElement>(null);
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -55,19 +51,18 @@ export function PaperCard({
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-0 -z-10 -translate-x-1/2 bg-[length:100%_100%] bg-no-repeat"
           // 313/288 height: the 288-tall sheet covers the card; the 25px bleed hangs below.
-          style={{ ...SHEET_SIZE, backgroundImage: "url(/paper-sheet.webp)", filter: sheetFilter }}
+          style={{ ...SHEET_SIZE, backgroundImage: "url(/paper-sheet.webp)" }}
         />
       ) : (
         <div
           aria-hidden
           className="pointer-events-none absolute left-1/2 top-0 -z-10 -translate-x-1/2"
-          style={{ ...SHEET_SIZE, maxWidth: "none", filter: sheetFilter }}
+          style={{ ...SHEET_SIZE, maxWidth: "none" }}
           // SVG is our own build artifact (paperBg.ts), not user input.
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       )}
-      {/* invert drops content's z-[1] so the marks composite against the dark sheet (else multiply has no backdrop). */}
-      <div className={`relative flex flex-1 flex-col ${invert ? "" : "z-[1]"}`}>{children}</div>
+      <div className="relative z-[1] flex flex-1 flex-col">{children}</div>
     </div>
   );
 }
