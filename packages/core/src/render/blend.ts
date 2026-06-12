@@ -23,9 +23,10 @@ const NEAR_WHITE_MIN = 217;
 const OFF_WHITE = "#d6d6d6";
 
 /**
- * How to paint an ink. `layer` is the blend for a private overlay layer the mark needs (only a
- * near-white ink on a dark backdrop, which must escape the shared multiply container), or `null` to
- * use the shared multiply container as-is. `color` is the ink, possibly substituted to an off-white.
+ * How to paint an ink. `layer` is the blend for a private overlay layer the mark needs to escape the
+ * shared multiply container (a near-white ink on a dark backdrop, or any ink under `vivid`; see
+ * {@link effectiveInk}), or `null` to use the shared multiply container as-is. `color` is the ink,
+ * possibly substituted to an off-white.
  */
 export interface InkPlan {
   layer: BlendMode | null;

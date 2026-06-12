@@ -121,15 +121,44 @@ function styleOverlayLayer(el: HTMLElement, blend: BlendMode): void {
 
 /**
  * An extra overlay layer on `host` with a non-default blend, for a mark whose ink can't use the shared
- * multiply container - a near-white ink on a dark backdrop needs `normal` to stay visible. Fills the
- * host identically to the shared container (so host-relative line boxes line up), but is uncached and
- * unflagged: the renderer that creates it owns its lifetime, and it never disturbs sibling marks.
+ * multiply container - a near-white ink on a dark backdrop, or any ink under `vivid`, needs its own blend
+ * to stay visible. Fills the host identically to the shared container (so host-relative line boxes line
+ * up), but is uncached and unflagged, so it never disturbs sibling marks. Its lifetime is owned by
+ * {@link resolveBlendTarget}.
  */
-export function createBlendLayer(host: Element, blend: BlendMode): HTMLElement {
+function createBlendLayer(host: Element, blend: BlendMode): HTMLElement {
   const layer = host.ownerDocument.createElement("div");
   styleOverlayLayer(layer, blend);
   host.appendChild(layer);
   return layer;
+}
+
+/**
+ * Pick where this frame's mark nodes mount, reconciling the renderer's private escape layer in place.
+ *
+ * Most marks paint into the shared `multiply` container (`layerBlend` null). A mark that must escape it
+ * gets its own isolated layer whose blend is baked in at creation, so this owns that layer across
+ * re-renders: it keeps the cached one while the blend still matches, rebuilds it when the blend changes
+ * (e.g. `vivid` flipped `"screen"` -> `true`), and removes it once no escape is needed (`vivid` off).
+ * Pass the cached layer in as `current` and store the returned `layer` back, so the renderer holds a
+ * single source of truth for its lifetime.
+ */
+export function resolveBlendTarget(
+  host: Element | null,
+  container: HTMLElement,
+  current: HTMLElement | null,
+  layerBlend: BlendMode | null,
+): { target: HTMLElement; layer: HTMLElement | null } {
+  if (!layerBlend || !host) {
+    current?.remove();
+    return { target: container, layer: null };
+  }
+  if (current && current.style.mixBlendMode === layerBlend) {
+    return { target: current, layer: current };
+  }
+  current?.remove();
+  const layer = createBlendLayer(host, layerBlend);
+  return { target: layer, layer };
 }
 
 /**
