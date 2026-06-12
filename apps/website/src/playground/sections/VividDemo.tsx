@@ -25,7 +25,6 @@ export function VividDemo() {
   const { ref, seen } = useSeen();
   // Default to `screen` - the variant that keeps light text crisp on the dark surface.
   const [mode, setMode] = useState<VividMode>("screen");
-  // Map the control onto the core option: off is false, on is true (vivid: true), screen is "screen".
   const vivid: boolean | "screen" =
     mode === "off" ? false : mode === "screen" ? "screen" : true;
 
