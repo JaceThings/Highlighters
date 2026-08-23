@@ -4,14 +4,11 @@ import { useRef, type ComponentType } from "react";
 import { Home } from "../pages/Home.tsx";
 import { Docs } from "../pages/Docs.tsx";
 
-// Cross-fades page text on navigation; the shell stays mounted outside the fade. Pages come from a
-// map, not <Outlet/>, which snaps to the new route mid-fade in this router version. Unmapped routes fall back to Outlet.
 const PAGES: Record<string, ComponentType> = {
   "/": Home,
   "/docs": Docs,
 };
 
-// Sequential fade (mode="wait"): out, a short empty hold (the enter `delay`), then in.
 const EASE: [number, number, number, number] = [0.2, 0, 0, 1];
 const PAUSE_S = 0.05;
 const FADE: Variants = {
@@ -22,8 +19,6 @@ const FADE: Variants = {
 
 export function PageFade() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // Skip the wrapper fade on cold load so the Stagger cascade owns the entrance. `initial={false}`
-  // goes on the m.div, NOT <AnimatePresence>, where it would propagate a PresenceContext that suppresses the cascade.
   const firstRef = useRef(true);
   const isFirst = firstRef.current;
   firstRef.current = false;
@@ -39,7 +34,6 @@ export function PageFade() {
         animate="animate"
         exit="exit"
       >
-        {/* The `key` remounts the page on navigation, so its Staggers replay their CSS cascade on arrival. */}
         <Page />
       </m.div>
     </AnimatePresence>

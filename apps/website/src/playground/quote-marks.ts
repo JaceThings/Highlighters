@@ -1,11 +1,7 @@
-// What part of a quote each demo highlights, and how. Strategy picks the shape; CURATED picks WHERE
-// per quote (a positional slice often cuts mid-thought). Positional is the fallback.
-
 import { QUOTES, shuffle, type Quote } from "./quotes.ts";
 
 export type MarkStrategy = "central" | "ends" | "stack";
 
-// Keyed by demo title; anything absent is "central".
 const STRATEGY: Record<string, MarkStrategy> = {
   "tip.overshoot": "ends",
   "tip.overshootJitter": "ends",
@@ -18,53 +14,48 @@ export function strategyFor(title: string): MarkStrategy {
 }
 
 export interface MarkPlan {
-  ranges: [number, number][]; // [start, end) word indices to highlight
-  doubles?: [number, number][]; // sub-ranges painted a second time (overlap optics)
+  ranges: [number, number][];
+  doubles?: [number, number][];
 }
 
-// Hand-picked mark per quote. Phrases match the quote's words by text (ignoring punctuation/case),
-// so a typo falls back to the positional algorithm.
 interface CuratedPlan {
   central?: string;
   ends?: string[];
   stack?: { band: string; doubles: string[] };
 }
 
-// Indexed into QUOTES (trailing comment names the speaker).
 const CURATED: Record<number, CuratedPlan> = {
-  0: { central: "never cruel", ends: ["Helly was never cruel"], stack: { band: "Helly was never cruel", doubles: ["cruel"] } }, // Bailiff
-  1: { central: "advertisements on my eyelids", ends: ["the air I breathe"], stack: { band: "advertisements on my eyelids", doubles: ["advertisements", "eyelids"] } }, // Davis
-  2: { central: "grateful for seats at the table", ends: ["And you'll be grateful", "the bench is unstable"], stack: { band: "grateful for seats at the table", doubles: ["seats at the table"] } }, // Holgate
-  3: { central: "pay off your grave", ends: ["You may waste your days", "leased you your cradle"], stack: { band: "pay off your grave since we leased you your cradle", doubles: ["grave", "cradle"] } }, // Holgate
-  4: { central: "no enemy ever wronged me", ends: ["No friend ever served me", "repaid in full"], stack: { band: "no enemy ever wronged me", doubles: ["wronged me"] } }, // Sulla
-  5: { central: "die on your feet", ends: ["die on your feet", "live on your knees"], stack: { band: "to die on your feet than to live on your knees", doubles: ["die on your feet"] } }, // Zapata
-  6: { central: "ordering you to die", ends: ["Men, I am not ordering you to attack", "die."], stack: { band: "I am ordering you to die", doubles: ["die"] } }, // Atatürk
-  7: { central: "turn people into homes", ends: ["Child, why did", "turn people into homes"], stack: { band: "why did no one ever teach you that you cannot turn people into homes", doubles: ["people", "homes"] } }, // Gill
-  8: { central: "God help the tanks", ends: ["Onward we stagger", "God help the tanks"], stack: { band: "And if the tanks come, then God help the tanks", doubles: ["then God help the tanks"] } }, // Gruber
-  10: { central: "judge a fish by its ability to climb a tree", ends: ["If you judge a fish", "believing that it is stupid."], stack: { band: "judge a fish by its ability to climb a tree", doubles: ["fish", "tree"] } }, // Unknown
-  11: { central: "a fool every night but one", ends: ["machete", "but one."], stack: { band: "a fool every night but one", doubles: ["but one"] } }, // McElroy
-  12: { central: "falling knife has no handle", ends: ["A falling", "no handle"], stack: { band: "A falling knife has no handle", doubles: ["no handle"] } }, // Unknown
-  13: { central: "dying of thirst watching another man drown", ends: ["I am a man", "another man drown"], stack: { band: "a man dying of thirst watching another man drown", doubles: ["thirst", "drown"] } }, // Dragon Ball Z
-  14: { central: "too strong of an emotion to waste", ends: ["Hatred is too strong", "someone you don't like"], stack: { band: "too strong of an emotion to waste", doubles: ["waste"] } }, // Rodriguez
-  15: { central: "trying to bite your own teeth", ends: ["Trying to define yourself", "bite your own teeth"], stack: { band: "trying to bite your own teeth", doubles: ["teeth"] } }, // Watts
-  16: { central: "the suffering of being unable to love", ends: ["What is hell?", "unable to love"], stack: { band: "the suffering of being unable to love", doubles: ["unable to love"] } }, // Dostoevsky
-  17: { central: "carries a cat by the tail", ends: ["A man who carries", "in no other way"], stack: { band: "carries a cat by the tail", doubles: ["cat", "tail"] } }, // Twain
-  18: { central: "I just need a little more", ends: ["Girl, I love you", "a little more"], stack: { band: "I just need a little more", doubles: ["a little more"] } }, // Salu
-  19: { central: "more to my life than a 9 to 5", ends: ["Working all day", "than a 9 to 5"], stack: { band: "more to my life than a 9 to 5", doubles: ["9 to 5"] } }, // Sassaro
-  20: { central: "when the sun didn't shine", ends: ["He was born", "weren't in sight"], stack: { band: "when the sun didn't shine", doubles: ["didn't shine"] } }, // Muriel
-  21: { central: "the only thing I trust", ends: ["I heard the rain", "four damn walls"], stack: { band: "the only thing I trust are these four damn walls", doubles: ["four damn walls"] } }, // Sassaro
-  22: { central: "sweetheart's piano is rat-filled", ends: ["My sweetheart's piano", "infested with bugs"], stack: { band: "sweetheart's piano is rat-filled", doubles: ["rat-filled"] } }, // Romeo
-  23: { central: "just like falling in love", ends: ["The music we make", "falling in love"], stack: { band: "sounds just like falling in love", doubles: ["falling in love"] } }, // Romeo
-  24: { central: "true that pain is beauty", ends: ["Oh, Mrs. Potato Head", "with a warranty"], stack: { band: "true that pain is beauty", doubles: ["beauty"] } }, // Dussolliet
-  25: { central: "Would you post about it", ends: ["What would happen", "post about it"], stack: { band: "Would you post about it", doubles: ["post about it"] } }, // Keenan
+  0: { central: "never cruel", ends: ["Helly was never cruel"], stack: { band: "Helly was never cruel", doubles: ["cruel"] } },
+  1: { central: "advertisements on my eyelids", ends: ["the air I breathe"], stack: { band: "advertisements on my eyelids", doubles: ["advertisements", "eyelids"] } },
+  2: { central: "grateful for seats at the table", ends: ["And you'll be grateful", "the bench is unstable"], stack: { band: "grateful for seats at the table", doubles: ["seats at the table"] } },
+  3: { central: "pay off your grave", ends: ["You may waste your days", "leased you your cradle"], stack: { band: "pay off your grave since we leased you your cradle", doubles: ["grave", "cradle"] } },
+  4: { central: "no enemy ever wronged me", ends: ["No friend ever served me", "repaid in full"], stack: { band: "no enemy ever wronged me", doubles: ["wronged me"] } },
+  5: { central: "die on your feet", ends: ["die on your feet", "live on your knees"], stack: { band: "to die on your feet than to live on your knees", doubles: ["die on your feet"] } },
+  6: { central: "ordering you to die", ends: ["Men, I am not ordering you to attack", "die."], stack: { band: "I am ordering you to die", doubles: ["die"] } },
+  7: { central: "turn people into homes", ends: ["Child, why did", "turn people into homes"], stack: { band: "why did no one ever teach you that you cannot turn people into homes", doubles: ["people", "homes"] } },
+  8: { central: "God help the tanks", ends: ["Onward we stagger", "God help the tanks"], stack: { band: "And if the tanks come, then God help the tanks", doubles: ["then God help the tanks"] } },
+  10: { central: "judge a fish by its ability to climb a tree", ends: ["If you judge a fish", "believing that it is stupid."], stack: { band: "judge a fish by its ability to climb a tree", doubles: ["fish", "tree"] } },
+  11: { central: "a fool every night but one", ends: ["machete", "but one."], stack: { band: "a fool every night but one", doubles: ["but one"] } },
+  12: { central: "falling knife has no handle", ends: ["A falling", "no handle"], stack: { band: "A falling knife has no handle", doubles: ["no handle"] } },
+  13: { central: "dying of thirst watching another man drown", ends: ["I am a man", "another man drown"], stack: { band: "a man dying of thirst watching another man drown", doubles: ["thirst", "drown"] } },
+  14: { central: "too strong of an emotion to waste", ends: ["Hatred is too strong", "someone you don't like"], stack: { band: "too strong of an emotion to waste", doubles: ["waste"] } },
+  15: { central: "trying to bite your own teeth", ends: ["Trying to define yourself", "bite your own teeth"], stack: { band: "trying to bite your own teeth", doubles: ["teeth"] } },
+  16: { central: "the suffering of being unable to love", ends: ["What is hell?", "unable to love"], stack: { band: "the suffering of being unable to love", doubles: ["unable to love"] } },
+  17: { central: "carries a cat by the tail", ends: ["A man who carries", "in no other way"], stack: { band: "carries a cat by the tail", doubles: ["cat", "tail"] } },
+  18: { central: "I just need a little more", ends: ["Girl, I love you", "a little more"], stack: { band: "I just need a little more", doubles: ["a little more"] } },
+  19: { central: "more to my life than a 9 to 5", ends: ["Working all day", "than a 9 to 5"], stack: { band: "more to my life than a 9 to 5", doubles: ["9 to 5"] } },
+  20: { central: "when the sun didn't shine", ends: ["He was born", "weren't in sight"], stack: { band: "when the sun didn't shine", doubles: ["didn't shine"] } },
+  21: { central: "the only thing I trust", ends: ["I heard the rain", "four damn walls"], stack: { band: "the only thing I trust are these four damn walls", doubles: ["four damn walls"] } },
+  22: { central: "sweetheart's piano is rat-filled", ends: ["My sweetheart's piano", "infested with bugs"], stack: { band: "sweetheart's piano is rat-filled", doubles: ["rat-filled"] } },
+  23: { central: "just like falling in love", ends: ["The music we make", "falling in love"], stack: { band: "sounds just like falling in love", doubles: ["falling in love"] } },
+  24: { central: "true that pain is beauty", ends: ["Oh, Mrs. Potato Head", "with a warranty"], stack: { band: "true that pain is beauty", doubles: ["beauty"] } },
+  25: { central: "Would you post about it", ends: ["What would happen", "post about it"], stack: { band: "Would you post about it", doubles: ["post about it"] } },
 };
 
-/** Normalize for phrase matching: strip surrounding punctuation, lowercase. */
 function norm(word: string): string {
   return word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").toLowerCase();
 }
 
-/** First [start, end) range within [from, to) whose normalized words match `phrase`, or null. */
 function rangeOf(words: string[], phrase: string, from = 0, to = words.length): [number, number] | null {
   const target = phrase.split(" ").map(norm).filter(Boolean);
   if (target.length === 0) return null;
@@ -81,20 +72,16 @@ function rangeOf(words: string[], phrase: string, from = 0, to = words.length): 
   return null;
 }
 
-// A word too slight to stand alone as a mark ("if", "a", "to", …).
 function isSlight(word: string): boolean {
   return word.replace(/[^\p{L}\p{N}]/gu, "").length <= 2;
 }
 
-// Word ranges to highlight for a quote. Prefers CURATED; falls back to a positional slice that sits
-// on word boundaries and never begins/ends on a slight word.
 export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy): MarkPlan {
   const n = words.length;
   const curated = CURATED[QUOTES.indexOf(quote)];
 
   if (strategy === "ends") {
     if (curated?.ends) {
-      // Resolve each band after the previous, so two ends stay ordered with a gap.
       const ranges: [number, number][] = [];
       let from = 0;
       let ok = true;
@@ -111,9 +98,9 @@ export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy)
     }
     if (n >= 6) {
       let kf = 2;
-      while (kf < n && isSlight(words[kf - 1])) kf++; // don't end the front mark on a slight word
+      while (kf < n && isSlight(words[kf - 1])) kf++;
       let kb = 2;
-      while (kb < n && isSlight(words[n - kb])) kb++; // don't start the back mark on a slight word
+      while (kb < n && isSlight(words[n - kb])) kb++;
       const half = Math.floor(n / 2);
       kf = Math.min(kf, half - 1);
       kb = Math.min(kb, half - 1);
@@ -121,7 +108,6 @@ export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy)
         return { ranges: [[0, kf], [n - kb, n]] };
       }
     }
-    // too short to split cleanly - fall through to central
   }
 
   if (strategy === "stack") {
@@ -136,7 +122,6 @@ export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy)
         return { ranges: [band], doubles };
       }
     }
-    // Positional fallback: compact band on the first line, one doubled word.
     const end = Math.min(n, 4);
     let m = 0;
     while (m < end - 1 && isSlight(words[m])) m++;
@@ -156,8 +141,6 @@ export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy)
   return { ranges: [[a, b]] };
 }
 
-// Quotes (indices into QUOTES) that read well per demo, keyed by title. A section draws one per load;
-// absent titles fall back to any quote.
 export const SECTION_QUOTES: Record<string, number[]> = {
   markType: [7, 15, 16, 23],
   color: [18, 22, 13, 14],
@@ -182,7 +165,6 @@ export const SECTION_QUOTES: Record<string, number[]> = {
   snap: [6, 5, 15, 18],
 };
 
-// One quote per demo (titles in order), preferring an unused quote whose author isn't in the last two.
 export function buildCuratedQuotes(titles: string[]): Quote[] {
   const used = new Set<Quote>();
   const out: Quote[] = [];

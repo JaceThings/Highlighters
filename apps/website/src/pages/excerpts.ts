@@ -1,13 +1,9 @@
-// Passages the homepage draws from, one per load via a shuffle bag (pickNextExcerpt).
-
 export interface Excerpt {
   title?: string;
   author?: string;
-  /** Blank lines (\n\n) split it into paragraphs. */
   text: string;
 }
 
-/** "Title by Author", or whichever single part exists, else "Unknown". */
 export function creditLine(e: Excerpt): string {
   if (e.title && e.author) return `${e.title} by ${e.author}`;
   return e.title ?? e.author ?? "Unknown";
@@ -41,19 +37,16 @@ export const EXCERPTS: Excerpt[] = [
   {
     title: "Small Kindnesses",
     author: "Danusha Laméris",
-    // poets.org/poem/small-kindnesses
     text: "I've been thinking about the way, when you walk down a crowded aisle, people pull in their legs to let you by. Or how strangers still say 'bless you' when someone sneezes, a leftover from the Bubonic plague. 'Don't die,' we are saying.\n\nAnd sometimes, when you spill lemons from your grocery bag, someone else will help you pick them up. Mostly, we don't want to harm each other.\n\nWe want to be handed our cup of coffee hot, and to say thank you to the person handing it. To smile at them and for them to smile back. For the waitress to call us honey when she sets down the bowl of clam chowder, and for the driver in the red pick-up truck to let us pass.\n\nWe have so little of each other, now. So far from tribe and fire. Only these brief moments of exchange.\n\nWhat if they are the true dwelling of the holy, these fleeting temples we make together when we say, 'Here, have my seat,' 'Go ahead-you first,' 'I like your hat.'",
   },
   {
     title:
       "I can’t celebrate my achievements because, in my mind, it was my obligation to achieve them",
     author: "Vina Amoris",
-    // viviynaa.medium.com/i-cant-celebrate-my-achievements-because-in-my-mind-it-was-my-obligation-to-achieve-them-5e571dad50ae
     text: "How is it possible to achieve so much and still feel something is missing? As if the recognition aren't enough to feed my hunger for validation.\n\nI stand here with a list of accomplishments longer than I ever imagined, with shelves filled with trophies and certificates, and yet, it feels like I have achieved nothing.\n\nThe very things that were meant to define me have left me feeling empty. These awards, these honors, these 'unmatchable achievements' they were never gifts. They were expectations.",
   },
   {
     author: "missingvibrance",
-    // tumblr.com/missingvibrance/718092031714574336
     text: "One of the greatest tragedies in life is that you will always be loved more than you will ever know. Someone in class finds your presence inviting and warm, even if you've only ever exchanged a few words with them - maybe none at all. Someone on the street loves your smile and it gets them down the next few streets. Someone you used to be friends with still wishes to fondly call your name. Someone you used to be friends with five years ago would give anything to be in the same room as you today. Someone who regularly comes into work is disappointed when you aren't there to brighten their day. Someone missed you today. Someone noticed you were gone. Someone loves you when you're there; someone loves you when you're nowhere to be found at all. You think you have always disappeared when you're no longer in the picture, but you've never left the frame.",
   },
   {
@@ -110,13 +103,10 @@ export const EXCERPTS: Excerpt[] = [
   },
 ];
 
-// localStorage so "no repeats" holds across reloads.
 const BAG_KEY = "highlighters:excerpt-bag";
 
 interface BagState {
-  /** Indices still in the bag, next drawn from the end. */
   order: number[];
-  /** Index shown last load, so a fresh bag never repeats it first. */
   last: number;
 }
 
@@ -134,13 +124,12 @@ function readBag(): BagState | null {
     const raw = localStorage.getItem(BAG_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as BagState;
-    // Drop stale indices (the shelf may have shrunk since this bag was saved).
     const order = parsed.order.filter((i) => i >= 0 && i < EXCERPTS.length);
     const last =
       parsed.last >= 0 && parsed.last < EXCERPTS.length ? parsed.last : -1;
     return { order, last };
   } catch {
-    return null; // disabled/corrupt storage
+    return null;
   }
 }
 
@@ -148,17 +137,14 @@ function writeBag(state: BagState): void {
   try {
     localStorage.setItem(BAG_KEY, JSON.stringify(state));
   } catch {
-    // Storage unavailable: lose the no-repeat guarantee, not the page.
   }
 }
 
-/** Draw the next passage from a shuffle bag, never repeating the one shown last load. */
 export function pickNextExcerpt(): Excerpt {
   const { order, last } = readBag() ?? { order: [], last: -1 };
 
   if (order.length === 0) {
     order.push(...shuffledIndices(EXCERPTS.length));
-    // If the next draw would repeat the last passage, swap it to the front.
     const lastOut = order.length - 1;
     if (order.length > 1 && order[lastOut] === last) {
       [order[0], order[lastOut]] = [order[lastOut], order[0]];

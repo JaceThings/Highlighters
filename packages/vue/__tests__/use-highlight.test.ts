@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createApp, h, ref, nextTick, type App } from "vue";
 import { useHighlight } from "../src/use-highlight.js";
@@ -77,7 +76,6 @@ describe("useHighlight composable", () => {
           const el = ref<HTMLElement | null>(null);
           const options = ref<{ opacity: number }>({ opacity: opacity.value });
           const getHandle = useHighlight(el, options);
-          // Patch update on first availability to observe delegation.
           return () => {
             const handle = getHandle();
             if (handle && !(handle as { __wrapped?: boolean }).__wrapped) {

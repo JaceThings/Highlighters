@@ -1,8 +1,6 @@
-/** `@highlighters/vue`: Vue bindings for `@highlighters/core`. */
 export { useHighlight, type HighlightTarget } from "./use-highlight.js";
 export { Highlight } from "./highlight.js";
 
-// Re-export core types for convenience.
 export type {
   HighlightOptions,
   MarkHandle,

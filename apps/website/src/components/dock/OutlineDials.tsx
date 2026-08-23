@@ -4,9 +4,7 @@ import "dialkit/styles.css";
 import { DEFAULT_TUNING, setPreview, setTipTune } from "./outline-tuning.ts";
 import { setRumble } from "../../lib/marker-audio.ts";
 
-// Dev-only DialKit panel driving the marker-outline tuning store (outline-tuning.ts). Pick a
-// Preview to force a pen's outline visible, then dial X/Y/Scale. Sliders seed from DEFAULT_TUNING.
-type Dial = [number, number, number, number]; // [default, min, max, step]
+type Dial = [number, number, number, number];
 const nudge = (def: number): Dial => [def, -24, 24, 0.5];
 const scaleDial = (def: number): Dial => [def, 0.7, 1.4, 0.01];
 
@@ -19,7 +17,6 @@ export function OutlineDials() {
     chisel: { x: nudge(slant.dx), y: nudge(slant.dy), scale: scaleDial(slant.scale) },
     bullet: { x: nudge(round.dx), y: nudge(round.dy), scale: scaleDial(round.scale) },
     fine: { x: nudge(fine.dx), y: nudge(fine.dy), scale: scaleDial(fine.scale) },
-    // Popup-slider brown-noise rumble: lowpass cutoff (Hz), resonance, level, swell-in/out (s).
     rumble: {
       cutoff: [160, 40, 1500, 10] as [number, number, number, number],
       q: [0.9, 0.1, 8, 0.1] as [number, number, number, number],

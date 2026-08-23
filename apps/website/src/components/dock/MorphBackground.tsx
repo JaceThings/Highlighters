@@ -3,14 +3,6 @@ import type { MotionValue } from "framer-motion";
 import { roundedRectPath } from "./roundedRectPath.ts";
 import { useBindMotion } from "./bindMotion.ts";
 
-// The dock's white background as a single morphing SVG path. `d` is regenerated from the animated
-// width/height/cornerRadius (capsule -> circle -> vertical pill). The SVG has no viewBox, so its
-// user units equal px and the path spans the tray box exactly. Applied imperatively (see
-// useBindMotion) rather than via an `m.path` so framer never reads the value back.
-//
-// The soft shadow is kept on a sibling rounded-rect layer (not an feDropShadow) so it matches the
-// original capsule's box-shadow exactly; since every morph state is a rounded rectangle, a div with
-// border-radius = cornerRadius traces the same silhouette as the path.
 const SHADOW = "0 6px 14px -7px color(display-p3 0.451 0.3412 0.2902 / 0.30)";
 
 export function MorphBackground({
@@ -42,7 +34,6 @@ export function MorphBackground({
 
   return (
     <>
-      {/* Shadow only: transparent box whose rounded silhouette tracks the morph; the path paints white on top. */}
       <div
         ref={shadowRef}
         aria-hidden

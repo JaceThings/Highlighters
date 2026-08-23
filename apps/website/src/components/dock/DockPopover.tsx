@@ -6,8 +6,6 @@ import type { Popover } from "./useDockPopover.ts";
 import type { DockSide } from "./useDockDrag.ts";
 import type { SelectionStyle } from "../../selection-style.tsx";
 
-// The marker / colour popover that rises from the activating button. Positioning + enter/exit flip
-// with orientation: above the tray in the bottom layout, off the inner edge when side-docked.
 export function DockPopover({
   popover,
   vertical,

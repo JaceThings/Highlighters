@@ -3,8 +3,6 @@ import { useRouterState } from "@tanstack/react-router";
 import { DockNav, DockLinks } from "./DockButton.tsx";
 import { useSkipDockEntrance } from "../../dock-entrance.tsx";
 
-// The compact dock: four nav/link buttons (no pens or colour) on a full-width white pill. Used on
-// touch (after MobileNotice) and on narrow desktop windows where the full tray won't fit.
 const SHADOW = "0 6px 14px -7px rgba(115, 87, 74, 0.3)";
 
 export function MobileDock() {

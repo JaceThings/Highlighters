@@ -1,8 +1,6 @@
 import { useId, type CSSProperties } from "react";
 import { lightenOklch, oklchToRgb, parseOklch } from "./oklch.ts";
 
-// The three nib shapes, each in its own 0-15 space. TX centres the nib; per-tip `ty` drops its base
-// onto the funnel top. Exported so the favicon can paint the same selected nib (see favicon-svg.ts).
 const TX = 13.943;
 export const TIPS = {
   slant: {
@@ -19,31 +17,23 @@ export const TIPS = {
   },
 } as const;
 
-// Ink band near the funnel, outside the barrel's drop-shadow so MarkerRow can crossfade just the colour over a static barrel.
 const BAND = "M8 57.0525H34.1475V67.7492H8V57.0525Z";
 
 interface PenProps {
   tip: "slant" | "fine" | "round";
-  /** Animated ink colour, passed as an oklch() string. */
   color: string;
-  /** Rendered width in px; height follows the 43×170 aspect. */
   width: number;
   className?: string;
   style?: CSSProperties;
-  /** Render only the coloured layer (band + tip), skipping the grey barrel + shadow: the crossfade overlay. */
   colorOnly?: boolean;
 }
 
 export function Pen({ tip, color, width, className, style, colorOnly }: PenProps) {
-  // Namespace the gradient/filter ids so multiple <Pen>s don't collide on shared defs.
   const id = useId();
   const ink = parseOklch(color);
-  // Cap displayed nib lightness so a pure-white ink stays visible against the panel.
   const visibleInk = ink.L > 0.9 ? { L: 0.9, C: ink.C, H: ink.H } : ink;
-  // Emit rgb(), not oklch(): WebKit mis-renders oklch() in some SVG colour slots.
   const visibleColor = oklchToRgb(visibleInk);
   const tipTop = oklchToRgb(lightenOklch(visibleInk, 0.06));
-  // Specular highlight opacity, scaled off lightness so light inks brighten.
   const whiteAlpha = Math.max(0.07, Math.min(0.5, 0.07 + 0.7 * Math.max(0, visibleInk.L - 0.5)));
 
   return (
@@ -56,7 +46,6 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
       className={className}
       style={{ width, height: "auto", ...style }}
     >
-      {/* Skipped in colorOnly so the fade overlay carries only ink. */}
       {!colorOnly && (
         <g filter={`url(#${id}-filter0)`}>
           <g clipPath={`url(#${id}-clip0)`}>
@@ -71,15 +60,12 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           </g>
         </g>
       )}
-      {/* Ink band, no shadow, so it crossfades cleanly over the static barrel. */}
       <path d={BAND} style={{ fill: visibleColor }} />
       <path
         d={BAND}
         fill={`url(#${id}-paint2)`}
         style={{ mixBlendMode: "color-dodge" }}
       />
-      {/* Nib fill + filter-free specular shine: a plain gradient renders identically on every
-          engine, unlike the feFlood/feComposite highlight WebKit gave a warm cast. */}
       <g transform={`translate(${TX} ${TIPS[tip].ty})`}>
         <path d={TIPS[tip].d} fill={`url(#${id}-tipgrad)`} />
         <path d={TIPS[tip].d} fill={`url(#${id}-shine)`} />
@@ -117,7 +103,6 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           <feBlend mode="normal" in2={`${id}-effect1_dropShadow`} result={`${id}-effect2_dropShadow`} />
           <feBlend mode="normal" in="SourceGraphic" in2={`${id}-effect2_dropShadow`} result="shape" />
         </filter>
-        {/* Specular shine: white fading out ~40% down, filter-free so Chrome/Safari match. */}
         <linearGradient id={`${id}-shine`} x1="21" y1="0" x2="21" y2="16" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ffffff" stopOpacity={whiteAlpha} />
           <stop offset="0.18" stopColor="#ffffff" stopOpacity={whiteAlpha * 0.5} />
@@ -181,7 +166,6 @@ export function Pen({ tip, color, width, className, style, colorOnly }: PenProps
           y2="16"
           gradientUnits="userSpaceOnUse"
         >
-          {/* JS tween drives these per frame; no CSS transition (it would fight the updates). */}
           <stop style={{ stopColor: tipTop }} />
           <stop offset="1" style={{ stopColor: visibleColor }} />
         </linearGradient>

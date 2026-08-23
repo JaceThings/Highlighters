@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { toRanges } from "../src/targeting/normalize.js";
@@ -18,18 +17,15 @@ import {
   createReflowObserver,
 } from "../src/targeting/observers.js";
 
-/** Replace document.body's markup and return the body for convenience. */
 function setBody(html: string): HTMLElement {
   document.body.innerHTML = html;
   return document.body;
 }
 
-/** Concatenate the text content of a range's resolved span. */
 function rangeText(range: Range): string {
   return range.toString();
 }
 
-/** Build a plain DOMRect-shaped object for the pure rect-merge tests. */
 function rect(left: number, top: number, width: number, height: number): DOMRect {
   return {
     x: left,
@@ -46,7 +42,6 @@ function rect(left: number, top: number, width: number, height: number): DOMRect
   } as DOMRect;
 }
 
-/** Wrap an array of rects as a `DOMRectList`, for mocking `getClientRects()`. */
 function domRectList(rects: DOMRect[]): DOMRectList {
   const list = {
     length: rects.length,
@@ -62,10 +57,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
-
-// ---------------------------------------------------------------------------
-// V1 - normalization per input type (R6a–R6f)
-// ---------------------------------------------------------------------------
 
 describe("toRanges - V1 normalization per input type", () => {
   it("normalizes an Element to a range over its content (R6a)", () => {
@@ -156,10 +147,6 @@ describe("toRanges - V1 normalization per input type", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Nested include/exclude precedence (R7)
-// ---------------------------------------------------------------------------
-
 describe("include/exclude - structural exclusion precedence (R7)", () => {
   it("excludes a subtree nested inside an included ancestor", () => {
     const body = setBody(`
@@ -247,12 +234,7 @@ describe("include/exclude - structural exclusion precedence (R7)", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Live-selection exclusion: carving opted-out subtrees out of a select-all range
-// ---------------------------------------------------------------------------
-
 describe("excludeMarkedSubtrees - carves data-highlight-exclude from selection ranges", () => {
-  /** A range over all of `el`'s contents, standing in for a select-all. */
   function contentsRange(el: Element): Range {
     const r = document.createRange();
     r.selectNodeContents(el);
@@ -304,17 +286,12 @@ describe("excludeMarkedSubtrees - carves data-highlight-exclude from selection r
   });
 });
 
-// ---------------------------------------------------------------------------
-// Text search across element boundaries (R6c)
-// ---------------------------------------------------------------------------
-
 describe("findTextRanges - matches across inline boundaries (R6c)", () => {
   it("finds a string match spanning two inline elements", () => {
     const body = setBody(`<p>foo<em>bar</em>baz</p>`);
     const ranges = findTextRanges(body, "obarb");
     expect(ranges).toHaveLength(1);
     expect(rangeText(ranges[0])).toBe("obarb");
-    // The match must start in the first text node and end in the third.
     expect(ranges[0].startContainer).not.toBe(ranges[0].endContainer);
   });
 
@@ -337,7 +314,6 @@ describe("findTextRanges - matches across inline boundaries (R6c)", () => {
     const pattern = /x/;
     const ranges = findTextRanges(body, pattern);
     expect(ranges).toHaveLength(3);
-    // The caller's RegExp is untouched (no lingering lastIndex).
     expect(pattern.lastIndex).toBe(0);
     expect(pattern.global).toBe(false);
   });
@@ -368,11 +344,8 @@ describe("findTextRanges - matches across inline boundaries (R6c)", () => {
   });
 
   it("matches every occurrence even for a sticky (`y`) RegExp", () => {
-    // Sticky anchors `exec` to lastIndex; adding `g` doesn't override it, so a
-    // naive scan would stop at the first gap and under-match. The flag is stripped.
     expect(findTextRanges(setBody(`<p>x_x_x</p>`), /x/y)).toHaveLength(3);
     expect(findTextRanges(setBody(`<p>aXbXc</p>`), /X/y)).toHaveLength(2);
-    // A plain global pattern is unaffected.
     expect(findTextRanges(setBody(`<p>x_x_x</p>`), /x/g)).toHaveLength(3);
   });
 
@@ -380,17 +353,12 @@ describe("findTextRanges - matches across inline boundaries (R6c)", () => {
     const body = setBody(`<style>.foo{}</style><p>foo</p><script>var foo=1</script>`);
     const ranges = findTextRanges(body, "foo");
     expect(ranges).toHaveLength(1);
-    expect(rangeText(ranges[0])).toBe("foo"); // only the visible <p>
+    expect(rangeText(ranges[0])).toBe("foo");
   });
 });
 
-// ---------------------------------------------------------------------------
-// line-rects - pure rect merging and seeding
-// ---------------------------------------------------------------------------
-
 describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
   it("merges rects sharing a vertical centre into one line", () => {
-    // Two fragments on the same line (e.g. text split by an <em>).
     const merged = mergeRectsByLine([
       rect(10, 100, 40, 20),
       rect(55, 100, 30, 20),
@@ -414,15 +382,13 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
     const merged = mergeRectsByLine([
       rect(10, 100, 40, 20),
       rect(10, 130, 40, 20),
-      rect(10, 100, 40, 200), // paragraph-spanning artifact
+      rect(10, 100, 40, 200),
     ]);
-    // The 200px-tall artifact is dropped; two normal lines remain.
     expect(merged).toHaveLength(2);
     expect(merged.every((r) => r.height <= 20)).toBe(true);
   });
 
   it("does not merge same-line rects across a wide horizontal gap", () => {
-    // Same vertical centre but far apart (flex justify-between columns).
     const merged = mergeRectsByLine([
       rect(10, 100, 40, 20),
       rect(400, 100, 40, 20),
@@ -453,8 +419,6 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
     const body = setBody(`<p>anchored</p>`);
     const range = document.createRange();
     range.selectNodeContents(body.querySelector("p")!);
-    // A zero-width caret rect above the real line; the anchor must skip it so the
-    // per-line seeds stay aligned to the lines the renderer actually paints.
     vi.spyOn(range, "getClientRects").mockReturnValue(
       domRectList([rect(20, 10, 0, 16), rect(30, 50, 100, 20)]),
     );
@@ -471,13 +435,11 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
     vi.spyOn(range, "getClientRects").mockReturnValue(domRectList(fakeRects));
 
     const anchor = { top: 100, left: 20 };
-    // Seeds are relative to the overlay container origin (3rd arg), not the
-    // anchor - so an upward drag that moves the anchor can't re-roll them. Pass
-    // originTop=100 so the line at top 100 still seeds to 0.
     const lines = rangesToLineRects([range], anchor, 100);
+    const linesNoAnchor = rangesToLineRects([range], undefined, 100);
+    expect(lines).toEqual(linesNoAnchor);
     expect(lines).toHaveLength(2);
     expect(lines[0]).toMatchObject({ seed: 0, isFirst: true, isLast: false });
-    // seed = round((130 - 100) * 7) = 210
     expect(lines[1]).toMatchObject({ seed: 210, isFirst: false, isLast: true });
   });
 
@@ -485,10 +447,6 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
     expect(rangesToLineRects([], { top: 0, left: 0 })).toEqual([]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Observers - dispose() removes all listeners (R8, R22, R33)
-// ---------------------------------------------------------------------------
 
 describe("createReflowObserver - dispose removes all listeners", () => {
   let observed: Set<Element>;
@@ -501,7 +459,6 @@ describe("createReflowObserver - dispose removes all listeners", () => {
   let fontsResolve: () => void;
   let disposers: Array<() => void>;
 
-  /** Create a reflow observer and track its disposer for teardown. */
   function makeReflow(targets: Element[], cb: () => void): () => void {
     const dispose = createReflowObserver(targets, cb);
     disposers.push(dispose);
@@ -553,8 +510,6 @@ describe("createReflowObserver - dispose removes all listeners", () => {
   }
 
   afterEach(() => {
-    // Dispose any still-live observers so their window listeners don't bleed
-    // into the next test (a stray listener would schedule an extra rAF).
     for (const dispose of disposers) dispose();
   });
 
@@ -571,7 +526,6 @@ describe("createReflowObserver - dispose removes all listeners", () => {
     document.body.appendChild(el);
     const cb = vi.fn();
     makeReflow([el], cb);
-    // Two resize events before a frame fires.
     window.dispatchEvent(new Event("resize"));
     window.dispatchEvent(new Event("resize"));
     expect(rafCallbacks.size).toBe(1);
@@ -585,7 +539,7 @@ describe("createReflowObserver - dispose removes all listeners", () => {
     const cb = vi.fn();
     const dispose = makeReflow([el], cb);
 
-    window.dispatchEvent(new Event("resize")); // schedule a pending rAF
+    window.dispatchEvent(new Event("resize"));
     const pendingId = [...rafCallbacks.keys()][0];
 
     dispose();
@@ -593,7 +547,6 @@ describe("createReflowObserver - dispose removes all listeners", () => {
     expect(removeSpy).toHaveBeenCalledWith("resize", expect.any(Function));
     expect(cancelled.has(pendingId)).toBe(true);
 
-    // A queued frame must not fire the callback after disposal.
     cb.mockClear();
     flushRaf();
     expect(cb).not.toHaveBeenCalled();
@@ -639,7 +592,6 @@ describe("createMutationWatcher - debounced and leak-free (R8)", () => {
 
     root.appendChild(document.createElement("span"));
     root.appendChild(document.createElement("span"));
-    // MutationObserver delivers microtask-async; let it enqueue.
     await Promise.resolve();
     expect(cb).not.toHaveBeenCalled();
 
@@ -660,7 +612,6 @@ describe("createMutationWatcher - debounced and leak-free (R8)", () => {
     vi.advanceTimersByTime(100);
     expect(cb).not.toHaveBeenCalled();
 
-    // No further callbacks after disposal even on new mutations.
     root.appendChild(document.createElement("span"));
     await Promise.resolve();
     vi.advanceTimersByTime(100);

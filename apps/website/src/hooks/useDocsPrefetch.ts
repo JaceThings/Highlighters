@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { IS_WEBKIT } from "../components/docs/is-webkit.ts";
 
-// Warm the /docs route from home while idle: JS chunk, quote font, WebKit-only paper raster.
 export function useDocsPrefetch(): void {
   useEffect(() => {
     let warmed = false;
@@ -9,7 +8,6 @@ export function useDocsPrefetch(): void {
       if (warmed) return;
       warmed = true;
       void import("../playground/DocsPlayground.tsx");
-      // Fully load (not just cache) the font so /docs paints it with no swap reflow.
       void document.fonts?.load?.('400 25px "Letters Home"')?.catch(() => {});
       if (IS_WEBKIT) prefetchImage("/paper-sheet.webp");
     };

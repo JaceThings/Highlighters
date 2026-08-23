@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { highlight } from "../src/highlight.js";
 import type { MarkHandle } from "@highlighters/core";
@@ -27,8 +26,6 @@ describe("highlight action - lifecycle", () => {
   });
 
   it("creates a core mark handle delegating to the core pipeline", () => {
-    // The action must call core highlight() - we observe by checking it does not
-    // throw and leaves the element's text intact (R29: no text mutation).
     const node = document.createElement("p");
     node.textContent = "Highlight me";
     container.appendChild(node);
@@ -58,8 +55,6 @@ describe("highlight action - lifecycle", () => {
     const before = container.innerHTML;
     const action = highlight(node, {});
     action.destroy();
-    // The overlay attaches to document.body, not the node; the node subtree must
-    // be byte-identical after destroy (R9 restores DOM to pre-highlight state).
     expect(container.innerHTML).toBe(before);
   });
 

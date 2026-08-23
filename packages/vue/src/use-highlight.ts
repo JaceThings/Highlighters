@@ -9,7 +9,6 @@ import {
 import { highlight } from "@highlighters/core";
 import type { HighlightOptions, MarkHandle, Target } from "@highlighters/core";
 
-/** A template ref to the element, or any core {@link Target}. */
 export type HighlightTarget = Ref<Element | null> | Target;
 
 function resolveTarget(target: HighlightTarget): Target | null {
@@ -17,20 +16,6 @@ function resolveTarget(target: HighlightTarget): Target | null {
   return (value ?? null) as Target | null;
 }
 
-/**
- * Applies a highlighter mark to a template ref (or core {@link Target}), returning a getter for its live {@link MarkHandle}.
- *
- * @example
- * ```vue
- * <script setup>
- * import { ref } from "vue";
- * import { useHighlight } from "@highlighters/vue";
- * const el = ref(null);
- * useHighlight(el, { color: { palette: "mild", swatch: "yellow" } });
- * </script>
- * <template><p ref="el">Highlight me</p></template>
- * ```
- */
 export function useHighlight(
   target: HighlightTarget,
   options?: MaybeRef<HighlightOptions | undefined>,
@@ -46,7 +31,6 @@ export function useHighlight(
 
   function sync(): void {
     if (!handle) {
-      // Target appeared after setup.
       setup();
       return;
     }
@@ -58,9 +42,7 @@ export function useHighlight(
     handle = null;
   }
 
-  // Recreate when the bound element changes.
   watch(() => resolveTarget(target), setup);
-  // Push option changes through update() without re-seeding geometry.
   if (options !== undefined) {
     watch(() => unref(options), sync, { deep: true });
   }

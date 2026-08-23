@@ -1,9 +1,7 @@
-// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 
 import { colorMinChannel, effectiveInk } from "../src/render/blend.js";
 
-/** A detached element whose computed background-color resolves to `bg` (happy-dom reads inline style). */
 function backdrop(bg: string): HTMLElement {
   const el = document.createElement("div");
   el.style.backgroundColor = bg;
@@ -20,13 +18,13 @@ describe("colorMinChannel", () => {
 
   it("yellow's min channel is its zero blue, not its high luminance", () => {
     expect(colorMinChannel("#ffff00")).toBe(0);
-    expect(colorMinChannel("#fff14d")).toBe(0x4d); // fluorescent yellow swatch
+    expect(colorMinChannel("#fff14d")).toBe(0x4d);
   });
 
   it("expands 3- and 4-digit hex", () => {
     expect(colorMinChannel("#fff")).toBe(255);
     expect(colorMinChannel("#f00")).toBe(0);
-    expect(colorMinChannel("#ffff")).toBe(255); // #rgba
+    expect(colorMinChannel("#ffff")).toBe(255);
   });
 
   it("parses rgb() / rgba()", () => {
@@ -65,9 +63,9 @@ describe("effectiveInk", () => {
 
   it("darkens a near-white ink to an off-white in the shared container on a light backdrop", () => {
     const r = effectiveInk("multiply", "#ffffff", backdrop("#fbfbf9"), doc);
-    expect(r.layer).toBeNull(); // stays in the shared multiply container, no private layer
+    expect(r.layer).toBeNull();
     expect(r.color).not.toBe("#ffffff");
-    expect(colorMinChannel(r.color)).toBeLessThan(255); // an actual off-white, not pure white
+    expect(colorMinChannel(r.color)).toBeLessThan(255);
   });
 
   it("assumes a light page when no opaque backdrop is found", () => {
@@ -112,7 +110,6 @@ describe("effectiveInk", () => {
     });
 
     it("never substitutes the colour, and is deterministic (no backdrop probe)", () => {
-      // backdrop null: the near-white path would probe, but vivid short-circuits before it.
       expect(effectiveInk("multiply", "#ffffff", null, doc, true)).toEqual({ layer: "normal", color: "#ffffff" });
       expect(effectiveInk("multiply", "#ffffff", null, doc, "screen")).toEqual({ layer: "screen", color: "#ffffff" });
     });

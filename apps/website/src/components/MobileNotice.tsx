@@ -6,7 +6,6 @@ import { detectDeviceRadius } from "../lib/device-radius.ts";
 
 const DISMISSED_KEY = "hl-mobile-notice-dismissed";
 
-/** Whether the notice has been dismissed before (persisted; safe in private mode). */
 export function isNoticeDismissed(): boolean {
   try {
     return localStorage.getItem(DISMISSED_KEY) === "1";
@@ -19,33 +18,28 @@ function markNoticeDismissed(): void {
   try {
     localStorage.setItem(DISMISSED_KEY, "1");
   } catch {
-    // private mode: a non-persisted dismissal is fine for this session
   }
 }
 
-// Close to iOS's sheet spring.
 const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const EXIT_MS = 420;
 const SMOOTHING = 0.6;
 const RADIUS_FLOOR = 22;
-// drop-shadow, not box-shadow, so the lift follows the squircle clip-path.
 const SHEET_SHADOW = "drop-shadow(0 -5px 18px rgba(20, 14, 10, 0.18))";
 
-// One-time dismissible heads-up on touch devices: the live demo needs a desktop pointer. Top corners follow the device screen radius.
 export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
   const isTouch = useIsTouchDevice();
-  const [mounted, setMounted] = useState(false); // present in the DOM through enter/exit
-  const [open, setOpen] = useState(false); // animation target
+  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     if (!isTouch || isNoticeDismissed()) return;
     setMounted(true);
-    const id = requestAnimationFrame(() => setOpen(true)); // next frame: slide up
+    const id = requestAnimationFrame(() => setOpen(true));
     return () => cancelAnimationFrame(id);
   }, [isTouch]);
 
-  // Lock background scroll while the sheet is up; clear a pending exit timer on unmount.
   useEffect(() => {
     if (!mounted) return;
     const prev = document.body.style.overflow;
@@ -58,7 +52,6 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
 
   if (!mounted) return null;
 
-  // True screen radius (floored for flat screens), as a Lisse squircle so the curve matches iOS, not a circular CSS arc.
   const radius = Math.max(detectDeviceRadius().screenCornerRadius, RADIUS_FLOOR);
 
   const dismiss = () => {
@@ -66,7 +59,7 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
     setOpen(false);
     exitTimer.current = setTimeout(() => {
       setMounted(false);
-      onDismissed?.(); // hand off to the mobile dock once the sheet has slid away
+      onDismissed?.();
     }, EXIT_MS);
   };
 
@@ -117,7 +110,6 @@ export function MobileNotice({ onDismissed }: { onDismissed?: () => void }) {
             letterSpacing: "-0.25px",
           }}
         >
-          {/* Device-screen mockup: bezel, notch, menu bar, wallpaper, and rounded top all baked into the PNG. */}
           <img
             src="/mac-mockup.png"
             alt=""

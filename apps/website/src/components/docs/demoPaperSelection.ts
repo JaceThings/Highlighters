@@ -3,7 +3,6 @@ function inDemoPaper(node: Node): boolean {
   return el?.closest(".demo-paper") != null;
 }
 
-/** Drop selection ranges that touch demo-paper content (covers Cmd+A over the whole page). */
 function pruneDemoPaperFromSelection(): void {
   const sel = document.getSelection();
   if (!sel?.rangeCount) return;
@@ -19,7 +18,6 @@ function pruneDemoPaperFromSelection(): void {
 
 let armed = 0;
 
-/** One shared listener while any demo paper is mounted. */
 export function armDemoPaperSelectionBlock(): () => void {
   if (armed++ === 0) document.addEventListener("selectionchange", pruneDemoPaperFromSelection);
   return () => {

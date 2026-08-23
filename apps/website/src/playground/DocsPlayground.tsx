@@ -6,9 +6,6 @@ import { OptionDemo, OPTION_DEMOS } from "./sections/OptionDemo.tsx";
 import { MoreSection } from "./sections/MoreSection.tsx";
 import { buildCuratedQuotes } from "./quote-marks.ts";
 
-// One live demo per visual option, all writing one shared options object. Lazy-loaded by Docs.
-// RowGrid snaps every demo to whole 24px rows, so the column rides the ruled grid no matter how tall
-// a card or its quote turns out to be (the .cv-demo's own 24px-multiple sizing just keeps slack ~0).
 export function DocsPlayground() {
   const quotes = useMemo(() => buildCuratedQuotes(OPTION_DEMOS.map((d) => d.title)), []);
 

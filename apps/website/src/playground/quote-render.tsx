@@ -3,10 +3,6 @@ import { m, type MotionValue } from "framer-motion";
 import type { MarkPlan } from "./quote-marks.ts";
 import type { Quote } from "./quotes.ts";
 
-// Shared quote presentation (font, card frame, mark-building) so Preview and its snap variant render
-// at one exact size and wrapping.
-
-// Self-hosted face (tokens.css) with system-hand fallbacks.
 export const QUOTE_FONT = '"Letters Home", "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive';
 export const QUOTE_INK = "#73574a";
 export const QUOTE_STYLE: CSSProperties = {
@@ -19,8 +15,6 @@ export const QUOTE_STYLE: CSSProperties = {
 };
 export const ATTRIBUTION_STYLE: CSSProperties = { fontFamily: QUOTE_FONT, fontSize: 20, opacity: 0.5 };
 
-// The quote card body. `hostRef` is the positioned wrapper @highlighters scopes its overlay to;
-// `pRef` reaches the `<p>` (the snap variant ranges into it).
 export function QuoteFrame({
   hostRef,
   pRef,
@@ -32,14 +26,11 @@ export function QuoteFrame({
   pRef?: Ref<HTMLParagraphElement>;
   author: string;
   children: ReactNode;
-  /** Compositor opacity for the marks layer (the mark-type swap fade). Defaults to fully opaque. */
   markOpacity?: MotionValue<number>;
 }) {
   return (
     <div className="flex w-full flex-1 select-none items-center justify-center overflow-hidden px-6 py-4">
       <div className="relative flex max-w-[420px] flex-col items-center gap-[10px] text-center" style={{ color: QUOTE_INK }}>
-        {/* Marks layer. Absolute inset-0 keeps the overlay's coordinate origin identical to the
-            wrapper while letting the mark-type swap fade it by compositor opacity, no re-raster. */}
         <m.div
           ref={hostRef}
           aria-hidden
@@ -57,8 +48,6 @@ export function QuoteFrame({
   );
 }
 
-// The quote at final size with NO marks, shown before Preview mounts. Frame matches Preview's so the
-// swap is height-neutral (a resize would re-raster the paper/scribble SVGs); no per-frame subscription.
 export function StaticQuote({ quote }: { quote: Quote }) {
   return (
     <QuoteFrame author={quote.author}>
@@ -69,8 +58,6 @@ export function StaticQuote({ quote }: { quote: Quote }) {
   );
 }
 
-// Build a quote's content nodes from a {@link MarkPlan}: an outer band per range, with `doubles`
-// sub-ranges nested in an inner mark (painted twice, the darker overlap). Seeds: 300+ bands, 900+ doubles.
 export function buildQuotePieces(
   words: string[],
   plan: MarkPlan,

@@ -8,7 +8,6 @@ import { INK_FADE_MS } from "./constants.ts";
 import { OpacitySlider } from "./OpacitySlider.tsx";
 import { playOptionClick } from "../../lib/marker-audio.ts";
 
-// Lisse ShadowConfig, not box-shadow, so the lift traces the squircle clip-path.
 const POPOVER_SHADOW: ShadowConfig = {
   offsetX: 0, offsetY: 6, blur: 14, spread: -6, color: "#73574A", opacity: 0.15,
 };
@@ -20,12 +19,9 @@ const MARK_OPTIONS: { type: MarkType; label: string }[] = [
   { type: "underline", label: "Underline" },
 ];
 
-// The preview "line" the band is shaped against; the cell clips any overshoot.
 const LINE_W = 24;
 const LINE_H = 22;
 
-// Endpoint-pooled translucent ink (denser at both ends), built from the animatable `--ink` via
-// color-mix so `transition: --ink` fades the whole gradient in one element, no second copy.
 const INK_GRADIENT =
   "linear-gradient(90deg," +
   " color-mix(in oklab, var(--ink) 50%, transparent) 0%," +
@@ -33,8 +29,6 @@ const INK_GRADIENT =
   " color-mix(in oklab, var(--ink) 33%, transparent) 84%," +
   " color-mix(in oklab, var(--ink) 50%, transparent) 100%)";
 
-// One mark-type option as a real highlighter band. Shape + texture are colour-independent so
-// they're memoised; only `--ink` changes and CSS-transitions, no geometry rebuild on a swap.
 function MarkOption({
   type,
   label,
@@ -53,9 +47,7 @@ function MarkOption({
   onSelect: (next: MarkType) => void;
 }) {
   const ink = useMemo(() => {
-    // Tighter overshoot than the live nib so the small stroke + caps fit the cell.
     const tip = { ...penToTip(pen).tip, overshoot: 4, overshootJitter: 0 };
-    // Square off chisel ends on thin bands so they don't read like the bullet's round cap (bullet ignores this).
     const radius = type === "highlight" ? (BASE_SELECTION_OPTIONS.edge?.radius ?? 3) : 0.8;
     const resolved = resolveOptions({
       ...BASE_SELECTION_OPTIONS,

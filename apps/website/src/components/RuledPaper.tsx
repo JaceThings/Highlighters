@@ -1,8 +1,5 @@
-// Ruled-paper background: a 1px line every 24px band, placed ~18px down each band (near the baseline)
-// rather than the band edge, so the docs copy rests on the rule like notebook paper. Layout's top
-// padding sets the content phase so the lines stay registered down the page.
 const LINE = "rgba(var(--primary-rgb), 0.06)";
-const BASELINE = 18; // px from each band top to the text baseline
+const BASELINE = 18;
 
 export function RuledPaper() {
   return (

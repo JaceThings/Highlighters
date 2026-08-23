@@ -5,14 +5,10 @@ import { makeBlobScribble, makeLassoStroke, linePath } from "./scribble-render.t
 import { toPath } from "./freehand.ts";
 import { IS_WEBKIT } from "./is-webkit.ts";
 
-// The colour swatch as a hand-drawn marker scribble, plus the lasso that rings the selected one:
-// a seeded scribble fill for the blob, and a Perfect Freehand stroke drawn on along a loop for the lasso.
-
-const VIEW = 40; // square authoring viewBox for the blob
+const VIEW = 40;
 const BLOB_STROKE = 5.4;
 const LASSO_INK = "#73574a";
 
-// Subtle paper-wobble on the blob edges.
 function BlobFilter({ id }: { id: string }) {
   return (
     <filter id={id} x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
@@ -22,7 +18,6 @@ function BlobFilter({ id }: { id: string }) {
   );
 }
 
-// Memoized on stable primitive props, so an option change elsewhere won't re-reconcile the SVG + filter subtrees.
 export const ScribbleSwatch = memo(function ScribbleSwatch({ hex, seed, size }: { hex: string; seed: number; size: number }) {
   const filterId = useId().replace(/[^a-zA-Z0-9]/g, "");
   const d = useMemo(() => linePath(makeBlobScribble({ size: VIEW, seed })), [seed]);
@@ -32,7 +27,6 @@ export const ScribbleSwatch = memo(function ScribbleSwatch({ hex, seed, size }: 
       aria-hidden
       style={{ display: "block", width: size, height: size, overflow: "visible" }}
     >
-      {/* Paper-wobble filter skipped on WebKit (slow turbulence); the scribble shape carries the look. */}
       {!IS_WEBKIT && (
         <defs>
           <BlobFilter id={filterId} />
@@ -51,20 +45,16 @@ export const ScribbleSwatch = memo(function ScribbleSwatch({ hex, seed, size }: 
   );
 });
 
-// Two prebuilt stroke configs so the rAF loop allocates none; they differ only by `last`.
 const LASSO_CAP = { cap: true, taper: 0 };
 const LASSO_OPTS_DRAW = { size: 3, thinning: 0.62, smoothing: 0.7, streamline: 0.62, simulatePressure: false, start: LASSO_CAP, end: LASSO_CAP, last: false };
 const LASSO_OPTS_LAST = { ...LASSO_OPTS_DRAW, last: true };
 const SPREAD_MS = 80;
 const SPREAD_POW = 2.5;
 
-/** The selection ring: a hand-drawn loop drawn on along its path (instant under reduced motion).
- *  `seed` varies the wobble per selection; `draw={false}` for a static ring (keyboard-focus preview). */
 export function ScribbleLasso({ seed, size, draw = true, drawMs: drawMsProp }: { seed: number; size: number; draw?: boolean; drawMs?: number }) {
   const pathRef = useRef<SVGPathElement>(null);
   const pts = useMemo(() => makeLassoStroke(size, seed), [seed, size]);
   const staticD = useMemo(() => toPath(getStroke(pts, LASSO_OPTS_LAST)), [pts]);
-  // Match the audio clip playing with it when given; else vary the speed per pick.
   const drawMsRandom = useMemo(() => 50 + mulberry(seed + 9277)() * 100, [seed]);
   const drawMs = drawMsProp ?? drawMsRandom;
 
@@ -79,7 +69,7 @@ export function ScribbleLasso({ seed, size, draw = true, drawMs: drawMsProp }: {
     const n = pts.length;
     let raf = 0;
     const t0 = performance.now();
-    el.setAttribute("d", ""); // nib hasn't touched down
+    el.setAttribute("d", "");
     const tick = (now: number) => {
       const e = now - t0;
       const head = Math.min(1, e / drawMs);

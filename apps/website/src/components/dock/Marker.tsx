@@ -11,52 +11,37 @@ import { useNavModality } from "../../hooks/useNavModality.ts";
 import { playMarkerSelect, primeMarkerAudio } from "../../lib/marker-audio.ts";
 import type { PenTip } from "../../selection-style.tsx";
 
-// Render wider so the body (26.1475 of the 43-unit viewBox) lands at 27px.
-// Exported so the collapsed drag marker reuses the exact dock-pen geometry (it IS the same pen).
-export const SVG_W = (27 * 43) / 26.1475; // ~44.4px
+export const SVG_W = (27 * 43) / 26.1475;
 
 export const FRAME_H = DOCK_H;
-export const REST_TOP = FRAME_H - 95.45; // resting offset above the tray floor
-const GAP = 71 - SVG_W; // pen centres sit 71px apart
-export const STEP = SVG_W + GAP; // 71px between pen slots
-export const SELECTED_RISE = 24; // selected-pen lift (see global.css)
-const HOVER_RISE = 6; // hovered-pen lift (see global.css .dock-pen:hover)
+export const REST_TOP = FRAME_H - 95.45;
+const GAP = 71 - SVG_W;
+export const STEP = SVG_W + GAP;
+export const SELECTED_RISE = 24;
+const HOVER_RISE = 6;
 
-// Traveling keyboard focus outline: one designed outline (pen-outlines.ts) springs between pens.
-// Rendered at the pen art's scale, centred on the barrel, parked at the nib; the slot box clips the
-// barrel at the floor. The three nib silhouettes are stacked and crossfaded (they can't morph).
-const SCALE = SVG_W / 43; // pen viewBox unit -> px
-const OUTLINE_W = 39 * SCALE; // designed outlines are 39 wide at the pen's scale
-const OUTLINE_LEFT = (SVG_W - OUTLINE_W) / 2; // centre the band on the barrel
+const SCALE = SVG_W / 43;
+const OUTLINE_W = 39 * SCALE;
+const OUTLINE_LEFT = (SVG_W - OUTLINE_W) / 2;
 const OUTLINE_LIFT = 4;
 
-// Match the pen's rise easing/timing so the outline lift stays in step with the nib.
 const OUTLINE_RISE = { duration: 0.24, ease: [0.2, 0, 0, 1] as const };
 const OUTLINE_TRAVEL = { type: "spring", stiffness: 700, damping: 42 } as const;
 const OUTLINE_FADE = { duration: 0.16 } as const;
 const INSTANT = { duration: 0 } as const;
 
-/** The single focus outline: a slot box clipped at the tray floor, sprung to the focused pen,
- *  lifted to its nib, with the three nib silhouettes stacked and crossfaded. `idx` = keyboard-
- *  focused pen (null = hidden); parks at its last slot while fading so it never flies in from slot 0. */
 function MarkerOutline({ idx, selectedIdx, hoveredIdx }: { idx: number | null; selectedIdx: number; hoveredIdx: number | null }) {
   const { tips, preview } = useOutlineTuning();
-  // A previewed tip (dev tuning) force-shows its outline; otherwise follow keyboard focus.
   const previewIdx = preview ? PENS.findIndex((p) => p.id === preview) : null;
   const activeIdx = previewIdx ?? idx;
   const lastIdx = useRef(0);
-  // Park at the last focused slot while fading out.
   const slot = activeIdx ?? lastIdx.current;
   const focusedTip = PENS[slot].id;
-  // Selected lift (-24) wins over hover (-6), mirroring .dock-pen CSS, so the outline stays glued.
   const risen = slot === selectedIdx;
   const liftY = risen ? -SELECTED_RISE : slot === hoveredIdx ? -HOVER_RISE : 0;
-  // Snap position/rise/tip on the first frame after reappearing, else it flies across and morphs
-  // from the stale tip; just fade it in at the focused pen.
   const visible = activeIdx !== null;
   const prevVisible = useRef(false);
   const appearing = visible && !prevVisible.current;
-  // Stash refs after commit (not during render) to stay concurrent-safe.
   useEffect(() => {
     if (activeIdx !== null) lastIdx.current = activeIdx;
     prevVisible.current = visible;
@@ -112,8 +97,6 @@ const NUM_STYLE: CSSProperties = {
   transition: "opacity 160ms ease",
 };
 
-// Fades out across the 99<->100 boundary without ever rendering "100": holds the last sub-100 value and fades it.
-// Exported so the carried drag overlay shows the same readout, travelling with the pen.
 export function OpacityReadout({ pct }: { pct: number }) {
   const visible = pct < 100;
   const lastVisible = useRef(visible ? pct : 99);
@@ -128,7 +111,6 @@ export function OpacityReadout({ pct }: { pct: number }) {
   );
 }
 
-// Opaque pen tips dissolve cleanly old->new, sidestepping the false mid-hue an interpolation crosses.
 interface PenDef {
   id: PenTip;
   label: string;
@@ -140,10 +122,8 @@ const PENS: PenDef[] = [
   { id: "fine", label: "Fine marker" },
 ];
 
-// Pen ids in row order (left -> right), so the drag overlay can compute a pen's along-row slot offset.
 export const PEN_ORDER: PenTip[] = PENS.map((p) => p.id);
 
-// Pen wants an oklch() string: its tip shading reads OKLCH lightness.
 const toPen = (hex: string) => oklchToCss(hexToOklch(hex));
 
 export function MarkerRow({
@@ -156,21 +136,14 @@ export function MarkerRow({
 }: {
   color: string;
   selected: PenTip;
-  /** Per-pen ink opacity (0-1); each pen shows its own as a percentage. */
   opacityByPen: Record<PenTip, number>;
   onSelect: (pen: PenTip) => void;
-  /** Clicking the already-selected pen opens the marker popover on this button. */
   onActivate: (button: HTMLButtonElement) => void;
-  /** Carried-overlay opacity (0-1). The selected pen's art fades out as this rises (1 - value), driven
-   *  off the SAME MotionValue as the overlay so the hand-off is atomic in one rAF - never a frame with
-   *  both the row pen and the overlay visible (the doubled marker). */
   hideSelected?: MotionValue<number>;
 }) {
-  // New colour shows instantly on the base pen; the previous colour renders on top and dissolves out.
   const [fadeOut, setFadeOut] = useState<{ color: string; key: number } | null>(null);
   const prevColor = useRef(color);
   const keyRef = useRef(0);
-  // useLayoutEffect so the dissolving overlay is painted before the new base.
   useLayoutEffect(() => {
     if (prevColor.current === color) return;
     const previous = prevColor.current;
@@ -185,24 +158,14 @@ export function MarkerRow({
     return () => clearTimeout(timer);
   }, [color]);
 
-  // Which pen the traveling outline points at (null = hidden). Tracked here, not via :focus-visible,
-  // since one shared outline animates between pens; useNavModality gates keyboard vs pointer.
   const [focusIdx, setFocusIdx] = useState<number | null>(null);
-  // Hovered pen, so the keyboard outline rises with the pen art on hover too.
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const keyboard = useNavModality();
 
   const selectedIdx = PENS.findIndex((p) => p.id === selected);
 
-  // Clip each pen's hit region in from the top/sides so the grab-handle band above the pens (and any
-  // neighbour spill) can't steal their hover/click. The art sits well below the top inset, so it never
-  // clips - even the selected pen's full -24px rise stays clear.
   const hitClip = `inset(${PEN_TOP_INSET}px ${PEN_SIDE_INSET}px 0px ${PEN_SIDE_INSET}px)`;
 
-  // Fade the selected pen's art (and its readout) out as the carried overlay takes over, keyed off the
-  // overlay's own opacity MotionValue. Both the overlay (its outer opacity) and this hide flush in the
-  // same rAF, so the swap is atomic - the row pen and overlay are never both visible (no doubled pen),
-  // and the row never reappears a frame before the overlay (parked at the tray centre) finishes hiding.
   const rowRef = useRef<HTMLDivElement>(null);
   const hideRef = useRef(hideSelected);
   hideRef.current = hideSelected;
@@ -234,12 +197,10 @@ export function MarkerRow({
                 onSelect(p.id);
               }
             }}
-            // Keyboard focus shows the outline; a pointer focus clears it, so it can't strand on a stale pen.
             onFocus={() => setFocusIdx(keyboard.current ? i : null)}
             onPointerEnter={() => setHoveredIdx(i)}
             onPointerLeave={() => setHoveredIdx((h) => (h === i ? null : h))}
             onBlur={(e) => {
-              // Keep the outline alive only while focus hops to a sibling pen (so it travels, not blinks).
               if (!(e.relatedTarget as HTMLElement | null)?.closest(".dock-pen")) {
                 setFocusIdx(null);
               }
@@ -255,7 +216,6 @@ export function MarkerRow({
               style={place}
             />
             {fadeOut && (
-              // colorOnly skips the barrel shadow (no doubling); keyed so rapid swaps restart the fade.
               <Pen
                 key={fadeOut.key}
                 tip={p.id}
@@ -266,8 +226,6 @@ export function MarkerRow({
                 style={{ ...place, animation: `dock-ink-out ${INK_FADE_MS}ms ease forwards` }}
               />
             )}
-            {/* Rides the pen transform (.dock-pen-art) so the digits track its rise/pop. Hidden for the
-                lifted pen so the carried overlay's readout (which travels with it) isn't doubled. */}
             <span
               aria-hidden
               className="dock-pen-art dock-lift-art pointer-events-none absolute"

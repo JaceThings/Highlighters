@@ -7,9 +7,6 @@ const coreAlias = {
 
 export default defineConfig({
   test: {
-    // Coverage configuration applies across all projects when `--coverage`
-    // is passed. lcov is the format Codecov consumes; the others give us
-    // local-friendly outputs.
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov", "html"],

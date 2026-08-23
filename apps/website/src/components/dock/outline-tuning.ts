@@ -1,9 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { PenTip } from "../../selection-style.tsx";
 
-// Live tuning for the marker focus outlines: per-tip nudge + scale, plus a `preview` pen to
-// force-show the outline while dialing (clicking the panel drops keyboard focus). DEFAULT_TUNING
-// ships; the dev-only DialKit panel (OutlineDials) writes the rest.
 export interface TipTune {
   dx: number;
   dy: number;
@@ -15,7 +12,6 @@ export interface OutlineTuning {
   preview: PenTip | null;
 }
 
-// Shipped per-tip offsets; the single source (OutlineDials seeds its sliders from this).
 export const DEFAULT_TUNING: Record<PenTip, TipTune> = {
   slant: { dx: 0, dy: -2, scale: 1 },
   round: { dx: 0, dy: -3, scale: 1 },

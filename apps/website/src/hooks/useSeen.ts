@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-// Defer a section's live Preview until it nears the viewport. One-way latch: once seen it never resets,
-// so a painted card stays mounted. Where IntersectionObserver is absent (SSR/old engines), it's seen at once.
 export function useSeen(rootMargin = "350px") {
   const ref = useRef<HTMLDivElement | null>(null);
   const [seen, setSeen] = useState(false);

@@ -2,8 +2,6 @@ import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObje
 import maskUrl from "./slider-mask.svg";
 import { feedRumble } from "../../lib/marker-audio.ts";
 
-// Shared primitives for the dock's capsule sliders. 1:1 with slider-mask.svg's 284x43
-// viewBox; the knob centre travels cap-centre to cap-centre so it never clips a corner.
 const TRACK_W = 284;
 export const TRACK_H = 43;
 const KNOB = 39;
@@ -16,7 +14,6 @@ const easeOut = (p: number) => 1 - Math.pow(1 - p, 3);
 export const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
 
-// Single-path mask clips a ramp to the capsule, so no cap/middle seam.
 export const capsuleMask = {
   maskImage: `url("${maskUrl}")`,
   WebkitMaskImage: `url("${maskUrl}")`,
@@ -26,15 +23,12 @@ export const capsuleMask = {
   WebkitMaskRepeat: "no-repeat",
 };
 
-/** Knob centre as a left %, within the cap-to-cap travel. */
 export function knobLeftPercent(value: number, min: number, max: number): string {
   const t = max - min === 0 ? 0 : (value - min) / (max - min);
   const center = TRAVEL_MIN + clamp(t, 0, 1) * (TRAVEL_MAX - TRAVEL_MIN);
   return `${(center / TRACK_W) * 100}%`;
 }
 
-/** White-ring knob, above the mask so its ring stays crisp at the extremes. `color` fills the centre; omit for a hollow ring.
- *  Always pointer-transparent: an interactive knob would swallow pointerdown and kill drags that grab it. */
 export function CapsuleKnob({ left, color }: { left: string; color?: string }) {
   return (
     <div
@@ -52,8 +46,6 @@ export function CapsuleKnob({ left, color }: { left: string; color?: string }) {
   );
 }
 
-/** Pointer behaviour for a capsule slider: a tap glides to the target over GLIDE_MS; the
- *  first few px of travel promote to a drag tracking the pointer. X maps across full min->max. */
 export function useCapsuleDrag({
   trackRef,
   value,
@@ -70,7 +62,6 @@ export function useCapsuleDrag({
   const rafRef = useRef(0);
   const draggingRef = useRef(false);
   const downXRef = useRef(0);
-  // Latest onChange for the rAF glide, in case the parent re-renders mid-animation.
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -100,7 +91,6 @@ export function useCapsuleDrag({
   };
 
   return {
-    // Glide to a target over GLIDE_MS, e.g. so keyboard nudges ease across instead of snapping.
     glideTo,
     onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
       e.currentTarget.setPointerCapture(e.pointerId);

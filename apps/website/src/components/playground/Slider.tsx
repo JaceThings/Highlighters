@@ -23,7 +23,6 @@ import { useEditableValue } from "./useEditableValue.ts";
 import { usePointerDrag } from "./usePointerDrag.ts";
 import { feedSliderSound, primeMarkerAudio, stopSliderSound } from "../../lib/marker-audio.ts";
 
-// Track geometry.
 const TRACK_HEIGHT = 14;
 const TRACK_SMOOTHING = 0.6;
 
@@ -33,26 +32,16 @@ interface SliderProps {
   min: number;
   max: number;
   step?: number;
-  /** Optional muted caption under the track row; zero layout impact when absent. */
   description?: string;
-  /** `fromDrag` is true only for continuous pointer-drag updates; tap, keyboard, revert, and typed
-   *  input report `false` so the consumer animates the change. */
   onChange: (next: number, fromDrag?: boolean) => void;
-  /** Enforced minimum the value can't drop below. The track still spans min->max, so a custom fill can mark the 0->floor region. */
   floor?: number;
-  /** Optional display formatter, e.g. `(v) => v.toFixed(2)`. */
   format?: (value: number) => string;
-  /** Seed formatter for the editable input when `format` returns a decorated string the input shouldn't seed with. Falls back to `format`. */
   formatSeed?: (value: number) => string;
-  /** Extra values fed through `format` for the readout's reserved width, so wider formatted strings still fit without reflow. */
   formatSamples?: readonly number[];
-  /** Replace the solid fill with custom content (e.g. a scribble). Receives the live `reported` so it can reveal by the slider fraction. */
   renderFill?: (ctx: { reported: MotionValue<number>; min: number; max: number; floor?: number }) => ReactNode;
-  /** Play the marker scribble sound while the slider is scrubbed (drag or arrow keys). */
   scrubSound?: boolean;
 }
 
-// Isolates per-frame readout state so digit morphing re-renders only this node, not the whole Slider.
 function Readout({ displayed }: { displayed: MotionValue<string> }) {
   const [text, setText] = useState(() => displayed.get());
   useMotionValueEvent(displayed, "change", setText);
@@ -78,12 +67,10 @@ export function Slider({
   const trackHeight = TRACK_HEIGHT;
   const trackRef = useRef<HTMLDivElement | null>(null);
   const propAnimRef = useRef<ReturnType<typeof animate> | null>(null);
-  // Captured once on mount; double-click on the label reverts to this.
   const initialValueRef = useRef<number>(value);
 
   const safeRange = max - min === 0 ? 1 : max - min;
   const lo = lowerBound(min, floor);
-  // Memoised so `reservedChars` (which calls `format()`) doesn't rerun on every drag tick.
   const readoutMinWidth = useMemo(
     () => `${reservedChars(min, max, step, format, formatSamples)}ch`,
     [min, max, step, format, formatSamples],
@@ -91,10 +78,8 @@ export function Slider({
 
   const reported = useMotionValue(value);
 
-  // Signed ranges (min < 0 < max) anchor the fill at zero and grow outward; unsigned stay left-anchored.
   const isSigned = min < 0 && max > 0;
   const toPercent = (v: number) => ((v - min) / safeRange) * 100;
-  // Treat the +/-step/2 band around zero as zero so a sub-step value doesn't paint a sliver while the readout shows "0".
   const fillLeft = useTransform(reported, (v) => {
     const clamped = clamp(v, min, max);
     if (isSigned && Math.abs(clamped) < step / 2) {
@@ -116,7 +101,6 @@ export function Slider({
     return format ? format(stepped) : String(stepped);
   });
 
-  // Marker scrub sound, gated once: each is undefined when scrubSound is off.
   const scrubFeed = scrubSound ? feedSliderSound : undefined;
   const scrubPrime = scrubSound ? primeMarkerAudio : undefined;
   const scrubStop = scrubSound ? stopSliderSound : undefined;
@@ -140,10 +124,8 @@ export function Slider({
     onScrubEnd: scrubStop,
   });
 
-  // Stop any scribble this slider started if it unmounts mid-scrub.
   useEffect(() => scrubStop, [scrubStop]);
 
-  // Tween `reported` toward the prop on non-drag changes; during a drag the drag is the source of truth.
   useEffect(() => {
     if (drag.isDraggingRef.current) return;
     if (propAnimRef.current) propAnimRef.current.stop();
@@ -167,11 +149,10 @@ export function Slider({
     const next = clamp(Number(e.currentTarget.value), lo, max);
     if (next !== value) {
       onChange(next, false);
-      scrubFeed?.(); // arrow nudge: a brief scribble that fades on idle
+      scrubFeed?.();
     }
   };
 
-  // Shift+Arrow jumps 10x step; plain arrows fall through to the browser's default +/-step.
   const handleRangeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!e.shiftKey) return;
     const dir = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1
@@ -228,8 +209,6 @@ export function Slider({
           </span>
         )}
       </div>
-      {/* Hit-area band. `-mt-2` cancels the `gap-2`, `pt-2` reclaims it as a top hit extension,
-          so the target reaches ~32px without overlapping the label's double-click area. */}
       <div
         className="w-full touch-none select-none pt-2 pb-4 -mt-2 -mb-4"
         onPointerEnter={scrubPrime}
@@ -247,7 +226,6 @@ export function Slider({
         >
           <div className="absolute inset-0 h-full w-full">
             {renderFill ? (
-              // A custom fill owns the whole track; `overflow: visible` lets a warped edge bleed.
               <div className="relative h-full w-full" style={{ overflow: "visible" }} aria-hidden>
                 {renderFill({ reported, min, max, floor })}
               </div>
@@ -269,8 +247,6 @@ export function Slider({
               </SmoothCorners>
             )}
           </div>
-          {/* Hidden native range = keyboard + screen-reader path. Pointer-events off so it never
-              steals drags; stays focusable via Tab for arrow input. */}
           <input
             id={id}
             type="range"

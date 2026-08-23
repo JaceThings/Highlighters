@@ -3,9 +3,6 @@ import getStroke from "perfect-freehand";
 import type { Squiggle, PressurePoint } from "./squiggles.ts";
 import { outlineViewBox, samplePath, toPath } from "./freehand.ts";
 
-// A hand-drawn marker underline: sample a squiggle's centreline and run it through Perfect Freehand
-// each frame so the stroke lays down along the path, ink spreading to full width just behind the nib.
-
 const SIZE = 3.4;
 const THINNING = 0.65;
 const SMOOTHING = 0.5;
@@ -50,7 +47,6 @@ export function MarkUnderline({
   squiggle: Squiggle;
   color?: string;
   opacity?: number;
-  /** Draw it on along the path; false renders the finished stroke instantly. */
   animate?: boolean;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
@@ -74,7 +70,7 @@ export function MarkUnderline({
 
     let raf = 0;
     const t0 = performance.now();
-    el.setAttribute("d", ""); // nib hasn't touched down yet
+    el.setAttribute("d", "");
 
     const tick = (now: number) => {
       const e = now - t0;

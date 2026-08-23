@@ -3,7 +3,6 @@ import { useBindMotion, useOpacityBind } from "./bindMotion.ts";
 import type { DockGeometry } from "./useDockDrag.ts";
 import type { DockRefs } from "./dockRefs.ts";
 
-// Imperative MotionValue → DOM bindings (avoids framer reading values back into our MotionValues).
 export function useDockBindings(geometry: DockGeometry, refs: DockRefs) {
   const { tray, clip, feather, backdrop, horizontal, vertical, horizontalLayer, verticalLayer } = refs;
 
@@ -29,7 +28,6 @@ export function useDockBindings(geometry: DockGeometry, refs: DockRefs) {
     },
     [geometry],
   );
-  // Counter-translate contents during collapse so they dissolve in place instead of sliding sideways.
   const applyContentFreeze = useCallback(
     (el: HTMLElement | SVGElement) => {
       const s = el as HTMLElement;

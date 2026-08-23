@@ -1,11 +1,8 @@
-// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-// Mock the core so we can observe that the wrapper delegates fully to its
-// `highlight()` pipeline (blueprint A1) and forwards updates to the handle.
 const handleSpies = {
   show: vi.fn(),
   hide: vi.fn(),
@@ -71,7 +68,6 @@ describe("useHighlight", () => {
     expect(handleSpies.remove).not.toHaveBeenCalled();
     act(() => root.unmount());
     expect(handleSpies.remove).toHaveBeenCalledTimes(1);
-    // Re-create a root so afterEach's unmount has a live target.
     container = document.createElement("div");
     root = createRoot(container);
   });
@@ -88,8 +84,6 @@ describe("useHighlight", () => {
     handleSpies.update.mockClear();
 
     render(<Probe opacity={0.9} />);
-    // The mark is not re-created (still one highlight() call); the changed
-    // options flow through update() (R22d: preserve stable geometry).
     expect(highlightMock).toHaveBeenCalledTimes(1);
     expect(handleSpies.update).toHaveBeenCalled();
     expect(handleSpies.update).toHaveBeenLastCalledWith({ opacity: 0.9 });
@@ -103,8 +97,8 @@ describe("useHighlight", () => {
     }
 
     render(<Probe show={false} />);
-    expect(highlightMock).not.toHaveBeenCalled(); // no element yet → no mark
-    render(<Probe show />); // element appears → recovery effect creates the mark
+    expect(highlightMock).not.toHaveBeenCalled();
+    render(<Probe show />);
     expect(highlightMock).toHaveBeenCalledTimes(1);
     const [target] = highlightMock.mock.calls[0];
     expect((target as Element).tagName).toBe("P");
@@ -142,8 +136,6 @@ describe("<Highlight>", () => {
     expect(highlightMock).toHaveBeenCalledTimes(1);
 
     render(<Highlight as="p">x</Highlight>);
-    // The element type changed: the old node's mark is removed and a new one is
-    // created on the new node (rather than being stranded on the unmounted span).
     expect(container.querySelector("p")).not.toBeNull();
     expect(container.querySelector("span")).toBeNull();
     expect(handleSpies.remove).toHaveBeenCalled();

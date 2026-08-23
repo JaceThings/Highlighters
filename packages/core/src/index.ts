@@ -1,5 +1,3 @@
-/** `@highlighters/core` - the framework-agnostic public API. The DOM-free subset is available from the SSR-safe `@highlighters/core/path` entry. */
-
 export { highlight, highlightAll, highlightSelection, group } from "./render/highlight.js";
 
 export { resolveOptions, mergeOptions } from "./config/merge.js";

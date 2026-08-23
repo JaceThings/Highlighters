@@ -1,5 +1,3 @@
-/** Option merging and resolution. SSR-safe (no DOM access). */
-
 import type {
   BlendMode,
   ColorValue,
@@ -18,32 +16,33 @@ import { clamp } from "../internal/math.js";
 import { DEFAULT_OPTIONS } from "./defaults.js";
 import { defaultSwatch, resolveSwatch } from "./palettes.js";
 
-/** A finite number, else `fallback`. Guards against NaN/Infinity leaking into geometry/CSS. */
+function isPaletteSwatch(
+  color: ColorValue | PaletteSwatch,
+): color is PaletteSwatch {
+  return "palette" in Object(color) && "swatch" in Object(color);
+}
+
 function finiteOr(value: number | undefined, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return value !== undefined && Number.isFinite(value) ? value : fallback;
 }
 
-/** A finite, strictly-positive number, else `fallback`. */
 function positiveOr(value: number | undefined, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+  return value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-/** The namespaced option groups that are merged field-wise rather than replaced. */
 const GROUP_KEYS = ["tip", "ink", "speed", "edge", "paper", "glow", "animation"] as const;
 
 type GroupKey = (typeof GROUP_KEYS)[number];
 
-/** Shallow-merge a single namespaced group, with `override` winning per field. */
-function mergeGroup(
-  base: Record<string, unknown> | undefined,
-  override: Record<string, unknown> | undefined,
-): Record<string, unknown> | undefined {
+function mergeGroup<K extends GroupKey>(
+  base: HighlightOptions[K],
+  override: HighlightOptions[K],
+): HighlightOptions[K] {
   if (base === undefined) return override;
   if (override === undefined) return base;
   return { ...base, ...override };
 }
 
-/** Deep-merge two partials: scalars take `override`, namespaced groups merge field-wise, `shape`/`markType` collapse onto `markType`. Pure. */
 export function mergeOptions(
   base: HighlightOptions,
   override: HighlightOptions,
@@ -51,14 +50,11 @@ export function mergeOptions(
   const result: HighlightOptions = { ...base, ...override };
 
   for (const key of GROUP_KEYS) {
-    const merged = mergeGroup(
-      base[key] as Record<string, unknown> | undefined,
-      override[key] as Record<string, unknown> | undefined,
-    );
+    const merged = mergeGroup(base[key], override[key]);
     if (merged === undefined) {
       delete result[key];
     } else {
-      (result as Record<GroupKey, unknown>)[key] = merged;
+      result[key] = merged;
     }
   }
 
@@ -72,18 +68,16 @@ export function mergeOptions(
   return result;
 }
 
-/** Resolve the `color`/`palette` inputs to a concrete {@link ColorValue}. */
 function resolveColor(
   color: ColorValue | PaletteSwatch | undefined,
   palette: HighlightOptions["palette"],
   fallback: ColorValue,
 ): ColorValue {
-  // Empty/whitespace string is treated as unset so it can't emit an empty colour token into the gradient.
-  if (typeof color === "string" && color.trim() !== "") {
-    return color;
-  }
-  if (color && typeof color === "object") {
+  if (color != null && isPaletteSwatch(color)) {
     return resolveSwatch(color);
+  }
+  if (color != null && color.trim() !== "") {
+    return color;
   }
   if (palette) {
     return defaultSwatch(palette);
@@ -91,10 +85,8 @@ function resolveColor(
   return fallback;
 }
 
-/** Resolve a partial {@link HighlightOptions} into a fully-defaulted {@link ResolvedOptions}. Pure. */
 export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   const d = DEFAULT_OPTIONS;
-
   const merged = mergeOptions({}, input);
 
   const tip: ResolvedTip = {
@@ -118,7 +110,6 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   };
 
   const sd = d.speed;
-  // Order thresholds so fastSpeed >= slowSpeed; an inverted pair collapses the velocity normalizer's denominator.
   const rawSlow = Math.max(0, finiteOr(merged.speed?.slowSpeed, sd.slowSpeed));
   const rawFast = Math.max(0, finiteOr(merged.speed?.fastSpeed, sd.fastSpeed));
   const speed: ResolvedSpeedDynamics = {
@@ -147,7 +138,6 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
     absorbency: finiteOr(merged.paper?.absorbency, d.paper.absorbency),
   };
 
-  // A `palette` with no `color` draws that palette's default swatch; detect from raw input, not merged.
   const color =
     input.color === undefined && input.palette !== undefined
       ? defaultSwatch(input.palette)
