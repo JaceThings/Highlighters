@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BROWSER } from "../lib/browser-env.ts";
 
 export function useSeen(rootMargin = "350px") {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -7,7 +8,7 @@ export function useSeen(rootMargin = "350px") {
     if (seen) return;
     const el = ref.current;
     if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
+    if (!BROWSER.hasIntersectionObserver) {
       setSeen(true);
       return;
     }

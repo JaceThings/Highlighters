@@ -13,7 +13,6 @@ export { hashJitter, hashU32, mulberry } from "./geometry/rng.js";
 export type {
   ColorValue,
   MarkType,
-  ShapeType,
   TipType,
   EdgeCap,
   BlendMode,

@@ -19,41 +19,30 @@ const SD: ResolvedSpeedDynamics = {
 const LINE = { top: 50, height: 16, left: 0, width: 300 };
 
 function node(): Text {
-  return { nodeType: 3, length: 10000 } as unknown as Text;
+  const text = document.createTextNode("x".repeat(10000));
+  document.body.appendChild(text);
+  return text;
 }
 function selection(n: Text, anchorOffset: number, focusOffset: number): Selection {
-  return {
-    anchorNode: n,
-    anchorOffset,
-    focusNode: n,
-    focusOffset,
-    isCollapsed: false,
-  } as unknown as Selection;
+  const current = document.getSelection()!;
+  current.setBaseAndExtent(n, anchorOffset, n, focusOffset);
+  return current;
 }
 
 let original: typeof document.createRange;
 beforeEach(() => {
   original = document.createRange;
-  (document as unknown as { createRange: () => Range }).createRange = (): Range => {
+  document.createRange = (): Range => {
+    const range = original.call(document);
     let startOffset = 0;
-    const rect = (): DOMRect =>
-      ({
-        left: startOffset,
-        right: startOffset,
-        top: LINE.top,
-        bottom: LINE.top + LINE.height,
-        width: 0,
-        height: LINE.height,
-      }) as DOMRect;
-    return {
-      setStart: (_n: Node, o: number) => {
-        startOffset = o;
-      },
-      setEnd: () => {},
-      collapse: () => {},
-      getClientRects: () => [rect()] as unknown as DOMRectList,
-      getBoundingClientRect: () => rect(),
-    } as unknown as Range;
+    const setStart = range.setStart.bind(range);
+    range.setStart = (n: Node, o: number): void => {
+      startOffset = o;
+      setStart(n, o);
+    };
+    range.getBoundingClientRect = (): DOMRect =>
+      new DOMRect(startOffset, LINE.top, 0, LINE.height);
+    return range;
   };
 });
 afterEach(() => {
@@ -114,7 +103,12 @@ describe("SelectionVelocityTracker", () => {
   it("a new gesture (reset on pointerdown) discards the previous swipe's speeds", () => {
     const t = new SelectionVelocityTracker();
     const n = node();
-    for (const [o, time] of [[0, 0], [100, 510], [200, 520]] as [number, number][]) {
+    const steps: [number, number][] = [
+      [0, 0],
+      [100, 510],
+      [200, 520],
+    ];
+    for (const [o, time] of steps) {
       t.recordSample(selection(n, 0, o), 0, 0, time, SD.smoothing);
     }
     expect(t.profileForLine(LINE, SD)!.depositAt(0.5)).toBeLessThan(0.8);

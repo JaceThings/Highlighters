@@ -10,7 +10,8 @@ import { useAnimatedColor } from "../hooks/useAnimatedColor.ts";
 
 const READY_CLASS = "selection-marker-ready";
 
-const COLOR_TWEEN = { duration: 0.35, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] };
+const COLOR_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1];
+const COLOR_TWEEN = { duration: 0.35, ease: COLOR_EASE };
 
 export function SelectionMarker(): null {
   const { style } = useSelectionStyle();

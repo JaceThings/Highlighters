@@ -11,8 +11,8 @@ const SHARED_SVG_ID = "highlighters-shared-defs";
 function getSharedDefs(doc: Document): SVGDefsElement {
   const existing = doc.getElementById(SHARED_SVG_ID);
   if (existing) {
-    const defs = existing.querySelector("defs");
-    if (defs) return defs as SVGDefsElement;
+    const defs = existing.querySelector<SVGDefsElement>("defs");
+    if (defs) return defs;
   }
 
   const svg = doc.createElementNS(SVG_NS, "svg");
@@ -149,8 +149,8 @@ export function createSvgRenderer(): Renderer {
     const { options } = context;
     const { ink } = options;
     fillWrapper(el);
-    setStyleOnce(el, "pointerEvents", "none");
-    setStyleOnce(el, "mixBlendMode", options.blendMode);
+    setStyleOnce(el, "pointer-events", "none");
+    setStyleOnce(el, "mix-blend-mode", options.blendMode);
 
     const flowGain = 1 + 0.35 * (clamp(ink.flow, 0, 1) - clamp(ink.viscosity, 0, 1));
     const effectiveAlpha = clamp(
@@ -160,13 +160,13 @@ export function createSvgRenderer(): Renderer {
     );
     setStyleOnce(el, "opacity", String(round3(effectiveAlpha)));
 
-    setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool, inkColor));
-    setStyleOnce(el, "backgroundRepeat", "no-repeat");
-    setVendorPrefixed(el, "clipPath", line.clipPath);
-    setVendorPrefixed(el, "maskImage", `url("${line.noiseTile.dataUrl}")`);
-    setVendorPrefixed(el, "maskRepeat", "repeat");
-    setVendorPrefixed(el, "maskPosition", `${line.maskOffset.x}px ${line.maskOffset.y}px`);
-    setVendorPrefixed(el, "maskSize", `${line.noiseTile.width}px ${line.noiseTile.height}px`);
+    setStyleOnce(el, "background-image", poolGradientToCss(line.pool, inkColor));
+    setStyleOnce(el, "background-repeat", "no-repeat");
+    setVendorPrefixed(el, "clip-path", line.clipPath);
+    setVendorPrefixed(el, "mask-image", `url("${line.noiseTile.dataUrl}")`);
+    setVendorPrefixed(el, "mask-repeat", "repeat");
+    setVendorPrefixed(el, "mask-position", `${line.maskOffset.x}px ${line.maskOffset.y}px`);
+    setVendorPrefixed(el, "mask-size", `${line.noiseTile.width}px ${line.noiseTile.height}px`);
 
     setStyleOnce(el, "filter", filterValue);
   }
@@ -174,11 +174,11 @@ export function createSvgRenderer(): Renderer {
   function styleGlow(el: HTMLElement, line: MarkGeometry, context: RenderContext): void {
     const { glow } = context.options;
     fillWrapper(el);
-    setStyleOnce(el, "pointerEvents", "none");
-    setStyleOnce(el, "mixBlendMode", "screen");
+    setStyleOnce(el, "pointer-events", "none");
+    setStyleOnce(el, "mix-blend-mode", "screen");
     setStyleOnce(el, "opacity", String(round3(clamp(glow.intensity * 0.82, 0, 1))));
-    setStyleOnce(el, "backgroundColor", glow.color);
-    setVendorPrefixed(el, "clipPath", line.clipPath);
+    setStyleOnce(el, "background-color", glow.color);
+    setVendorPrefixed(el, "clip-path", line.clipPath);
     setStyleOnce(el, "filter", `blur(${glow.spread}px)`);
   }
 

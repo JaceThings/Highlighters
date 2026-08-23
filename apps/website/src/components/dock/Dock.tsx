@@ -209,8 +209,8 @@ export function Dock() {
               offsetY={geometry.markerOffsetY}
               reveal={geometry.markerReveal}
               opacity={geometry.markerOpacity}
-              shapeWidth={geometry.width}
-              shapeHeight={geometry.height}
+              dockWidth={geometry.width}
+              dockHeight={geometry.height}
             />
           </div>
 

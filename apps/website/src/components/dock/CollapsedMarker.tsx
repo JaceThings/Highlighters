@@ -20,8 +20,8 @@ export function CollapsedMarker({
   offsetY,
   reveal,
   opacity,
-  shapeWidth,
-  shapeHeight,
+  dockWidth,
+  dockHeight,
 }: {
   pen: PenTip;
   color: string;
@@ -31,8 +31,8 @@ export function CollapsedMarker({
   offsetY: MotionValue<number>;
   reveal: MotionValue<number>;
   opacity: MotionValue<number>;
-  shapeWidth: MotionValue<number>;
-  shapeHeight: MotionValue<number>;
+  dockWidth: MotionValue<number>;
+  dockHeight: MotionValue<number>;
 }) {
   const outerRef = useRef<HTMLDivElement>(null);
   const moveRef = useRef<HTMLDivElement>(null);
@@ -40,13 +40,13 @@ export function CollapsedMarker({
 
   const applyMove = useCallback(
     (el: HTMLElement | SVGElement) => {
-      const maxX = Math.max(0, shapeWidth.get() / 2 - CLAMP_INSET);
-      const maxY = Math.max(0, shapeHeight.get() / 2 - CLAMP_INSET);
+      const maxX = Math.max(0, dockWidth.get() / 2 - CLAMP_INSET);
+      const maxY = Math.max(0, dockHeight.get() / 2 - CLAMP_INSET);
       const ox = clamp(offsetX.get(), maxX);
       const oy = clamp(offsetY.get(), maxY);
       el.style.transform = `translate(${ox}px, ${oy}px) rotate(${rotation.get()}deg)`;
     },
-    [offsetX, offsetY, rotation, shapeWidth, shapeHeight],
+    [offsetX, offsetY, rotation, dockWidth, dockHeight],
   );
   const applyReveal = useCallback(
     (el: HTMLElement | SVGElement) => {
@@ -55,7 +55,7 @@ export function CollapsedMarker({
     [reveal],
   );
   useOpacityBind(outerRef, opacity);
-  useBindMotion(moveRef, [offsetX, offsetY, rotation, shapeWidth, shapeHeight], applyMove);
+  useBindMotion(moveRef, [offsetX, offsetY, rotation, dockWidth, dockHeight], applyMove);
   useBindMotion(revealRef, [reveal], applyReveal);
 
   return (

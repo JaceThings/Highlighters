@@ -18,6 +18,15 @@ export function hasMediaQueries(): boolean {
   return hasDom() && "matchMedia" in window;
 }
 
+export function isTextNode(node: Node | null): node is Text {
+  return node != null && node.nodeType === 3;
+}
+
+export function nextTextNode(walker: TreeWalker): Text | null {
+  const node = walker.nextNode();
+  return isTextNode(node) ? node : null;
+}
+
 export const SHOW_TEXT = 0x4;
 export const FILTER_ACCEPT = 1;
 export const FILTER_REJECT = 2;

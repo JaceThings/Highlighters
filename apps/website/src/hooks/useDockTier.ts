@@ -6,6 +6,7 @@ import {
   DOCK_SIDE_PENS_MIN,
 } from "../components/dock/constants.ts";
 import type { DockPhase, DockSide, DockTarget } from "../components/dock/useDockDrag.ts";
+import { BROWSER } from "../lib/browser-env.ts";
 
 export interface DockTier {
   showColors: boolean;
@@ -14,10 +15,10 @@ export interface DockTier {
 
 type TierAxis = "width" | "height";
 
-const TIER_CONFIG: Record<TierAxis, { colors: number; pens: number }> = {
+const TIER_CONFIG = {
   width: { colors: DOCK_COLORS_MIN, pens: DOCK_PENS_MIN },
   height: { colors: DOCK_SIDE_COLORS_MIN, pens: DOCK_SIDE_PENS_MIN },
-};
+} satisfies Record<TierAxis, { colors: number; pens: number }>;
 
 function read(axis: TierAxis): DockTier {
   const { colors, pens } = TIER_CONFIG[axis];
@@ -43,7 +44,7 @@ export function dockContentAxis(
 
 export function useDockTier(axis: TierAxis = "width"): DockTier {
   const [tier, setTier] = useState<DockTier>(() =>
-    typeof window === "undefined" ? { showColors: true, showPens: true } : read(axis),
+    BROWSER.hasWindow ? read(axis) : { showColors: true, showPens: true },
   );
 
   useEffect(() => {

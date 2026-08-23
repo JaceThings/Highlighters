@@ -2,6 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import type { MarkHandle, Target } from "@highlighters/core";
+import {
+  HighlightRuntimeProvider,
+  useHighlight,
+  type HighlightRuntime,
+} from "../src/use-highlight.js";
+import { Highlight } from "../src/highlight.js";
+
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean;
+}
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const handleSpies = {
   show: vi.fn(),
@@ -10,23 +23,22 @@ const handleSpies = {
   remove: vi.fn(),
   isShowing: vi.fn(() => true),
 };
-const highlightMock = vi.fn(() => ({ ...handleSpies, tier: "css" as const }));
 
-vi.mock("@highlighters/core", () => ({
-  highlight: highlightMock,
-}));
+const highlightSpy = vi.fn<HighlightRuntime["highlight"]>(
+  (): MarkHandle => ({ ...handleSpies, tier: "css" }),
+);
 
-const { useHighlight } = await import("../src/use-highlight.js");
-const { Highlight } = await import("../src/highlight.js");
+const testRuntime: HighlightRuntime = { highlight: highlightSpy };
 
-(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT =
-  true;
+function tagNameOf(target: Target): string | null {
+  return target instanceof Element ? target.tagName : null;
+}
 
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
-  highlightMock.mockClear();
+  highlightSpy.mockClear();
   for (const spy of Object.values(handleSpies)) spy.mockClear();
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -39,7 +51,9 @@ afterEach(() => {
 });
 
 function render(element: React.ReactElement): void {
-  act(() => root.render(element));
+  act(() =>
+    root.render(<HighlightRuntimeProvider value={testRuntime}>{element}</HighlightRuntimeProvider>),
+  );
 }
 
 describe("useHighlight", () => {
@@ -51,9 +65,9 @@ describe("useHighlight", () => {
     }
 
     render(<Probe />);
-    expect(highlightMock).toHaveBeenCalledTimes(1);
-    const [target, options] = highlightMock.mock.calls[0];
-    expect((target as Element).tagName).toBe("P");
+    expect(highlightSpy).toHaveBeenCalledTimes(1);
+    const [target, options] = highlightSpy.mock.calls[0];
+    expect(tagNameOf(target)).toBe("P");
     expect(options).toEqual({ preset: "mild" });
   });
 
@@ -80,11 +94,11 @@ describe("useHighlight", () => {
     }
 
     render(<Probe opacity={0.5} />);
-    expect(highlightMock).toHaveBeenCalledTimes(1);
+    expect(highlightSpy).toHaveBeenCalledTimes(1);
     handleSpies.update.mockClear();
 
     render(<Probe opacity={0.9} />);
-    expect(highlightMock).toHaveBeenCalledTimes(1);
+    expect(highlightSpy).toHaveBeenCalledTimes(1);
     expect(handleSpies.update).toHaveBeenCalled();
     expect(handleSpies.update).toHaveBeenLastCalledWith({ opacity: 0.9 });
   });
@@ -97,11 +111,11 @@ describe("useHighlight", () => {
     }
 
     render(<Probe show={false} />);
-    expect(highlightMock).not.toHaveBeenCalled();
+    expect(highlightSpy).not.toHaveBeenCalled();
     render(<Probe show />);
-    expect(highlightMock).toHaveBeenCalledTimes(1);
-    const [target] = highlightMock.mock.calls[0];
-    expect((target as Element).tagName).toBe("P");
+    expect(highlightSpy).toHaveBeenCalledTimes(1);
+    const [target] = highlightSpy.mock.calls[0];
+    expect(tagNameOf(target)).toBe("P");
   });
 });
 
@@ -115,7 +129,7 @@ describe("<Highlight>", () => {
     const el = container.querySelector("p");
     expect(el).not.toBeNull();
     expect(el!.textContent).toBe("Marked text");
-    expect(highlightMock).toHaveBeenCalledTimes(1);
+    expect(highlightSpy).toHaveBeenCalledTimes(1);
   });
 
   it("defaults to a span and forwards arbitrary props", () => {
@@ -133,12 +147,12 @@ describe("<Highlight>", () => {
   it("re-creates the mark on an `as` element swap (and removes the old one)", () => {
     render(<Highlight as="span">x</Highlight>);
     expect(container.querySelector("span")).not.toBeNull();
-    expect(highlightMock).toHaveBeenCalledTimes(1);
+    expect(highlightSpy).toHaveBeenCalledTimes(1);
 
     render(<Highlight as="p">x</Highlight>);
     expect(container.querySelector("p")).not.toBeNull();
     expect(container.querySelector("span")).toBeNull();
     expect(handleSpies.remove).toHaveBeenCalled();
-    expect(highlightMock).toHaveBeenCalledTimes(2);
+    expect(highlightSpy).toHaveBeenCalledTimes(2);
   });
 });

@@ -58,12 +58,8 @@ export function mergeOptions(
     }
   }
 
-  const markType =
-    override.markType ?? override.shape ?? base.markType ?? base.shape;
-  if (markType !== undefined) {
-    result.markType = markType;
-    delete result.shape;
-  }
+  const markType = override.markType ?? base.markType;
+  if (markType !== undefined) result.markType = markType;
 
   return result;
 }
@@ -165,7 +161,7 @@ export function resolveOptions(input: HighlightOptions = {}): ResolvedOptions {
   const blendMode: BlendMode = merged.blendMode ?? d.blendMode;
 
   return {
-    markType: merged.markType ?? merged.shape ?? d.markType,
+    markType: merged.markType ?? d.markType,
     color,
     gradient: merged.gradient ?? d.gradient,
     opacity: Math.max(0, Math.min(1, finiteOr(merged.opacity, d.opacity))),

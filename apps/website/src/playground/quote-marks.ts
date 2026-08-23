@@ -1,16 +1,26 @@
 import { QUOTES, shuffle, type Quote } from "./quotes.ts";
+import type { OptionPath } from "./options-context.tsx";
 
 export type MarkStrategy = "central" | "ends" | "stack";
 
-const STRATEGY: Record<string, MarkStrategy> = {
+type ByOptionPath<Value> = { [P in OptionPath]?: Value };
+
+function atOptionPath<Value>(
+  table: ByOptionPath<Value>,
+  path: OptionPath,
+): Value | undefined {
+  return table[path];
+}
+
+const STRATEGY = {
   "tip.overshoot": "ends",
   "tip.overshootJitter": "ends",
   "edge.cap": "ends",
   "blendMode": "stack",
-};
+} satisfies ByOptionPath<MarkStrategy>;
 
-export function strategyFor(title: string): MarkStrategy {
-  return STRATEGY[title] ?? "central";
+export function strategyFor(title: OptionPath): MarkStrategy {
+  return atOptionPath(STRATEGY, title) ?? "central";
 }
 
 export interface MarkPlan {
@@ -24,7 +34,16 @@ interface CuratedPlan {
   stack?: { band: string; doubles: string[] };
 }
 
-const CURATED: Record<number, CuratedPlan> = {
+type CuratedByQuoteIndex = { [index: number]: CuratedPlan };
+
+function curatedFor(
+  plans: CuratedByQuoteIndex,
+  index: number,
+): CuratedPlan | undefined {
+  return plans[index];
+}
+
+const CURATED = {
   0: { central: "never cruel", ends: ["Helly was never cruel"], stack: { band: "Helly was never cruel", doubles: ["cruel"] } },
   1: { central: "advertisements on my eyelids", ends: ["the air I breathe"], stack: { band: "advertisements on my eyelids", doubles: ["advertisements", "eyelids"] } },
   2: { central: "grateful for seats at the table", ends: ["And you'll be grateful", "the bench is unstable"], stack: { band: "grateful for seats at the table", doubles: ["seats at the table"] } },
@@ -50,7 +69,7 @@ const CURATED: Record<number, CuratedPlan> = {
   23: { central: "just like falling in love", ends: ["The music we make", "falling in love"], stack: { band: "sounds just like falling in love", doubles: ["falling in love"] } },
   24: { central: "true that pain is beauty", ends: ["Oh, Mrs. Potato Head", "with a warranty"], stack: { band: "true that pain is beauty", doubles: ["beauty"] } },
   25: { central: "Would you post about it", ends: ["What would happen", "post about it"], stack: { band: "Would you post about it", doubles: ["post about it"] } },
-};
+} satisfies CuratedByQuoteIndex;
 
 function norm(word: string): string {
   return word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "").toLowerCase();
@@ -78,7 +97,7 @@ function isSlight(word: string): boolean {
 
 export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy): MarkPlan {
   const n = words.length;
-  const curated = CURATED[QUOTES.indexOf(quote)];
+  const curated = curatedFor(CURATED, QUOTES.indexOf(quote));
 
   if (strategy === "ends") {
     if (curated?.ends) {
@@ -141,7 +160,7 @@ export function planMarks(quote: Quote, words: string[], strategy: MarkStrategy)
   return { ranges: [[a, b]] };
 }
 
-export const SECTION_QUOTES: Record<string, number[]> = {
+export const SECTION_QUOTES = {
   markType: [7, 15, 16, 23],
   color: [18, 22, 13, 14],
   opacity: [8, 24, 1, 11],
@@ -163,15 +182,17 @@ export const SECTION_QUOTES: Record<string, number[]> = {
   "edge.radius": [20, 19, 3, 17],
   "paper.absorbency": [22, 7, 16, 13],
   snap: [6, 5, 15, 18],
-};
+} satisfies ByOptionPath<number[]>;
 
-export function buildCuratedQuotes(titles: string[]): Quote[] {
+export function buildCuratedQuotes(titles: OptionPath[]): Quote[] {
   const used = new Set<Quote>();
   const out: Quote[] = [];
   for (const title of titles) {
     const a1 = out[out.length - 1]?.author;
     const a2 = out[out.length - 2]?.author;
-    const curated = shuffle((SECTION_QUOTES[title] ?? []).map((i) => QUOTES[i]).filter(Boolean));
+    const curated = shuffle(
+      (atOptionPath(SECTION_QUOTES, title) ?? []).map((i) => QUOTES[i]).filter(Boolean),
+    );
     const fresh = (pool: Quote[]) =>
       pool.find((q) => !used.has(q) && q.author !== a1 && q.author !== a2) ??
       pool.find((q) => !used.has(q));

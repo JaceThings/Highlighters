@@ -42,11 +42,11 @@ export function FocusRingOverlay({
   const radS = useSpring(rad, SPRING);
   const opacity = useMotionValue(0);
 
-  const d = useTransform([wS, hS, radS], ([wv, hv, rv]) => {
-    const ww = Math.max(0, wv as number);
-    const hh = Math.max(0, hv as number);
+  const d = useTransform([wS, hS, radS], ([wv, hv, rv]: number[]) => {
+    const ww = Math.max(0, wv);
+    const hh = Math.max(0, hv);
     if (ww === 0 || hh === 0) return "";
-    const r = Math.min(Math.max(0, rv as number), Math.min(ww, hh) / 2);
+    const r = Math.min(Math.max(0, rv), Math.min(ww, hh) / 2);
     const sm = r >= Math.min(ww, hh) / 2 - 0.5 ? 0 : smoothing;
     return generatePath(ww, hh, { radius: r, smoothing: sm });
   });
@@ -126,7 +126,7 @@ export function FocusRingOverlay({
     };
 
     const onFocusIn = (e: FocusEvent) => {
-      const t = (e.target as HTMLElement | null)?.closest(RING_SELECTOR) as HTMLElement | null;
+      const t = e.target instanceof Element ? e.target.closest<HTMLElement>(RING_SELECTOR) : null;
       if (!t) return;
       if (!navKeyboard.current) {
         hide();
@@ -177,7 +177,7 @@ export function FocusRingOverlay({
 
     const onFocusOut = () => {
       requestAnimationFrame(() => {
-        const active = document.activeElement as HTMLElement | null;
+        const active = document.activeElement;
         if (active?.closest(RING_SELECTOR)) return;
         hide();
       });

@@ -2,32 +2,36 @@
 // the packed tarball install and exercise one round-trip from each.
 // Failure here means a real consumer running `npm install
 // @highlighters/...` would also break.
-import assert from "node:assert/strict";
-
 import * as core from "@highlighters/core";
 import * as react from "@highlighters/react";
-import * as vue from "@highlighters/vue";
 import * as svelte from "@highlighters/svelte";
+import * as vue from "@highlighters/vue";
 
-// Core: the imperative entry points are exported as functions.
-assert.equal(typeof core.highlight, "function", "highlight must be a function");
-assert.equal(typeof core.highlightAll, "function", "highlightAll must be a function");
-assert.equal(typeof core.highlightSelection, "function", "highlightSelection must be a function");
-assert.equal(typeof core.group, "function", "group must be a function");
+import {
+  assertNonEmptyContract,
+  parseExportContract,
+  parseResolvedOptions,
+} from "./export-contract.cjs";
+
+const coreContract = parseExportContract(core, "@highlighters/core", [
+  "highlight",
+  "highlightAll",
+  "highlightSelection",
+  "group",
+  "resolveOptions",
+]);
 
 // Core: the pure config/geometry surface resolves options without a DOM.
-assert.equal(typeof core.resolveOptions, "function", "resolveOptions must be a function");
-const resolved = core.resolveOptions();
-assert.ok(resolved && typeof resolved === "object", "resolveOptions() must return the resolved options object");
+parseResolvedOptions(coreContract.call("resolveOptions"), "resolveOptions()");
 
 // Core: the curated palettes are shipped data.
-assert.ok(core.PALETTES && typeof core.PALETTES === "object", "PALETTES must be exported");
+coreContract.record("PALETTES");
 
 // Wrappers: each adapter package exposes at least one binding. We assert
 // the namespace is non-empty rather than pinning symbol names, so the
 // smoke stays resilient to internal wrapper renames.
-assert.ok(Object.keys(react).length > 0, "@highlighters/react must export at least one symbol");
-assert.ok(Object.keys(vue).length > 0, "@highlighters/vue must export at least one symbol");
-assert.ok(Object.keys(svelte).length > 0, "@highlighters/svelte must export at least one symbol");
+assertNonEmptyContract(parseExportContract(react, "@highlighters/react", []));
+assertNonEmptyContract(parseExportContract(vue, "@highlighters/vue", []));
+assertNonEmptyContract(parseExportContract(svelte, "@highlighters/svelte", []));
 
 console.log("[esm-smoke] OK");

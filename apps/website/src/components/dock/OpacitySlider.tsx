@@ -11,6 +11,10 @@ import {
   CapsuleKnob,
 } from "./capsuleSlider.tsx";
 
+interface InkStyle extends CSSProperties {
+  "--ink": string;
+}
+
 const CELL = TRACK_H / 3;
 const checkerboard = {
   backgroundImage: `url("${checkerUrl}")`,
@@ -30,6 +34,11 @@ export function OpacitySlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useCapsuleDrag({ trackRef, value, min: 0, max: 1, onChange });
   const pct = Math.round(value * 100);
+  const trackStyle: InkStyle = {
+    backgroundImage: "linear-gradient(to right, color-mix(in oklab, var(--ink) 0%, transparent), var(--ink))",
+    "--ink": inkColor,
+    transition: `--ink ${INK_FADE_MS}ms ease`,
+  };
 
   const resetOpacity = useCallback(() => {
     if (Math.abs(value - DEFAULT_OPACITY) < 0.001) return;
@@ -68,14 +77,7 @@ export function OpacitySlider({
       style={{ height: TRACK_H }}
     >
       <div aria-hidden className="absolute inset-0" style={{ ...capsuleMask, ...checkerboard }}>
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: "linear-gradient(to right, color-mix(in oklab, var(--ink) 0%, transparent), var(--ink))",
-            ["--ink"]: inkColor,
-            transition: `--ink ${INK_FADE_MS}ms ease`,
-          } as CSSProperties}
-        />
+        <div className="absolute inset-0" style={trackStyle} />
       </div>
       <CapsuleKnob left={knobLeftPercent(value, 0, 1)} />
     </div>

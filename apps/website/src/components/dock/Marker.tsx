@@ -201,7 +201,7 @@ export function MarkerRow({
             onPointerEnter={() => setHoveredIdx(i)}
             onPointerLeave={() => setHoveredIdx((h) => (h === i ? null : h))}
             onBlur={(e) => {
-              if (!(e.relatedTarget as HTMLElement | null)?.closest(".dock-pen")) {
+              if (!e.relatedTarget?.closest(".dock-pen")) {
                 setFocusIdx(null);
               }
             }}

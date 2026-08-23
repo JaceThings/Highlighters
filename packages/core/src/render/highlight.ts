@@ -482,7 +482,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     },
     update(opts: Partial<HighlightOptions>): void {
       if (removed) return;
-      userOptions = mergeOptions(userOptions, opts as HighlightOptions);
+      userOptions = mergeOptions(userOptions, opts);
       resolved = resolveOptions(userOptions);
       if (rafId) {
         cancelAnimationFrame(rafId);

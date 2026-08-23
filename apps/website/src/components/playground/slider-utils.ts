@@ -1,3 +1,5 @@
+import { BROWSER } from "../../lib/browser-env.ts";
+
 export const PROP_CHANGE_DURATION = 0.35;
 export const PROP_CHANGE_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1];
 
@@ -38,10 +40,9 @@ export const reservedChars = (
   return Math.max(...lengths);
 };
 
-const reducedMotionQuery =
-  typeof window !== "undefined" && typeof window.matchMedia === "function"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)")
-    : null;
+const reducedMotionQuery = BROWSER.hasMatchMedia
+  ? window.matchMedia("(prefers-reduced-motion: reduce)")
+  : null;
 let reducedMotionMatches = reducedMotionQuery?.matches ?? false;
 reducedMotionQuery?.addEventListener("change", (e) => {
   reducedMotionMatches = e.matches;

@@ -1,3 +1,5 @@
+import { BROWSER } from "./browser-env.ts";
+
 export type RadiusTier =
   | "flat"
   | "rounded"
@@ -9,19 +11,25 @@ export type RadiusTier =
 
 export type Confidence = "exact" | "high" | "low";
 
+export interface Viewport {
+  w: number;
+  h: number;
+  dpr: number;
+}
+
 export interface DeviceRadiusResult {
   isIphone: boolean;
   screenCornerRadius: number;
   confidence: Confidence;
   tier: RadiusTier;
   iosVersion: number | null;
-  viewport: { w: number; h: number; dpr: number };
+  viewport: Viewport;
   note?: string;
 }
 
 declare global {
   interface Window {
-        __simulatedViewport?: { w: number; h: number; dpr: number; ios?: number };
+        __simulatedViewport?: Viewport & { ios?: number };
   }
 }
 
@@ -59,7 +67,7 @@ const TABLE: Entry[] = [
   { w: 440, h: 956, dpr: 3, radius: 62, tier: "most-round", confidence: "high", note: "16 Pro Max / 17 Pro Max / 17 Air" },
 ];
 
-const TIER_SCALE: Record<RadiusTier, { sm: number; md: number }> = {
+const TIER_SCALE = {
   flat: { sm: 8, md: 12 },
   rounded: { sm: 12, md: 18 },
   rounder: { sm: 14, md: 20 },
@@ -67,10 +75,10 @@ const TIER_SCALE: Record<RadiusTier, { sm: number; md: number }> = {
   "very-round": { sm: 18, md: 24 },
   "most-round": { sm: 20, md: 28 },
   unknown: { sm: 14, md: 20 },
-};
+} satisfies Record<RadiusTier, { sm: number; md: number }>;
 
-function getViewport(): { w: number; h: number; dpr: number } {
-  const sim = typeof window !== "undefined" ? window.__simulatedViewport : undefined;
+function getViewport(): Viewport {
+  const sim = BROWSER.hasWindow ? window.__simulatedViewport : undefined;
   if (sim) return { w: Math.min(sim.w, sim.h), h: Math.max(sim.w, sim.h), dpr: sim.dpr };
   const sw = screen.width;
   const sh = screen.height;
@@ -85,7 +93,7 @@ function iosInRange(ios: number | null, e: Entry): boolean {
 }
 
 function compute(): DeviceRadiusResult {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
+  if (!BROWSER.hasWindow || !BROWSER.hasNavigator) {
     return { isIphone: false, screenCornerRadius: 0, confidence: "exact", tier: "flat", iosVersion: null, viewport: { w: 0, h: 0, dpr: 1 } };
   }
   const ua = navigator.userAgent;
@@ -140,7 +148,7 @@ function compute(): DeviceRadiusResult {
 let cached: DeviceRadiusResult | null = null;
 
 export function detectDeviceRadius(): DeviceRadiusResult {
-  if (typeof window !== "undefined" && window.__simulatedViewport) return compute();
+  if (BROWSER.hasWindow && window.__simulatedViewport) return compute();
   if (cached) return cached;
   cached = compute();
   return cached;

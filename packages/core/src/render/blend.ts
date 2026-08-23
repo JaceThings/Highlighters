@@ -43,7 +43,7 @@ function minChannel(color: ColorValue, doc: Document): number | null {
     if (probe) {
       probe.fillStyle = "#000";
       probe.fillStyle = color;
-      return colorMinChannel(probe.fillStyle as string);
+      return colorMinChannel(String(probe.fillStyle));
     }
   } catch {
     probe = undefined;

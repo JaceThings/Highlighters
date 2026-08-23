@@ -1,4 +1,5 @@
 import { clamp } from "../internal/math.js";
+import { isTextNode } from "../internal/dom.js";
 import type { LineSpeedProfile, ResolvedSpeedDynamics } from "../types.js";
 
 interface Sample {
@@ -24,7 +25,7 @@ function caretLocal(
     range.collapse(true);
     let rect: DOMRect | undefined = range.getClientRects()[0] ?? range.getBoundingClientRect();
     if (!rect || (rect.width === 0 && rect.height === 0)) {
-      const len = node.nodeType === 3 ? (node as Text).length : node.childNodes.length;
+      const len = isTextNode(node) ? node.length : node.childNodes.length;
       const start = Math.max(0, Math.min(offset, len) - 1);
       const end = Math.min(len, start + 1);
       if (end > start) {

@@ -17,22 +17,23 @@ function applyOnce(el: HTMLElement, key: string, value: string, apply: () => voi
   apply();
 }
 
-export function setVendorPrefixed(
-  el: HTMLElement,
-  prop: "clipPath" | "maskImage" | "maskRepeat" | "maskPosition" | "maskSize",
-  value: string,
-): void {
+export type VendorProperty =
+  | "clip-path"
+  | "mask-image"
+  | "mask-repeat"
+  | "mask-position"
+  | "mask-size";
+
+export function setVendorPrefixed(el: HTMLElement, prop: VendorProperty, value: string): void {
   applyOnce(el, prop, value, () => {
-    const s = el.style as CSSStyleDeclaration & Record<string, string>;
-    s[prop] = value;
-    const webkitProp = `webkit${prop.charAt(0).toUpperCase()}${prop.slice(1)}`;
-    s[webkitProp] = value;
+    el.style.setProperty(prop, value);
+    el.style.setProperty(`-webkit-${prop}`, value);
   });
 }
 
 export function setStyleOnce(el: HTMLElement, prop: string, value: string): void {
   applyOnce(el, prop, value, () => {
-    (el.style as CSSStyleDeclaration & Record<string, string>)[prop] = value;
+    el.style.setProperty(prop, value);
   });
 }
 

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { highlight } from "../src/highlight.js";
-import type { MarkHandle } from "@highlighters/core";
+import { highlight, type HighlightAction } from "../src/highlight.js";
 
 let container: HTMLDivElement;
 
@@ -20,8 +19,8 @@ describe("highlight action - lifecycle", () => {
     container.appendChild(node);
 
     const action = highlight(node, { preset: "mild" });
-    expect(typeof action.update).toBe("function");
-    expect(typeof action.destroy).toBe("function");
+    expect(action.update).toBeInstanceOf(Function);
+    expect(action.destroy).toBeInstanceOf(Function);
     action.destroy();
   });
 
@@ -64,8 +63,8 @@ describe("highlight action - lifecycle", () => {
     container.appendChild(node);
 
     const action = highlight(node);
-    const handleCalls: MarkHandle["update"][] = [];
-    handleCalls.push(action.update as unknown as MarkHandle["update"]);
+    const handleCalls: HighlightAction["update"][] = [];
+    handleCalls.push(action.update);
     action.update({ snap: "word" });
     action.update({ snap: "line" });
     expect(() => action.destroy()).not.toThrow();

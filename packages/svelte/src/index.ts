@@ -11,7 +11,6 @@ export type {
   PaletteSwatch,
   Palette,
   MarkType,
-  ShapeType,
   TipType,
   EdgeCap,
   BlendMode,

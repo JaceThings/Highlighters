@@ -76,16 +76,32 @@ function resolved(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions {
 }
 
 function dr(left: number, top: number, width: number, height: number): DOMRect {
-  return { x: left, y: top, width, height, left, top, right: left + width, bottom: top + height, toJSON: () => ({}) } as DOMRect;
+  return new DOMRect(left, top, width, height);
 }
+
+class TestRectList extends Array<DOMRect> implements DOMRectList {
+  item(index: number): DOMRect | null {
+    return this[index] ?? null;
+  }
+}
+
 function domRectList(rects: DOMRect[]): DOMRectList {
-  const list = {
-    length: rects.length,
-    item: (i: number) => rects[i] ?? null,
-    [Symbol.iterator]: () => rects[Symbol.iterator](),
-  } as unknown as DOMRectList & Record<number, DOMRect>;
-  for (let i = 0; i < rects.length; i++) list[i] = rects[i];
+  const list = new TestRectList();
+  list.push(...rects);
   return list;
+}
+
+function htmlElement(el: Element | null | undefined): HTMLElement {
+  if (!(el instanceof HTMLElement)) throw new Error("expected an HTMLElement");
+  return el;
+}
+
+function htmlChildren(parent: ParentNode): HTMLElement[] {
+  return Array.from(parent.children).filter((el) => el instanceof HTMLElement);
+}
+
+function htmlQueryAll(parent: ParentNode, selector: string): HTMLElement[] {
+  return Array.from(parent.querySelectorAll(selector)).filter((el) => el instanceof HTMLElement);
 }
 
 describe("selectTier", () => {
@@ -131,8 +147,8 @@ describe("detectEnvironment", () => {
   it("returns a snapshot with the default degrade threshold", () => {
     const env = detectEnvironment();
     expect(env.degradeThreshold).toBe(DEFAULT_DEGRADE_THRESHOLD);
-    expect(typeof env.prefersReducedMotion).toBe("boolean");
-    expect(typeof env.coarsePointer).toBe("boolean");
+    expect([true, false]).toContain(env.prefersReducedMotion);
+    expect([true, false]).toContain(env.coarsePointer);
   });
 });
 
@@ -224,13 +240,13 @@ describe("createCssRenderer", () => {
     };
     renderer.mount(context);
 
-    const wrappers = Array.from(container.children) as HTMLElement[];
+    const wrappers = htmlChildren(container);
     expect(wrappers.length).toBe(2);
     for (const wrapper of wrappers) {
       expect(wrapper.getAttribute("aria-hidden")).toBe("true");
       expect(wrapper.style.position).toBe("absolute");
       expect(wrapper.style.clipPath).toBe("");
-      const band = wrapper.firstElementChild as HTMLElement;
+      const band = htmlElement(wrapper.firstElementChild);
       expect(band).not.toBeNull();
       expect(band.getAttribute("aria-hidden")).toBe("true");
       expect(band.style.mixBlendMode).toBe("multiply");
@@ -305,14 +321,14 @@ describe("createCssRenderer", () => {
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0), geometry(20)], ranges: [] });
 
-    const layer = Array.from(host.children).find(
-      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
-    ) as HTMLElement | undefined;
+    const layer = htmlChildren(host).find(
+      (el) => el !== container && el.style.mixBlendMode === "normal",
+    );
     expect(layer).toBeDefined();
     expect(layer!.style.isolation).toBe("isolate");
     expect(container.children.length).toBe(0);
     expect(layer!.children.length).toBe(2);
-    const bandBlends = Array.from(layer!.querySelectorAll("div")).map((n) => (n as HTMLElement).style.mixBlendMode);
+    const bandBlends = htmlQueryAll(layer!, "div").map((n) => n.style.mixBlendMode);
     expect(bandBlends).toContain("multiply");
 
     renderer.unmount();
@@ -323,7 +339,7 @@ describe("createCssRenderer", () => {
     const renderer = createCssRenderer();
     const container = createOverlayContainer(host);
     const escapeLayers = () =>
-      Array.from(host.children).filter((el) => el !== container) as HTMLElement[];
+      htmlChildren(host).filter((el) => el !== container);
 
     renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["screen"]);
@@ -370,14 +386,14 @@ describe("createSvgRenderer", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(40)], ranges: [] });
-    const wrapper = container.firstElementChild as HTMLElement;
+    const wrapper = htmlElement(container.firstElementChild);
     expect(wrapper.style.position).toBe("absolute");
     expect(wrapper.style.clipPath).toBe("");
-    const ink = wrapper.lastElementChild as HTMLElement;
+    const ink = htmlElement(wrapper.lastElementChild);
     expect(ink.style.clipPath).toContain("path(");
-    expect(ink.style.maskPosition).toBe("-10px -5px");
-    expect(ink.style.maskSize).toBe("256px 64px");
-    expect(ink.style.maskRepeat).toBe("repeat");
+    expect(ink.style.getPropertyValue("mask-position")).toBe("-10px -5px");
+    expect(ink.style.getPropertyValue("mask-size")).toBe("256px 64px");
+    expect(ink.style.getPropertyValue("mask-repeat")).toBe("repeat");
   });
 
   it("adds an additive (screen) glow node only when glow is enabled (R16)", () => {
@@ -387,8 +403,8 @@ describe("createSvgRenderer", () => {
       glow: { enabled: true, intensity: 0.5, spread: 4, color: "#ffff66" },
     });
     renderer.mount({ container, options: glowOpts, lines: [geometry(0)], ranges: [] });
-    const screenNodes = Array.from(container.querySelectorAll("div")).filter(
-      (n) => (n as HTMLElement).style.mixBlendMode === "screen",
+    const screenNodes = htmlQueryAll(container, "div").filter(
+      (n) => n.style.mixBlendMode === "screen",
     );
     expect(screenNodes.length).toBe(1);
   });
@@ -398,14 +414,14 @@ describe("createSvgRenderer", () => {
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
 
-    const layer = Array.from(host.children).find(
-      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
-    ) as HTMLElement | undefined;
+    const layer = htmlChildren(host).find(
+      (el) => el !== container && el.style.mixBlendMode === "normal",
+    );
     expect(layer).toBeDefined();
     expect(layer!.style.isolation).toBe("isolate");
     expect(container.children.length).toBe(0);
     expect(layer!.querySelector("div")).not.toBeNull();
-    const inkBlends = Array.from(layer!.querySelectorAll("div")).map((n) => (n as HTMLElement).style.mixBlendMode);
+    const inkBlends = htmlQueryAll(layer!, "div").map((n) => n.style.mixBlendMode);
     expect(inkBlends).toContain("multiply");
 
     renderer.unmount();
@@ -417,9 +433,9 @@ describe("createSvgRenderer", () => {
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
 
-    const layer = Array.from(host.children).find(
-      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "screen",
-    ) as HTMLElement | undefined;
+    const layer = htmlChildren(host).find(
+      (el) => el !== container && el.style.mixBlendMode === "screen",
+    );
     expect(layer).toBeDefined();
     expect(layer!.style.isolation).toBe("isolate");
     expect(container.children.length).toBe(0);
@@ -431,7 +447,7 @@ describe("createSvgRenderer", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);
     const escapeLayers = () =>
-      Array.from(host.children).filter((el) => el !== container) as HTMLElement[];
+      htmlChildren(host).filter((el) => el !== container);
 
     renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["screen"]);
@@ -474,8 +490,8 @@ describe("applyDrawOn", () => {
 
   const anim = resolved().animation;
   const FULL = geometry(0).clipPath;
-  const wrapperOf = (i: number) => Array.from(container.children)[i] as HTMLElement;
-  const inkOf = (i: number) => wrapperOf(i).firstElementChild as HTMLElement;
+  const wrapperOf = (i: number) => htmlChildren(container)[i];
+  const inkOf = (i: number) => htmlElement(wrapperOf(i).firstElementChild);
 
   it("shows the full clip instantly under prefers-reduced-motion (R25)", () => {
     const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], anim, fullEnv({ prefersReducedMotion: true }));
@@ -494,7 +510,7 @@ describe("applyDrawOn", () => {
     const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], { ...anim, draw: true, trigger: "immediate", direction: "left-to-right", stagger: 50, duration: 200 }, fullEnv());
     const wrapper = wrapperOf(0);
     expect(wrapper.style.clipPath).toContain("M 0 0 Z");
-    expect(wrapper.style.maskImage ?? "").toBe("");
+    expect(wrapper.style.getPropertyValue("mask-image")).toBe("");
     expect(wrapper.style.opacity).toBe("");
     expect(wrapper.style.transform).toBe("");
     vi.advanceTimersByTime(90);
@@ -616,8 +632,7 @@ describe("applyDrawOn", () => {
       observe() {}
       disconnect() {}
     }
-    const prev = (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
-    (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeIO;
+    vi.stubGlobal("IntersectionObserver", FakeIO);
     try {
       const handle = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "in-view", duration: 200 }, fullEnv());
       expect(wrapperOf(0).style.clipPath).toContain("M 0 0 Z");
@@ -626,14 +641,14 @@ describe("applyDrawOn", () => {
       expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
       handle();
     } finally {
-      (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = prev;
+      vi.unstubAllGlobals();
     }
   });
 });
 
 describe("prefersReducedMotion", () => {
   it("returns a boolean and does not throw", () => {
-    expect(typeof prefersReducedMotion()).toBe("boolean");
+    expect([true, false]).toContain(prefersReducedMotion());
   });
 });
 
@@ -814,7 +829,7 @@ describe("highlight", () => {
     const overlay = document.body.querySelector("[data-highlighters-overlay]");
     if (overlay) {
       expect(overlay.getAttribute("aria-hidden")).toBe("true");
-      expect((overlay as HTMLElement).style.pointerEvents).toBe("none");
+      expect(htmlElement(overlay).style.pointerEvents).toBe("none");
       for (const child of Array.from(overlay.children)) {
         expect(child.getAttribute("aria-hidden")).toBe("true");
       }
@@ -849,12 +864,12 @@ describe("highlight", () => {
       const handle = highlight(target, { seed: 42, renderer: "css", animation: { draw: false } });
       const overlay = document.body.querySelector("[data-highlighters-overlay]")!;
       expect(overlay.children.length).toBe(2);
-      const clipsA = Array.from(overlay.children).map((w) => (w as HTMLElement).style.clipPath);
+      const clipsA = htmlChildren(overlay).map((w) => w.style.clipPath);
       expect(clipsA[0]).not.toBe(clipsA[1]);
       handle.remove();
       const handle2 = highlight(target, { seed: 42, renderer: "css", animation: { draw: false } });
       const overlay2 = document.body.querySelector("[data-highlighters-overlay]")!;
-      const clipsB = Array.from(overlay2.children).map((w) => (w as HTMLElement).style.clipPath);
+      const clipsB = htmlChildren(overlay2).map((w) => w.style.clipPath);
       expect(clipsB).toEqual(clipsA);
       handle2.remove();
     } finally {
@@ -896,7 +911,7 @@ describe("highlight", () => {
     try {
       const handle = highlight(target, { renderer: "css", animation: { draw: false } });
       const overlay = () =>
-        document.body.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+        htmlElement(document.body.querySelector("[data-highlighters-overlay]")!.children[0]);
       expect(overlay().style.top).toBe("98px");
 
       spy.mockReturnValue(domRectList([dr(10, 180, 200, 18)]));
@@ -919,8 +934,9 @@ describe("highlight", () => {
         animation: { draw: false },
         tip: { type: "chisel", angle: 16 },
       });
-      const wrapper = document.body.querySelector("[data-highlighters-overlay]")!
-        .children[0] as HTMLElement;
+      const wrapper = htmlElement(
+        document.body.querySelector("[data-highlighters-overlay]")!.children[0],
+      );
       const slantedClip = wrapper.style.clipPath;
       expect(slantedClip).not.toBe("");
 
@@ -970,7 +986,7 @@ describe("highlight", () => {
       expect(rects.mock.calls.length).toBeGreaterThan(rectReads);
       expect(origin.mock.calls.length).toBeGreaterThan(originReads);
       const overlay = () =>
-        document.body.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+        htmlElement(document.body.querySelector("[data-highlighters-overlay]")!.children[0]);
       expect(overlay().style.top).toBe("178px");
 
       const reflowedReads = rects.mock.calls.length;
@@ -1011,10 +1027,13 @@ describe("highlight", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(twoLines);
     try {
       const readGeometry = () =>
-        Array.from(document.body.querySelector("[data-highlighters-overlay]")!.children).map((w) => {
-          const el = w as HTMLElement;
-          return [el.style.top, el.style.left, el.style.width, el.style.height, el.style.clipPath];
-        });
+        htmlChildren(document.body.querySelector("[data-highlighters-overlay]")!).map((el) => [
+          el.style.top,
+          el.style.left,
+          el.style.width,
+          el.style.height,
+          el.style.clipPath,
+        ]);
 
       const handle = highlight(target, { renderer: "css", animation: { draw: false } });
       handle.update({ tip: { type: "bullet", angle: 0 } });
@@ -1049,9 +1068,16 @@ describe("highlight", () => {
   });
 });
 
+function selectWithin(el: HTMLElement, anchorOffset: number, focusOffset: number): void {
+  const text = el.firstChild;
+  if (!(text instanceof Text)) throw new Error("expected the target to start with a text node");
+  const selection = document.getSelection()!;
+  selection.removeAllRanges();
+  selection.setBaseAndExtent(text, anchorOffset, text, focusOffset);
+}
+
 describe("highlightSelection reflow", () => {
   let target: HTMLElement;
-  let mockRange: Range;
   let article: HTMLElement;
 
   beforeEach(() => {
@@ -1061,11 +1087,10 @@ describe("highlightSelection reflow", () => {
     target.textContent = "Selected text here";
     article.appendChild(target);
     document.body.appendChild(article);
-    mockRange = document.createRange();
-    mockRange.selectNodeContents(target);
   });
 
   afterEach(() => {
+    document.getSelection()?.removeAllRanges();
     article.remove();
     document.getElementById("highlighters-shared-defs")?.remove();
     vi.restoreAllMocks();
@@ -1074,16 +1099,7 @@ describe("highlightSelection reflow", () => {
   it("mounts the overlay on the selection anchor, not document.body", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects");
     rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
-    const mockSelection = {
-      isCollapsed: false,
-      rangeCount: 1,
-      getRangeAt: () => mockRange.cloneRange(),
-      anchorNode: target.firstChild,
-      focusNode: target.firstChild,
-      anchorOffset: 0,
-      focusOffset: 5,
-    };
-    vi.spyOn(document, "getSelection").mockReturnValue(mockSelection as unknown as Selection);
+    selectWithin(target, 0, 5);
     const handle = highlightSelection({ renderer: "css", animation: { draw: false } });
     expect(article.querySelector("[data-highlighters-overlay]")).not.toBeNull();
     expect(document.body.querySelector(":scope > [data-highlighters-overlay]")).toBeNull();
@@ -1099,20 +1115,11 @@ describe("highlightSelection reflow", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects");
     rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
 
-    const mockSelection = {
-      isCollapsed: false,
-      rangeCount: 1,
-      getRangeAt: () => mockRange.cloneRange(),
-      anchorNode: target.firstChild,
-      focusNode: target.firstChild,
-      anchorOffset: 0,
-      focusOffset: 5,
-    };
-    vi.spyOn(document, "getSelection").mockReturnValue(mockSelection as unknown as Selection);
+    selectWithin(target, 0, 5);
 
     const handle = highlightSelection({ renderer: "css", animation: { draw: false } });
     const overlay = () =>
-      article.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+      htmlElement(article.querySelector("[data-highlighters-overlay]")!.children[0]);
     expect(overlay().style.top).toBe("98px");
 
     rects.mockReturnValue(domRectList([dr(10, 180, 200, 18)]));

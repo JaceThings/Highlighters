@@ -6,6 +6,7 @@ import {
   hasDomWithRange,
   hasGlobal,
   isInNonRenderedSubtree,
+  nextTextNode,
 } from "../internal/dom.js";
 
 function pushRects(list: DOMRectList, out: DOMRect[]): void {
@@ -48,10 +49,10 @@ function collectRangeRects(range: Range, scope?: Element): DOMRect[] {
           : true;
       return hit ? FILTER_ACCEPT : FILTER_REJECT;
     },
-  } as NodeFilter);
+  });
 
   const texts: Text[] = [];
-  for (let n = walker.nextNode(); n; n = walker.nextNode()) texts.push(n as Text);
+  for (let n = nextTextNode(walker); n; n = nextTextNode(walker)) texts.push(n);
 
   if (texts.length <= 1) return rectArray(range.getClientRects());
 
@@ -82,22 +83,7 @@ interface LineBox {
 }
 
 function toDomRect(box: LineBox): DOMRect {
-  const { top, bottom, left, right } = box;
-  const width = right - left;
-  const height = bottom - top;
-  return {
-    x: left,
-    y: top,
-    width,
-    height,
-    top,
-    right,
-    bottom,
-    left,
-    toJSON() {
-      return { x: left, y: top, width, height, top, right, bottom, left };
-    },
-  } as DOMRect;
+  return new DOMRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
 }
 
 function median(values: number[]): number {

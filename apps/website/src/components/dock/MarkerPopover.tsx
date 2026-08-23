@@ -19,6 +19,10 @@ const MARK_OPTIONS: { type: MarkType; label: string }[] = [
   { type: "underline", label: "Underline" },
 ];
 
+interface InkStyle extends CSSProperties {
+  "--ink": string;
+}
+
 const LINE_W = 24;
 const LINE_H = 22;
 
@@ -81,6 +85,7 @@ function MarkOption({
     };
     return style;
   }, [type, pen, seed]);
+  const inkStyle: InkStyle = { ...ink, "--ink": color };
 
   return (
     <button
@@ -99,7 +104,7 @@ function MarkOption({
         className="relative transition-transform duration-150 group-active:scale-[0.96]"
         style={{ width: LINE_W, height: LINE_H }}
       >
-        <div aria-hidden style={{ ...ink, ["--ink" as string]: color } as CSSProperties} />
+        <div aria-hidden style={inkStyle} />
       </span>
     </button>
   );

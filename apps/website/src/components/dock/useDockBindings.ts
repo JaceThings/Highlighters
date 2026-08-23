@@ -16,28 +16,26 @@ export function useDockBindings(geometry: DockGeometry, refs: DockRefs) {
   );
   const applyClip = useCallback(
     (el: HTMLElement | SVGElement) => {
-      (el as HTMLElement).style.borderRadius = `${geometry.cornerRadius.get()}px`;
+      el.style.borderRadius = `${geometry.cornerRadius.get()}px`;
     },
     [geometry],
   );
   const applyFeather = useCallback(
     (el: HTMLElement | SVGElement) => {
-      const s = el as HTMLElement;
-      s.style.borderRadius = `${geometry.cornerRadius.get()}px`;
-      s.style.opacity = String(geometry.feather.get());
+      el.style.borderRadius = `${geometry.cornerRadius.get()}px`;
+      el.style.opacity = String(geometry.feather.get());
     },
     [geometry],
   );
   const applyContentFreeze = useCallback(
     (el: HTMLElement | SVGElement) => {
-      const s = el as HTMLElement;
       if (geometry.frozen.get() < 0.5) {
-        s.style.transform = "";
+        el.style.transform = "";
         return;
       }
       const cx = geometry.x.get() + geometry.width.get() / 2;
       const cy = geometry.y.get() + geometry.height.get() / 2;
-      s.style.transform = `translate(${geometry.freezeCx.get() - cx}px, ${geometry.freezeCy.get() - cy}px)`;
+      el.style.transform = `translate(${geometry.freezeCx.get() - cx}px, ${geometry.freezeCy.get() - cy}px)`;
     },
     [geometry],
   );

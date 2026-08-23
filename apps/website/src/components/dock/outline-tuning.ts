@@ -12,11 +12,11 @@ export interface OutlineTuning {
   preview: PenTip | null;
 }
 
-export const DEFAULT_TUNING: Record<PenTip, TipTune> = {
+export const DEFAULT_TUNING = {
   slant: { dx: 0, dy: -2, scale: 1 },
   round: { dx: 0, dy: -3, scale: 1 },
   fine: { dx: 0, dy: -2.5, scale: 1 },
-};
+} satisfies Record<PenTip, TipTune>;
 
 let state: OutlineTuning = { tips: { ...DEFAULT_TUNING }, preview: null };
 

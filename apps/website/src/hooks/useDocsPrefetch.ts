@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { IS_WEBKIT } from "../components/docs/is-webkit.ts";
+import { BROWSER } from "../lib/browser-env.ts";
 
 export function useDocsPrefetch(): void {
   useEffect(() => {
@@ -11,7 +12,7 @@ export function useDocsPrefetch(): void {
       void document.fonts?.load?.('400 25px "Letters Home"')?.catch(() => {});
       if (IS_WEBKIT) prefetchImage("/paper-sheet.webp");
     };
-    const hasIdle = typeof window.requestIdleCallback === "function";
+    const hasIdle = BROWSER.hasIdleCallback;
     const id = hasIdle ? window.requestIdleCallback(warm, { timeout: 2500 }) : window.setTimeout(warm, 1200);
     return () => {
       if (hasIdle) window.cancelIdleCallback(id);

@@ -87,9 +87,14 @@ export function Preview({ quote, strategy, lockTipType }: PreviewProps) {
   );
 }
 
-const useIsoLayout = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+const useIsoLayout = "window" in globalThis ? useLayoutEffect : useEffect;
 
-function snapRangeOffsets(text: string): { start: number; end: number } {
+interface SnapRange {
+  start: number;
+  end: number;
+}
+
+function snapRangeOffsets(text: string): SnapRange {
   const words = text.split(" ");
   const n = words.length;
   const mid = Math.floor(n / 2);

@@ -2,8 +2,9 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { useMotionValueEvent, type MotionValue } from "framer-motion";
 import { makeZigzag, pointsUpTo, pointsBetween, smoothStrokePath } from "./scribble-render.ts";
 import { IS_WEBKIT } from "./is-webkit.ts";
+import { BROWSER } from "../../lib/browser-env.ts";
 
-const useIso = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+const useIso = BROWSER.hasWindow ? useLayoutEffect : useEffect;
 
 const VIEW_W = 472;
 const VIEW_H = 10;

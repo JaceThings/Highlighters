@@ -23,7 +23,7 @@ export type HighlightProps<E extends ElementType = "span"> = HighlightOwnProps &
 
 export function Highlight<E extends ElementType = "span">(props: HighlightProps<E>) {
   const { as, options, host, children, ...rest } = props;
-  const Component = (as ?? "span") as ElementType;
+  const Component: ElementType = as ?? "span";
   const [node, setNode] = useState<Element | null>(null);
   const ref = useCallback((el: Element | null) => setNode(el), []);
 

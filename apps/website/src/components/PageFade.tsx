@@ -4,10 +4,16 @@ import { useRef, type ComponentType } from "react";
 import { Home } from "../pages/Home.tsx";
 import { Docs } from "../pages/Docs.tsx";
 
-const PAGES: Record<string, ComponentType> = {
+type PageRoute = "/" | "/docs";
+
+const PAGES = {
   "/": Home,
   "/docs": Docs,
-};
+} satisfies Record<PageRoute, ComponentType>;
+
+function isPageRoute(pathname: string): pathname is PageRoute {
+  return pathname in PAGES;
+}
 
 const EASE: [number, number, number, number] = [0.2, 0, 0, 1];
 const PAUSE_S = 0.05;
@@ -23,8 +29,8 @@ export function PageFade() {
   const isFirst = firstRef.current;
   firstRef.current = false;
 
+  if (!isPageRoute(pathname)) return <Outlet />;
   const Page = PAGES[pathname];
-  if (!Page) return <Outlet />;
   return (
     <AnimatePresence mode="wait">
       <m.div

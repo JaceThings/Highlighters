@@ -285,7 +285,7 @@ export function useDockDrag({
       stopAll();
       const b = boxFor(target);
       const horizontal = isHorizontal(target);
-      const rot = horizontal ? 0 : sideRotation(target as DockSide);
+      const rot = horizontal ? 0 : sideRotation(target);
       width.set(b.w);
       height.set(b.h);
       cornerRadius.set(b.radius);
@@ -431,7 +431,7 @@ export function useDockDrag({
       if (target !== null) {
         const b = boxFor(target);
         const isSide = !isHorizontal(target);
-        const rot = isSide ? sideRotation(target as DockSide) : 0;
+        const rot = isSide ? sideRotation(target) : 0;
         rotateTargetRef.current = rot;
         const rowShowing =
           isSide &&
@@ -561,12 +561,12 @@ export function useDockDrag({
   const commitTo = useCallback(
     (target: DockTarget) => {
       const horizontal = isHorizontal(target);
-      setSide(horizontal ? null : (target as DockSide));
+      setSide(horizontal ? null : target);
       setAtTop(target === "top");
       const restPhase: DockPhase = isHorizontal(target) ? target : "side";
       setPhase(horizontal ? "returning" : "snapping");
       const b = boxFor(target);
-      const rot = horizontal ? 0 : sideRotation(target as DockSide);
+      const rot = horizontal ? 0 : sideRotation(target);
       settle(
         [
           [width, b.w],
@@ -628,7 +628,7 @@ export function useDockDrag({
       e.preventDefault();
       onDragStart?.();
       try {
-        (e.currentTarget as Element).setPointerCapture(e.pointerId);
+        e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
       }
       stopAll();

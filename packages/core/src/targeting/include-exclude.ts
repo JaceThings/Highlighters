@@ -2,15 +2,17 @@ import type { PageTarget } from "../types.js";
 import {
   FILTER_ACCEPT,
   FILTER_REJECT,
+  SHOW_TEXT,
   hasDomWithRange,
   isInNonRenderedSubtree,
-  SHOW_TEXT,
+  isTextNode,
+  nextTextNode,
 } from "../internal/dom.js";
 
 const EXCLUDE_ATTR = "data-highlight-exclude";
 
 function elementOf(node: Node): Element | null {
-  return node.nodeType === 1 ? (node as Element) : node.parentElement;
+  return node instanceof Element ? node : node.parentElement;
 }
 
 export function isExcluded(node: Node, excludeSelectors: string[]): boolean {
@@ -81,7 +83,8 @@ export function collectPageRanges(target: PageTarget): Range[] {
 
   const walker = document.createTreeWalker(root, SHOW_TEXT, {
     acceptNode(node) {
-      const text = node as Text;
+      if (!isTextNode(node)) return FILTER_REJECT;
+      const text = node;
       if (text.data.trim().length === 0) return FILTER_REJECT;
       if (isInNonRenderedSubtree(text)) return FILTER_REJECT;
       if (isExcluded(text, exclude)) return FILTER_REJECT;
@@ -91,7 +94,7 @@ export function collectPageRanges(target: PageTarget): Range[] {
   });
 
   const ranges: Range[] = [];
-  let node = walker.nextNode() as Text | null;
+  let node = nextTextNode(walker);
   while (node) {
     const data = node.data;
     const start = data.length - data.replace(/^\s+/, "").length;
@@ -102,7 +105,7 @@ export function collectPageRanges(target: PageTarget): Range[] {
       range.setEnd(node, end);
       ranges.push(range);
     }
-    node = walker.nextNode() as Text | null;
+    node = nextTextNode(walker);
   }
 
   return ranges;

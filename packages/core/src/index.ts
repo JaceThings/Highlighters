@@ -27,7 +27,6 @@ export { createHighlightApiRenderer } from "./render/tier-c-highlight-api.js";
 export type {
   ColorValue,
   MarkType,
-  ShapeType,
   TipType,
   EdgeCap,
   BlendMode,

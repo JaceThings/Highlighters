@@ -11,9 +11,10 @@ import type { MotionValue } from "framer-motion";
 import { DEFAULT_OPTIONS, resolveSwatch } from "@highlighters/core";
 import type {
   BlendMode,
+  ColorValue,
   HighlightOptions,
   MarkType,
-  ShapeType,
+  PaletteSwatch,
   TipType,
 } from "@highlighters/core";
 import {
@@ -32,21 +33,32 @@ function penToTipType(pen: PenTip): TipType {
   if (pen === "fine") return "fine";
   return "chisel";
 }
-function tipTypeToPen(type: TipType): PenTip {
+function tipTypeToPen(type: TipType | undefined): PenTip {
   if (type === "bullet") return "round";
   if (type === "fine") return "fine";
   return "slant";
 }
+
+type ParsedColor =
+  | { kind: "hex"; hex: ColorValue }
+  | { kind: "swatch"; swatch: PaletteSwatch }
+  | { kind: "unset" };
+
+function parseColor(color: PlaygroundOptions["color"]): ParsedColor {
+  if (color === undefined) return { kind: "unset" };
+  if (color instanceof Object) return { kind: "swatch", swatch: color };
+  return { kind: "hex", hex: color };
+}
+
 export function colorToHex(color: PlaygroundOptions["color"], fallback = DEFAULT_INK): string {
-  if (typeof color === "string") return color;
-  if (color && typeof color === "object" && "swatch" in color) {
-    try {
-      return resolveSwatch(color);
-    } catch {
-      return fallback;
-    }
+  const parsed = parseColor(color);
+  if (parsed.kind === "hex") return parsed.hex;
+  if (parsed.kind === "unset") return fallback;
+  try {
+    return resolveSwatch(parsed.swatch);
+  } catch {
+    return fallback;
   }
-  return fallback;
 }
 
 export interface PlaygroundOptions extends HighlightOptions {
@@ -66,7 +78,6 @@ export function toCoreOptions(opts: PlaygroundOptions): HighlightOptions {
 
 function buildInitialOptions(): PlaygroundOptions {
   return {
-    shape: "highlight",
     markType: "highlight",
     color: { palette: "fluorescent", swatch: "yellow" },
     opacity: 0.5,
@@ -96,13 +107,56 @@ function buildInitialOptions(): PlaygroundOptions {
   };
 }
 
-type OptionPath = string;
+type OptionGroupKey = {
+  [K in keyof PlaygroundOptions]-?: NonNullable<PlaygroundOptions[K]> extends object
+    ? K
+    : never;
+}[keyof PlaygroundOptions];
+
+type OptionGroupFlags = { [K in OptionGroupKey]: true };
+
+const OPTION_GROUPS: OptionGroupFlags = {
+  gradient: true,
+  tip: true,
+  ink: true,
+  speed: true,
+  edge: true,
+  paper: true,
+  glow: true,
+  animation: true,
+};
+
+function isOptionGroup(key: string): key is OptionGroupKey {
+  return key in OPTION_GROUPS;
+}
+
+type NestedOptionPath = {
+  [K in OptionGroupKey]: `${K & string}.${keyof NonNullable<PlaygroundOptions[K]> & string}`;
+}[OptionGroupKey];
+
+export type OptionPath = (keyof PlaygroundOptions & string) | NestedOptionPath;
+
+export type ValueAtPath<P extends OptionPath> = P extends keyof PlaygroundOptions
+  ? PlaygroundOptions[P]
+  : P extends `${infer G}.${infer F}`
+    ? G extends OptionGroupKey
+      ? F extends keyof NonNullable<PlaygroundOptions[G]>
+        ? NonNullable<PlaygroundOptions[G]>[F]
+        : never
+      : never
+    : never;
+
+export type OptionPathOf<Value> = {
+  [P in OptionPath]: NonNullable<ValueAtPath<P>> extends Value ? P : never;
+}[OptionPath];
+
+const EMPTY_OPTIONS: PlaygroundOptions = {};
 
 interface PlaygroundOptionsContextValue {
   options: PlaygroundOptions;
-  set: (path: OptionPath, value: unknown, fromDrag?: boolean) => void;
+  set: <P extends OptionPath>(path: P, value: ValueAtPath<P>, fromDrag?: boolean) => void;
   merge: (patch: Partial<PlaygroundOptions>) => void;
-  setShape: (shape: ShapeType) => void;
+  setMarkType: (markType: MarkType) => void;
   reset: () => void;
 }
 
@@ -115,48 +169,38 @@ function mergeOptionsShallow(
   base: PlaygroundOptions,
   patch: Partial<PlaygroundOptions>,
 ): PlaygroundOptions {
-  const next: PlaygroundOptions = { ...base };
-  for (const key of Object.keys(patch) as (keyof PlaygroundOptions)[]) {
-    const value = patch[key];
-    const existing = base[key];
-    if (
-      value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      existing &&
-      typeof existing === "object" &&
-      !Array.isArray(existing)
-    ) {
-      (next as Record<string, unknown>)[key] = {
-        ...(existing as object),
-        ...(value as object),
-      };
-    } else {
-      (next as Record<string, unknown>)[key] = value;
-    }
+  const next: PlaygroundOptions = { ...base, ...patch };
+  const baseColor = parseColor(base.color);
+  const patchColor = parseColor(patch.color);
+  if (baseColor.kind === "swatch" && patchColor.kind === "swatch") {
+    next.color = { ...baseColor.swatch, ...patchColor.swatch };
+  }
+  if (base.gradient && patch.gradient) next.gradient = { ...base.gradient, ...patch.gradient };
+  if (base.tip && patch.tip) next.tip = { ...base.tip, ...patch.tip };
+  if (base.ink && patch.ink) next.ink = { ...base.ink, ...patch.ink };
+  if (base.speed && patch.speed) next.speed = { ...base.speed, ...patch.speed };
+  if (base.edge && patch.edge) next.edge = { ...base.edge, ...patch.edge };
+  if (base.paper && patch.paper) next.paper = { ...base.paper, ...patch.paper };
+  if (base.glow && patch.glow) next.glow = { ...base.glow, ...patch.glow };
+  if (base.animation && patch.animation) {
+    next.animation = { ...base.animation, ...patch.animation };
   }
   return next;
 }
 
-function setAtPath(
+function setAtPath<P extends OptionPath>(
   base: PlaygroundOptions,
-  path: OptionPath,
-  value: unknown,
+  path: P,
+  value: ValueAtPath<P>,
 ): PlaygroundOptions {
   const segments = path.split(".");
   if (segments.length === 1) {
-    return { ...base, [segments[0]]: value } as PlaygroundOptions;
+    return { ...base, [segments[0]]: value };
   }
   if (segments.length === 2) {
     const [group, field] = segments;
-    const existingGroup = (base as Record<string, unknown>)[group];
-    const nextGroup = {
-      ...(existingGroup && typeof existingGroup === "object"
-        ? (existingGroup as object)
-        : {}),
-      [field]: value,
-    };
-    return { ...base, [group]: nextGroup } as PlaygroundOptions;
+    const existingGroup = isOptionGroup(group) ? base[group] : undefined;
+    return { ...base, [group]: { ...existingGroup, [field]: value } };
   }
   throw new Error(
     `@highlighters playground: unsupported option path "${path}" (max depth 2)`,
@@ -168,8 +212,12 @@ function useAnimatedOptions(
   fromDrag: boolean,
 ): PlaygroundOptions {
   const cfg = { duration: 0.35, ease: STATE_CHANGE_EASE, fromDrag };
-  const animatedColor = useAnimatedColor(typeof o.color === "string" ? o.color : DEFAULT_INK, cfg);
-  const color = typeof o.color === "string" ? animatedColor : o.color;
+  const parsedColor = parseColor(o.color);
+  const animatedColor = useAnimatedColor(
+    parsedColor.kind === "hex" ? parsedColor.hex : DEFAULT_INK,
+    cfg,
+  );
+  const color = parsedColor.kind === "hex" ? animatedColor : o.color;
   const opacity = useSpringMotionValue(o.opacity ?? 0.5, cfg);
   const angle = useSpringMotionValue(o.tip?.angle ?? 35, cfg);
   const overshoot = useSpringMotionValue(o.tip?.overshoot ?? 2, cfg);
@@ -254,14 +302,15 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
   }, [sel.style.pen]);
 
   const set = useCallback(
-    (path: OptionPath, value: unknown, drag = false) => {
+    <P extends OptionPath>(path: P, value: ValueAtPath<P>, drag = false) => {
       setFromDrag(drag);
-      if (path === "color") return sel.setColor(colorToHex(value as PlaygroundOptions["color"]));
-      if (path === "opacity") return sel.setOpacity(value as number);
-      if (path === "markType") return sel.setMarkType(value as MarkType);
+      const parsed = setAtPath(EMPTY_OPTIONS, path, value);
+      if (path === "color") return sel.setColor(colorToHex(parsed.color));
+      if (path === "opacity") return sel.setOpacity(parsed.opacity ?? DEFAULT_OPACITY);
+      if (path === "markType") return sel.setMarkType(parsed.markType ?? DEFAULT_MARK_TYPE);
       if (path === "tip.type") {
-        sel.setPen(tipTypeToPen(value as TipType));
-        setOptions((prev) => setAtPath(prev, "tip.type", value));
+        sel.setPen(tipTypeToPen(parsed.tip?.type));
+        setOptions((prev) => setAtPath(prev, "tip.type", parsed.tip?.type));
         return;
       }
       setOptions((prev) => setAtPath(prev, path, value));
@@ -274,10 +323,7 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
     setOptions((prev) => mergeOptionsShallow(prev, patch));
   }, []);
 
-  const setShape = useCallback(
-    (shape: ShapeType) => sel.setMarkType(shape as MarkType),
-    [sel],
-  );
+  const setMarkType = useCallback((markType: MarkType) => sel.setMarkType(markType), [sel]);
 
   const reset = useCallback(() => {
     setFromDrag(false);
@@ -294,7 +340,6 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
       color: sel.style.color,
       opacity: sel.style.opacity,
       markType: sel.style.markType,
-      shape: sel.style.markType,
     }),
     [options, sel.style.color, sel.style.opacity, sel.style.markType],
   );
@@ -302,8 +347,8 @@ export function PlaygroundOptionsProvider({ children }: { children: ReactNode })
   const previewOptions = useAnimatedOptions(merged, fromDrag);
 
   const value = useMemo<PlaygroundOptionsContextValue>(
-    () => ({ options: merged, set, merge, setShape, reset }),
-    [merged, set, merge, setShape, reset],
+    () => ({ options: merged, set, merge, setMarkType, reset }),
+    [merged, set, merge, setMarkType, reset],
   );
 
   return (

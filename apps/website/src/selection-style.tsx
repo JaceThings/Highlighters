@@ -21,11 +21,11 @@ export interface SelectionStyle {
 export const DEFAULT_INK = "#6f584c";
 export const DEFAULT_OPACITY = 0.58;
 export const DEFAULT_MARK_TYPE: MarkType = "highlight";
-const DEFAULT_OPACITY_BY_PEN: Record<PenTip, number> = {
+const DEFAULT_OPACITY_BY_PEN = {
   slant: DEFAULT_OPACITY,
   round: DEFAULT_OPACITY,
   fine: DEFAULT_OPACITY,
-};
+} satisfies Record<PenTip, number>;
 
 interface SelectionStyleContextValue {
   style: SelectionStyle;

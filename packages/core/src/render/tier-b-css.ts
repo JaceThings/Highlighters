@@ -61,13 +61,13 @@ export function createCssRenderer(): Renderer {
     setStyleOnce(el, "top", "0");
     setStyleOnce(el, "width", "100%");
     setStyleOnce(el, "height", "100%");
-    setStyleOnce(el, "pointerEvents", "none");
-    setStyleOnce(el, "mixBlendMode", options.blendMode);
+    setStyleOnce(el, "pointer-events", "none");
+    setStyleOnce(el, "mix-blend-mode", options.blendMode);
     setStyleOnce(el, "opacity", String(options.opacity * (line.pool.layerScale ?? 1)));
-    setStyleOnce(el, "backgroundImage", poolGradientToCss(line.pool, inkColor));
-    setStyleOnce(el, "backgroundRepeat", "no-repeat");
-    setStyleOnce(el, "boxDecorationBreak", "clone");
-    setStyleOnce(el, "borderRadius", `${options.edge.radius}px`);
+    setStyleOnce(el, "background-image", poolGradientToCss(line.pool, inkColor));
+    setStyleOnce(el, "background-repeat", "no-repeat");
+    setStyleOnce(el, "box-decoration-break", "clone");
+    setStyleOnce(el, "border-radius", `${options.edge.radius}px`);
   }
 
   function render(context: RenderContext): void {

@@ -26,29 +26,25 @@ function rangeText(range: Range): string {
   return range.toString();
 }
 
+function firstText(el: Element): Text {
+  const node = el.firstChild;
+  if (!(node instanceof Text)) throw new Error("expected the element to start with a text node");
+  return node;
+}
+
 function rect(left: number, top: number, width: number, height: number): DOMRect {
-  return {
-    x: left,
-    y: top,
-    width,
-    height,
-    left,
-    top,
-    right: left + width,
-    bottom: top + height,
-    toJSON() {
-      return { x: left, y: top, width, height };
-    },
-  } as DOMRect;
+  return new DOMRect(left, top, width, height);
+}
+
+class TestRectList extends Array<DOMRect> implements DOMRectList {
+  item(index: number): DOMRect | null {
+    return this[index] ?? null;
+  }
 }
 
 function domRectList(rects: DOMRect[]): DOMRectList {
-  const list = {
-    length: rects.length,
-    item: (i: number) => rects[i] ?? null,
-    [Symbol.iterator]: () => rects[Symbol.iterator](),
-  } as unknown as DOMRectList & Record<number, DOMRect>;
-  for (let i = 0; i < rects.length; i++) list[i] = rects[i];
+  const list = new TestRectList();
+  list.push(...rects);
   return list;
 }
 
@@ -76,7 +72,7 @@ describe("toRanges - V1 normalization per input type", () => {
 
   it("returns the given Range directly (R6b)", () => {
     const body = setBody(`<p>abcdef</p>`);
-    const text = body.querySelector("p")!.firstChild as Text;
+    const text = firstText(body.querySelector("p")!);
     const range = document.createRange();
     range.setStart(text, 1);
     range.setEnd(text, 4);
@@ -88,7 +84,7 @@ describe("toRanges - V1 normalization per input type", () => {
 
   it("drops a collapsed Range", () => {
     const body = setBody(`<p>abc</p>`);
-    const text = body.querySelector("p")!.firstChild as Text;
+    const text = firstText(body.querySelector("p")!);
     const range = document.createRange();
     range.setStart(text, 1);
     range.setEnd(text, 1);
@@ -97,7 +93,7 @@ describe("toRanges - V1 normalization per input type", () => {
 
   it("normalizes a Selection to its non-collapsed ranges (R6b)", () => {
     const body = setBody(`<p>selected text</p>`);
-    const text = body.querySelector("p")!.firstChild as Text;
+    const text = firstText(body.querySelector("p")!);
     const range = document.createRange();
     range.setStart(text, 0);
     range.setEnd(text, 8);

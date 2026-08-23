@@ -53,7 +53,7 @@ export function MarkUnderline({
 
   const { samples, staticD, viewBox } = useMemo(() => {
     const raw = samplePath(squiggle.d, N);
-    const samples = raw.map((p, i) => [p[0], p[1], lerpPressure(squiggle.pressure, i / (N - 1))] as [number, number, number]);
+    const samples = raw.map((p, i): [number, number, number] => [p[0], p[1], lerpPressure(squiggle.pressure, i / (N - 1))]);
     const outline = getStroke(samples, strokeOpts(true));
     return { samples, staticD: toPath(outline), viewBox: outlineViewBox(outline) };
   }, [squiggle]);

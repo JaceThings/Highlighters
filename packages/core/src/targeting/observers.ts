@@ -62,7 +62,7 @@ export function createReflowObserver(
   const vv = window.visualViewport;
   if (vv) vv.addEventListener("resize", schedule);
 
-  const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+  const fonts = document.fonts;
   if (fonts && fonts.ready && "then" in fonts.ready) {
     fonts.ready.then(() => {
       if (!disposed) schedule();

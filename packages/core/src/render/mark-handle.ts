@@ -63,7 +63,7 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
 
     update(opts: Partial<HighlightOptions>): void {
       if (removed) return;
-      userOptions = mergeOptions(userOptions, opts as HighlightOptions);
+      userOptions = mergeOptions(userOptions, opts);
       resolved = resolveOptions(userOptions);
       rerender();
     },

@@ -65,16 +65,12 @@ describe("mergeOptions", () => {
     expect(merged.ink).toEqual({ flow: 0.5, feathering: 0.2 });
   });
 
-  it("reconciles the shape/markType synonyms onto markType", () => {
-    const fromShape = mergeOptions({}, { shape: "underline" });
-    expect(fromShape.markType).toBe("underline");
-    expect(fromShape.shape).toBeUndefined();
+  it("keeps the base markType when the override leaves it undefined", () => {
+    const kept = mergeOptions({ markType: "highlight" }, { markType: undefined });
+    expect(kept.markType).toBe("highlight");
 
-    const both = mergeOptions({}, { shape: "underline", markType: "strike-through" });
-    expect(both.markType).toBe("strike-through");
-
-    const overrideShape = mergeOptions({ markType: "highlight" }, { shape: "underline" });
-    expect(overrideShape.markType).toBe("underline");
+    const replaced = mergeOptions({ markType: "highlight" }, { markType: "underline" });
+    expect(replaced.markType).toBe("underline");
   });
 
   it("is pure (does not mutate either argument)", () => {
@@ -189,12 +185,9 @@ describe("resolveOptions", () => {
     expect(r.edge.roughness).toBe(0);
   });
 
-  it("honors an explicit seed and the shape synonym", () => {
+  it("honors an explicit seed", () => {
     expect(resolveOptions({ seed: 42 }).seed).toBe(42);
     expect(resolveOptions().seed).toBeNull();
-    expect(resolveOptions({ shape: "strike-through" }).markType).toBe(
-      "strike-through",
-    );
   });
 
   it("a negative startEndBuildup engages the anti-pool guardrail", () => {

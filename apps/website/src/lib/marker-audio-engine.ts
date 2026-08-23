@@ -1,4 +1,17 @@
-type WebkitWindow = typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+import { BROWSER } from "./browser-env.ts";
+
+interface AudioSession {
+  type: string;
+}
+
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+  interface Navigator {
+    audioSession?: AudioSession;
+  }
+}
 
 const SLIDER_URLS = ["/audio/marker-slider-1.mp3", "/audio/marker-slider-2.mp3"];
 const CIRCLE_URLS = [
@@ -64,17 +77,16 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 
 function createCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+  if (!BROWSER.hasWindow) return null;
   if (!ctx) {
-    const AC = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext;
+    const AC = window.AudioContext ?? window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain();
     master.connect(ctx.destination);
-    const nav = navigator as Navigator & { audioSession?: { type: string } };
-    if (nav.audioSession) {
+    if (navigator.audioSession) {
       try {
-        nav.audioSession.type = "playback"; // iOS: play through the silent switch
+        navigator.audioSession.type = "playback"; // iOS: play through the silent switch
       } catch {
       }
     }

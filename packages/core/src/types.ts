@@ -6,8 +6,6 @@ export type MarkType =
   | "overline"
   | "strike-through";
 
-export type ShapeType = MarkType;
-
 export type TipType = "chisel" | "bullet" | "fine";
 
 export type EdgeCap = "flat" | "round" | "square";
@@ -133,7 +131,6 @@ export interface AnimationOptions {
 }
 
 export interface HighlightOptions {
-  shape?: ShapeType;
   markType?: MarkType;
   color?: ColorValue | PaletteSwatch;
   palette?: PaletteName;

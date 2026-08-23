@@ -123,10 +123,17 @@ function readBag(): BagState | null {
   try {
     const raw = localStorage.getItem(BAG_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as BagState;
-    const order = parsed.order.filter((i) => i >= 0 && i < EXCERPTS.length);
+    const parsed: unknown = JSON.parse(raw);
+    if (!(parsed instanceof Object)) return null;
+    if (!("order" in parsed) || !("last" in parsed)) return null;
+    const storedOrder = parsed.order;
+    if (!Array.isArray(storedOrder)) return null;
+    const order = storedOrder.filter(
+      (i): i is number => Number.isFinite(i) && i >= 0 && i < EXCERPTS.length,
+    );
+    const storedLast = Number(parsed.last);
     const last =
-      parsed.last >= 0 && parsed.last < EXCERPTS.length ? parsed.last : -1;
+      Number.isFinite(storedLast) && storedLast >= 0 && storedLast < EXCERPTS.length ? storedLast : -1;
     return { order, last };
   } catch {
     return null;

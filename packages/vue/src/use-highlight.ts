@@ -11,9 +11,14 @@ import type { HighlightOptions, MarkHandle, Target } from "@highlighters/core";
 
 export type HighlightTarget = Ref<Element | null> | Target;
 
+function isElementRef(target: HighlightTarget): target is Ref<Element | null> {
+  const boxed = Object(target);
+  return boxed === target && "value" in boxed;
+}
+
 function resolveTarget(target: HighlightTarget): Target | null {
-  const value = unref(target as MaybeRef<Element | null | Target>);
-  return (value ?? null) as Target | null;
+  if (!isElementRef(target)) return target;
+  return target.value;
 }
 
 export function useHighlight(

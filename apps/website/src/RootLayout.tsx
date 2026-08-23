@@ -13,6 +13,7 @@ import { DockEntranceContext } from "./dock-entrance.tsx";
 import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
 import { useDockTier } from "./hooks/useDockTier.ts";
 import { primeMarkerAudio } from "./lib/marker-audio.ts";
+import { BROWSER } from "./lib/browser-env.ts";
 
 const loadMotionFeatures = () => import("./lib/motion-features.ts").then((m) => m.default);
 
@@ -63,7 +64,7 @@ export function RootLayout() {
       primeMarkerAudio();
     }
     events.forEach((e) => window.addEventListener(e, prime, opts));
-    const hasIdle = typeof window.requestIdleCallback === "function";
+    const hasIdle = BROWSER.hasIdleCallback;
     let id: number | undefined;
     const armIdle = () => {
       if (primed) return;

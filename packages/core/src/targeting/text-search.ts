@@ -1,9 +1,10 @@
 import {
   FILTER_ACCEPT,
   FILTER_REJECT,
+  SHOW_TEXT,
   hasDomWithRange,
   isInNonRenderedSubtree,
-  SHOW_TEXT,
+  nextTextNode,
 } from "../internal/dom.js";
 
 interface CharSlot {
@@ -23,14 +24,14 @@ function collectText(root: Node): CollectedText {
   const walker = document.createTreeWalker(root, SHOW_TEXT, {
     acceptNode: (n) => (isInNonRenderedSubtree(n) ? FILTER_REJECT : FILTER_ACCEPT),
   });
-  let node = walker.nextNode() as Text | null;
+  let node = nextTextNode(walker);
   while (node) {
     const value = node.data;
     for (let i = 0; i < value.length; i++) {
       slots.push({ node, offset: i });
     }
     text += value;
-    node = walker.nextNode() as Text | null;
+    node = nextTextNode(walker);
   }
 
   return { text, slots };

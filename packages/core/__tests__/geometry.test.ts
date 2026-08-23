@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { LineRect, ResolvedOptions } from "../src/types.js";
 import { hashJitter, hashU32, mulberry } from "../src/geometry/rng.js";
 import { buildEdge } from "../src/geometry/edges.js";
-import { buildClipPath } from "../src/geometry/clip-path.js";
+import { buildClipPath, type ClipPathOptions } from "../src/geometry/clip-path.js";
 import { buildPoolGradient } from "../src/geometry/pool.js";
 import {
   buildNoiseTile,
@@ -631,13 +631,13 @@ describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
   });
 
   it("does not depend on the DOM btoa global", () => {
-    const original = (globalThis as { btoa?: unknown }).btoa;
+    const original = globalThis.btoa;
     try {
-      delete (globalThis as { btoa?: unknown }).btoa;
+      Reflect.deleteProperty(globalThis, "btoa");
       const url = buildNoiseTileDataUrl({ seed: 3, streakiness: 0.5, feathering: 0.5 });
       expect(url.startsWith("data:image/svg+xml;base64,")).toBe(true);
     } finally {
-      (globalThis as { btoa?: unknown }).btoa = original;
+      globalThis.btoa = original;
     }
   });
 
@@ -709,11 +709,11 @@ describe("buildClipPath front truncation", () => {
   const tip = {
     type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0, angleJitter: 0,
   } as const;
-  const args = (front?: number) => ({
+  const args = (front?: number): ClipPathOptions => ({
     box: { x: 0, y: 0, width: 200, height: 24 },
     tip: { ...tip },
-    topEdge: [] as never[],
-    bottomEdge: [] as never[],
+    topEdge: [],
+    bottomEdge: [],
     cap: "round" as const,
     radius: 3,
     front,
@@ -949,8 +949,8 @@ describe("buildMarkGeometry", () => {
 
   it("does not touch the DOM (works with document/window undefined)", () => {
     const g = buildMarkGeometry(makeLineRect(), makeOptions(), 1);
-    expect(typeof g.box.x).toBe("number");
-    expect(typeof g.box.width).toBe("number");
+    expect(Number.isFinite(g.box.x)).toBe(true);
+    expect(Number.isFinite(g.box.width)).toBe(true);
     expect(g.clipPath).toContain("path(");
   });
 });

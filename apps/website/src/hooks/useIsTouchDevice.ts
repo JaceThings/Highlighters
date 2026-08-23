@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { BROWSER } from "../lib/browser-env.ts";
 
 const TOUCH_QUERY = "(hover: none) and (pointer: coarse)";
 
 function readMatch(): boolean {
-  return typeof window !== "undefined" && window.matchMedia(TOUCH_QUERY).matches;
+  return BROWSER.hasWindow && window.matchMedia(TOUCH_QUERY).matches;
 }
 
 export function useIsTouchDevice(): boolean {

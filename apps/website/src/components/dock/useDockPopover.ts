@@ -91,7 +91,8 @@ export function useDockPopover({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (!trayRef.current?.contains(e.target as Node)) setPopover(null);
+      const target = e.target instanceof Node ? e.target : null;
+      if (!trayRef.current?.contains(target)) setPopover(null);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPopover(null);

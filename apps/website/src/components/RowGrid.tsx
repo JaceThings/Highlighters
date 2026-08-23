@@ -21,12 +21,14 @@ export function RowGrid({
     };
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) {
-        const h = e.borderBoxSize?.[0]?.blockSize ?? (e.target as HTMLElement).getBoundingClientRect().height;
-        snap(e.target as HTMLElement, h);
+        const cell = e.target;
+        if (!(cell instanceof HTMLElement)) continue;
+        const h = e.borderBoxSize?.[0]?.blockSize ?? cell.getBoundingClientRect().height;
+        snap(cell, h);
       }
     });
     const sync = () => {
-      const cells = Array.from(grid.children) as HTMLElement[];
+      const cells = Array.from(grid.children).filter((el) => el instanceof HTMLElement);
       const heights = cells.map((el) => el.getBoundingClientRect().height);
       cells.forEach((el, i) => {
         snap(el, heights[i]);

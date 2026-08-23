@@ -6,6 +6,10 @@ export function useEntranceComplete(): boolean {
   return use(EntranceCompleteContext);
 }
 
+interface StaggerStyle extends CSSProperties {
+  "--stagger": number;
+}
+
 interface StaggerProps {
   index: number;
   children: ReactNode;
@@ -41,8 +45,10 @@ export function Stagger({ index, children, onComplete }: StaggerProps) {
     };
   }, []);
 
+  const staggerStyle: StaggerStyle = { "--stagger": index, opacity: 0 };
+
   return (
-    <div ref={ref} className="stagger-item" style={{ "--stagger": index, opacity: 0 } as CSSProperties}>
+    <div ref={ref} className="stagger-item" style={staggerStyle}>
       <EntranceCompleteContext.Provider value={done}>{children}</EntranceCompleteContext.Provider>
     </div>
   );

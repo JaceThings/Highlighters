@@ -19,7 +19,7 @@ export function MorphBackground({
 
   const applyShadow = useCallback(
     (el: HTMLElement | SVGElement) => {
-      (el as HTMLElement).style.borderRadius = `${cornerRadius.get()}px`;
+      el.style.borderRadius = `${cornerRadius.get()}px`;
     },
     [cornerRadius],
   );

@@ -1,7 +1,7 @@
 import type { ResolvedOptions } from "../types.js";
 import { defaultSwatch } from "./palettes.js";
 
-export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
+export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze<ResolvedOptions>({
   markType: "highlight",
   color: defaultSwatch("mild"),
   gradient: null,
@@ -72,4 +72,4 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   semantic: false,
   contrastBackground: null,
   seed: null,
-}) as ResolvedOptions;
+});
