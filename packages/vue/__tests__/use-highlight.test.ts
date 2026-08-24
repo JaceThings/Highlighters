@@ -1,9 +1,10 @@
-// @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createApp, h, ref, nextTick, type App } from "vue";
+import { createApp, h, ref, nextTick, type App, type VNode } from "vue";
 import { useHighlight } from "../src/use-highlight.js";
 import { Highlight } from "../src/highlight.js";
-import type { MarkHandle } from "@highlighters/core";
+import type { HighlightOptions, MarkHandle, RendererTier } from "@highlighters/core";
+
+const RENDERER_TIERS: readonly RendererTier[] = ["svg", "css", "highlight-api"];
 
 let container: HTMLDivElement;
 const apps: App[] = [];
@@ -18,7 +19,7 @@ afterEach(() => {
   container.remove();
 });
 
-function mount(render: () => unknown): App {
+function mount(render: () => VNode): App {
   const app = createApp({ render });
   app.mount(container);
   apps.push(app);
@@ -43,8 +44,8 @@ describe("useHighlight composable", () => {
     expect(getHandle).not.toBeNull();
     const handle = getHandle!();
     expect(handle).not.toBeNull();
-    expect(typeof handle!.tier).toBe("string");
-    expect(typeof handle!.remove).toBe("function");
+    expect(RENDERER_TIERS).toContain(handle!.tier);
+    expect(handle!.remove).toBeInstanceOf(Function);
   });
 
   it("removes the mark on unmount", async () => {
@@ -68,7 +69,8 @@ describe("useHighlight composable", () => {
   });
 
   it("delegates option changes to handle.update()", async () => {
-    const updates: unknown[] = [];
+    const updates: Partial<HighlightOptions>[] = [];
+    const wrapped = new WeakSet<MarkHandle>();
     const opacity = ref(0.5);
 
     mount(() =>
@@ -77,16 +79,15 @@ describe("useHighlight composable", () => {
           const el = ref<HTMLElement | null>(null);
           const options = ref<{ opacity: number }>({ opacity: opacity.value });
           const getHandle = useHighlight(el, options);
-          // Patch update on first availability to observe delegation.
           return () => {
             const handle = getHandle();
-            if (handle && !(handle as { __wrapped?: boolean }).__wrapped) {
+            if (handle && !wrapped.has(handle)) {
               const original = handle.update.bind(handle);
               handle.update = (opts) => {
                 updates.push(opts);
                 original(opts);
               };
-              (handle as { __wrapped?: boolean }).__wrapped = true;
+              wrapped.add(handle);
             }
             options.value = { opacity: opacity.value };
             return h("span", { ref: el }, "text");

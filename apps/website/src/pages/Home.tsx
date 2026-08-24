@@ -5,9 +5,6 @@ import { useDockEntrance } from "../dock-entrance.tsx";
 import { useDocsPrefetch } from "../hooks/useDocsPrefetch.ts";
 import { creditLine, pickNextExcerpt } from "./excerpts.ts";
 
-// The homepage IS the demo: select any line to paint it live (SelectionMarker). Type locks to the
-// 24px ruled rhythm: line-height and block gap are each one row.
-
 const INTRO =
   "This library allows you to draw marker strokes over web text. Not a coloured box sitting behind the words, an actual stroke off a nib: ink that pools where a line starts and stops, streaks left behind as it dries, a little bleed past the last letter. There are three nibs, the kind you'd find in a desk drawer. A broad chisel, a rounded bullet, a fine point.";
 
@@ -49,7 +46,6 @@ export function Home() {
         </p>
       </Stagger>
 
-      {/* Hairline divider in one ruled row; select-none keeps it out of selection. */}
       <Stagger index={5}>
         <div className="flex h-6 select-none items-center" aria-hidden="true">
           <span
@@ -59,7 +55,6 @@ export function Home() {
         </div>
       </Stagger>
 
-      {/* Last block in; its arrival cues the dock via signalReady. */}
       <Stagger index={6} onComplete={signalReady}>
         <figure className="m-0 flex flex-col gap-6">
           {excerpt.text.split("\n\n").map((para, i) => (

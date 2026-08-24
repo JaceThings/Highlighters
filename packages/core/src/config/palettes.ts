@@ -1,5 +1,3 @@
-/** Curated palette families, each tuned so any pair of its swatches reads coherently for color-coding. Pure data. */
-
 import type {
   ColorValue,
   Palette,
@@ -7,8 +5,7 @@ import type {
   PaletteSwatch,
 } from "../types.js";
 
-/** Each `swatches` map is ordered; that order is the color-coding cycle. */
-export const PALETTES: Record<PaletteName, Palette> = {
+export const PALETTES = {
   fluorescent: {
     name: "fluorescent",
     swatches: {
@@ -64,18 +61,16 @@ export const PALETTES: Record<PaletteName, Palette> = {
       periwinkle: "#c2cce8",
     },
   },
-};
+} satisfies Record<PaletteName, Palette>;
 
-/** Default swatch per family: the least-text-obscuring hue. */
-const DEFAULT_SWATCH_NAMES: Record<PaletteName, string> = {
+const DEFAULT_SWATCH_NAMES = {
   fluorescent: "yellow",
   mild: "yellow",
   vintage: "mustard",
   neutral: "sand",
   calm: "sky",
-};
+} as const satisfies Record<PaletteName, string>;
 
-/** Return a palette family by name. Throws on an unknown family. */
 export function getPalette(name: PaletteName): Palette {
   const palette = PALETTES[name];
   if (!palette) {
@@ -84,7 +79,6 @@ export function getPalette(name: PaletteName): Palette {
   return palette;
 }
 
-/** Resolve a `{ palette, swatch }` reference to a {@link ColorValue}. Throws on an unknown swatch. */
 export function resolveSwatch(ref: PaletteSwatch): ColorValue {
   const palette = getPalette(ref.palette);
   const color = palette.swatches[ref.swatch];
@@ -96,7 +90,6 @@ export function resolveSwatch(ref: PaletteSwatch): ColorValue {
   return color;
 }
 
-/** The default color for a family. */
 export function defaultSwatch(name: PaletteName): ColorValue {
   return resolveSwatch({ palette: name, swatch: DEFAULT_SWATCH_NAMES[name] });
 }

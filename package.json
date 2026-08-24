@@ -12,6 +12,7 @@
     "release": "pnpm build && changeset publish",
     "consumer-smoke": "bash scripts/consumer-smoke.sh",
     "size": "size-limit",
+    "bench": "node scripts/bench.mjs",
     "knip": "knip --reporter compact",
     "coverage": "vitest run --coverage"
   },

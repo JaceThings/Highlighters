@@ -4,7 +4,6 @@ import { SmoothCorners } from "@lisse/react";
 import { hexToHsl, hslToHex } from "./oklch.ts";
 import { HslSlider } from "./HslSlider.tsx";
 
-// Lisse ShadowConfig, not box-shadow, so the lift traces the squircle clip-path.
 const POPOVER_SHADOW: ShadowConfig = {
   offsetX: 0, offsetY: 6, blur: 14, spread: -6, color: "#73574A", opacity: 0.15,
 };
@@ -12,7 +11,6 @@ const POPOVER_SHADOW: ShadowConfig = {
 const HUE_GRADIENT =
   "linear-gradient(to right, hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%), hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%))";
 
-/** HSL picker: hue, saturation, and lightness ramps that live-edit the custom ink. */
 export function ColorPickerPopover({
   color,
   onChange,
@@ -20,12 +18,11 @@ export function ColorPickerPopover({
   color: string;
   onChange: (hex: string) => void;
 }) {
-  // Hold H/S/L locally: pure black/white hex has no hue to read back, so our own H/S/L preserves it at the extremes.
   const [{ h, s, l }, setHsl] = useState(() => hexToHsl(color));
-  // Re-sync only on an outside change; our own edits already match (no hue clobber mid-drag).
   useEffect(() => {
     if (hslToHex({ h, s, l }) !== color) setHsl(hexToHsl(color));
-  }, [color]); // eslint-disable-line react-hooks/exhaustive-deps -- only re-sync on an external color change, not our own edits
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-sync on an external color change
+  }, [color]);
 
   const hex = hslToHex({ h, s, l });
   const set = (next: { h?: number; s?: number; l?: number }) => {
@@ -34,7 +31,6 @@ export function ColorPickerPopover({
     onChange(hslToHex(merged));
   };
 
-  // Saturation runs grey -> full chroma at a FIXED mid lightness, so the track never collapses at extremes.
   const satGradient = `linear-gradient(to right, hsl(${h} 0% 50%), hsl(${h} 100% 50%))`;
   const lightGradient = `linear-gradient(to right, hsl(${h} ${s}% 0%), hsl(${h} ${s}% 50%), hsl(${h} ${s}% 100%))`;
 

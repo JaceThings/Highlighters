@@ -14,7 +14,6 @@ describe("palettes", () => {
     expect(Object.keys(PALETTES).sort()).toEqual(
       ["calm", "fluorescent", "mild", "neutral", "vintage"].sort(),
     );
-    // Fluorescent yellow is the canonical default - least text-obscuring (R15).
     expect(Object.keys(PALETTES.fluorescent.swatches)[0]).toBe("yellow");
   });
 
@@ -22,7 +21,6 @@ describe("palettes", () => {
     expect(resolveSwatch({ palette: "fluorescent", swatch: "yellow" })).toBe(
       PALETTES.fluorescent.swatches.yellow,
     );
-    // @ts-expect-error - deliberately invalid family name.
     expect(() => getPalette("rainbow")).toThrow(/unknown palette/);
     expect(() =>
       resolveSwatch({ palette: "fluorescent", swatch: "chartreuse" }),
@@ -64,22 +62,15 @@ describe("mergeOptions", () => {
       { ink: { flow: 0.5, feathering: 0.8 } },
       { ink: { feathering: 0.2 } },
     );
-    // flow survives from base; feathering overridden.
     expect(merged.ink).toEqual({ flow: 0.5, feathering: 0.2 });
   });
 
-  it("reconciles the shape/markType synonyms onto markType", () => {
-    const fromShape = mergeOptions({}, { shape: "underline" });
-    expect(fromShape.markType).toBe("underline");
-    expect(fromShape.shape).toBeUndefined();
+  it("keeps the base markType when the override leaves it undefined", () => {
+    const kept = mergeOptions({ markType: "highlight" }, { markType: undefined });
+    expect(kept.markType).toBe("highlight");
 
-    // markType wins over shape when both are present in the override.
-    const both = mergeOptions({}, { shape: "underline", markType: "strike-through" });
-    expect(both.markType).toBe("strike-through");
-
-    // override.shape beats base.markType.
-    const overrideShape = mergeOptions({ markType: "highlight" }, { shape: "underline" });
-    expect(overrideShape.markType).toBe("underline");
+    const replaced = mergeOptions({ markType: "highlight" }, { markType: "underline" });
+    expect(replaced.markType).toBe("underline");
   });
 
   it("is pure (does not mutate either argument)", () => {
@@ -104,7 +95,6 @@ describe("resolveOptions", () => {
 
   it("resolves the documented default look when no options are given", () => {
     const r = resolveOptions();
-    // Muted yellow, low opacity, multiply, word snap.
     expect(r.color).toBe(PALETTES.mild.swatches.yellow);
     expect(r.opacity).toBe(0.55);
     expect(r.blendMode).toBe("multiply");
@@ -118,9 +108,7 @@ describe("resolveOptions", () => {
   });
 
   it("applies the precedence defaults → user (user wins)", () => {
-    // User opacity beats the default.
     expect(resolveOptions({ opacity: 0.33 }).opacity).toBe(0.33);
-    // User ink wins; unset ink fields keep their defaults.
     const r = resolveOptions({ ink: { streakiness: 0.01 } });
     expect(r.ink.streakiness).toBe(0.01);
     expect(r.ink.flow).toBe(DEFAULT_OPTIONS.ink.flow);
@@ -130,7 +118,6 @@ describe("resolveOptions", () => {
     expect(
       resolveOptions({ color: { palette: "calm", swatch: "mint" } }).color,
     ).toBe(PALETTES.calm.swatches.mint);
-    // palette-only (no explicit color) → that family's default swatch.
     expect(resolveOptions({ palette: "vintage" }).color).toBe(
       defaultSwatch("vintage"),
     );
@@ -142,13 +129,8 @@ describe("resolveOptions", () => {
     expect(r.edge.roughness).toBe(0);
   });
 
-  // --- input hardening (correctness audit) ---
-
   it("a user palette wins over the default color object (palette-only)", () => {
-    // The default ships a color object; a palette-only call must still draw the
-    // requested palette's default, not the default yellow.
     expect(resolveOptions({ palette: "calm" }).color).toBe(defaultSwatch("calm"));
-    // An explicit color still wins over a palette.
     expect(resolveOptions({ color: "#abcabc", palette: "calm" }).color).toBe("#abcabc");
   });
 
@@ -171,29 +153,22 @@ describe("resolveOptions", () => {
     expect(resolveOptions({ opacity: NaN }).opacity).toBe(DEFAULT_OPTIONS.opacity);
     expect(resolveOptions({ ink: { flow: NaN } }).ink.flow).toBe(DEFAULT_OPTIONS.ink.flow);
     expect(resolveOptions({ edge: { radius: Infinity } }).edge.radius).toBe(DEFAULT_OPTIONS.edge.radius);
-    // A valid value still passes through.
     expect(resolveOptions({ opacity: 0.42 }).opacity).toBe(0.42);
   });
 
   it("resolves the speed-dynamics group with defaults, clamps, and partial merge", () => {
     const d = DEFAULT_OPTIONS.speed;
-    // Defaults flow through untouched.
     expect(resolveOptions().speed).toEqual(d);
-    // resolution clamps into [4, 24] and rounds.
     expect(resolveOptions({ speed: { resolution: 999 } }).speed.resolution).toBe(24);
     expect(resolveOptions({ speed: { resolution: 1 } }).speed.resolution).toBe(4);
     expect(resolveOptions({ speed: { resolution: 9.6 } }).speed.resolution).toBe(10);
-    // 0..1 weights clamp.
     expect(resolveOptions({ speed: { sensitivity: 5 } }).speed.sensitivity).toBe(1);
     expect(resolveOptions({ speed: { minDeposit: -3 } }).speed.minDeposit).toBe(0);
-    // px/ms thresholds floor at 0 but otherwise pass through.
     expect(resolveOptions({ speed: { fastSpeed: 3.5 } }).speed.fastSpeed).toBe(3.5);
     expect(resolveOptions({ speed: { slowSpeed: -1 } }).speed.slowSpeed).toBe(0);
-    // A partial override merges field-wise (other fields keep their defaults).
     const partial = resolveOptions({ speed: { enabled: false } }).speed;
     expect(partial.enabled).toBe(false);
     expect(partial.sensitivity).toBe(d.sensitivity);
-    // NaN falls back to the default.
     expect(resolveOptions({ speed: { sensitivity: NaN } }).speed.sensitivity).toBe(d.sensitivity);
   });
 
@@ -210,12 +185,9 @@ describe("resolveOptions", () => {
     expect(r.edge.roughness).toBe(0);
   });
 
-  it("honors an explicit seed and the shape synonym", () => {
+  it("honors an explicit seed", () => {
     expect(resolveOptions({ seed: 42 }).seed).toBe(42);
     expect(resolveOptions().seed).toBeNull();
-    expect(resolveOptions({ shape: "strike-through" }).markType).toBe(
-      "strike-through",
-    );
   });
 
   it("a negative startEndBuildup engages the anti-pool guardrail", () => {

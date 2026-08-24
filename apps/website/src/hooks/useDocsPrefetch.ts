@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { IS_WEBKIT } from "../components/docs/is-webkit.ts";
+import { BROWSER } from "../lib/browser-env.ts";
 
-// Warm the /docs route from home while idle: JS chunk, quote font, WebKit-only paper raster.
 export function useDocsPrefetch(): void {
   useEffect(() => {
     let warmed = false;
@@ -9,11 +9,10 @@ export function useDocsPrefetch(): void {
       if (warmed) return;
       warmed = true;
       void import("../playground/DocsPlayground.tsx");
-      // Fully load (not just cache) the font so /docs paints it with no swap reflow.
       void document.fonts?.load?.('400 25px "Letters Home"')?.catch(() => {});
       if (IS_WEBKIT) prefetchImage("/paper-sheet.webp");
     };
-    const hasIdle = typeof window.requestIdleCallback === "function";
+    const hasIdle = BROWSER.hasIdleCallback;
     const id = hasIdle ? window.requestIdleCallback(warm, { timeout: 2500 }) : window.setTimeout(warm, 1200);
     return () => {
       if (hasIdle) window.cancelIdleCallback(id);

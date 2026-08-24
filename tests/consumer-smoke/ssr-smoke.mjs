@@ -7,20 +7,26 @@
 // DOM-emulated unit tests.
 import assert from "node:assert/strict";
 
-assert.equal(typeof globalThis.document, "undefined", "SSR smoke must run without a document global");
-assert.equal(typeof globalThis.window, "undefined", "SSR smoke must run without a window global");
+import { parseExportContract, parseResolvedOptions } from "./export-contract.cjs";
+
+assert.ok(!("document" in globalThis), "SSR smoke must run without a document global");
+assert.ok(!("window" in globalThis), "SSR smoke must run without a window global");
 
 const core = await import("@highlighters/core");
 const corePath = await import("@highlighters/core/path");
 
+const coreContract = parseExportContract(core, "@highlighters/core", ["resolveOptions"]);
+const pathContract = parseExportContract(corePath, "@highlighters/core/path", ["resolveOptions"]);
+
 // Resolving options is a pure, DOM-free operation and must work server-side.
-const resolved = core.resolveOptions({ opacity: 0.7 });
-assert.ok(resolved && typeof resolved === "object", "resolveOptions() must return an object on the server");
+const resolved = parseResolvedOptions(
+  coreContract.call("resolveOptions", { opacity: 0.7 }),
+  "resolveOptions()",
+);
 
 // Determinism: the same options resolve identically across both entry points.
-const fromPath = corePath.resolveOptions({ opacity: 0.7 });
 assert.deepEqual(
-  fromPath,
+  pathContract.call("resolveOptions", { opacity: 0.7 }),
   resolved,
   "the /path subpath and main entry must resolve identical options",
 );

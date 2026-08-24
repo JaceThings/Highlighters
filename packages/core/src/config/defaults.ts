@@ -1,9 +1,7 @@
-/** The fully-resolved baseline at the bottom of the merge chain. Deep-frozen so it can be shared as the merge floor without mutation. */
-
 import type { ResolvedOptions } from "../types.js";
 import { defaultSwatch } from "./palettes.js";
 
-export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
+export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze<ResolvedOptions>({
   markType: "highlight",
   color: defaultSwatch("mild"),
   gradient: null,
@@ -28,7 +26,6 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     startEndBuildup: 0.1,
     flowFade: 0.5,
   }),
-  // Speed-aware deposit is Beta and off by default; thresholds are px/ms.
   speed: Object.freeze({
     enabled: false,
     sensitivity: 1,
@@ -44,7 +41,7 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   }),
   edge: Object.freeze({
     waviness: 1,
-    frequency: 22, // px segment length of the wave grid
+    frequency: 22,
     roughness: 0.2,
     cap: "round",
     radius: 5,
@@ -56,7 +53,6 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
     enabled: false,
     intensity: 0.5,
     spread: 4,
-    // Empty resolves to a brightened form of the ink color at render time.
     color: "",
   }),
   snap: "word",
@@ -75,6 +71,5 @@ export const DEFAULT_OPTIONS: ResolvedOptions = Object.freeze({
   }),
   semantic: false,
   contrastBackground: null,
-  // Null signals each mark must derive its seed from a stable target identity.
   seed: null,
-}) as ResolvedOptions;
+});

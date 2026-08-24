@@ -6,6 +6,7 @@ import {
   DOCK_SIDE_PENS_MIN,
 } from "../components/dock/constants.ts";
 import type { DockPhase, DockSide, DockTarget } from "../components/dock/useDockDrag.ts";
+import { BROWSER } from "../lib/browser-env.ts";
 
 export interface DockTier {
   showColors: boolean;
@@ -14,10 +15,10 @@ export interface DockTier {
 
 type TierAxis = "width" | "height";
 
-const TIER_CONFIG: Record<TierAxis, { colors: number; pens: number }> = {
+const TIER_CONFIG = {
   width: { colors: DOCK_COLORS_MIN, pens: DOCK_PENS_MIN },
   height: { colors: DOCK_SIDE_COLORS_MIN, pens: DOCK_SIDE_PENS_MIN },
-};
+} satisfies Record<TierAxis, { colors: number; pens: number }>;
 
 function read(axis: TierAxis): DockTier {
   const { colors, pens } = TIER_CONFIG[axis];
@@ -27,7 +28,6 @@ function read(axis: TierAxis): DockTier {
   };
 }
 
-/** Which viewport axis gates content for the dock's current rest/drag/preview state. */
 export function dockContentAxis(
   phase: DockPhase,
   side: DockSide | null,
@@ -38,15 +38,13 @@ export function dockContentAxis(
   if (preview === "left" || preview === "right") return "height";
   if (phase === "bottom" || phase === "top") return "width";
   if (phase === "side" || phase === "snapping") return "height";
-  // Intact-pill lift: still the side layout until collapse; bottom lift uses width tiers.
   if (phase === "dragging" && !collapsed) return side ? "height" : "width";
   return side ? "height" : "width";
 }
 
-/** Which dock sections fit: drop colours, then pens, as the viewport shrinks on `axis`. */
 export function useDockTier(axis: TierAxis = "width"): DockTier {
   const [tier, setTier] = useState<DockTier>(() =>
-    typeof window === "undefined" ? { showColors: true, showPens: true } : read(axis),
+    BROWSER.hasWindow ? read(axis) : { showColors: true, showPens: true },
   );
 
   useEffect(() => {

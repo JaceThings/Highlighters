@@ -1,21 +1,14 @@
-/**
- * Reflow and dynamic-DOM observation. `createReflowObserver` funnels every event that can move a mark
- * (resize, web-font load) into a single rAF-batched callback. `createMutationWatcher` is the scoped,
- * debounced `MutationObserver` for page/declarative modes. Both return a leak-free, idempotent `Disconnect`.
- */
-
 import type {
   Disconnect,
   MutationCallback,
   ReflowCallback,
 } from "../types.js";
-import { hasWindow } from "../internal/dom.js";
+import { hasGlobal, hasWindow } from "../internal/dom.js";
 
 const MUTATION_DEBOUNCE_MS = 50;
 
-/** Nearest ancestor whose `position` is not `static` (what overlays position against). `null` if none before the root or off-DOM. */
 function nearestPositionedContainer(el: Element): Element | null {
-  if (!hasWindow() || typeof getComputedStyle === "undefined") return null;
+  if (!hasWindow() || !hasGlobal("getComputedStyle")) return null;
   let current: Element | null = el.parentElement;
   while (current && current !== document.documentElement) {
     let position: string;
@@ -30,7 +23,6 @@ function nearestPositionedContainer(el: Element): Element | null {
   return null;
 }
 
-/** Wire reflow observation for `targets` (and their positioned containers), window resize, and web-font load into one rAF-batched `callback`. Leak-free `Disconnect`; inert off-DOM. */
 export function createReflowObserver(
   targets: Element[],
   callback: ReflowCallback,
@@ -48,9 +40,8 @@ export function createReflowObserver(
     });
   };
 
-  // Observe each target's positioned container too: a container resize moves overlays without resizing the target. De-duped.
   let resizeObserver: ResizeObserver | undefined;
-  if (typeof ResizeObserver !== "undefined") {
+  if (hasGlobal("ResizeObserver")) {
     resizeObserver = new ResizeObserver(schedule);
     const observed = new Set<Element>();
     for (const target of targets) {
@@ -68,13 +59,11 @@ export function createReflowObserver(
 
   window.addEventListener("resize", schedule);
 
-  // visualViewport.resize (mobile URL bar, pinch-zoom) shifts layout without a window resize.
   const vv = window.visualViewport;
   if (vv) vv.addEventListener("resize", schedule);
 
-  // Late web-font load shifts text metrics; reflow once fonts are ready.
-  const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
-  if (fonts && typeof fonts.ready?.then === "function") {
+  const fonts = document.fonts;
+  if (fonts && fonts.ready && "then" in fonts.ready) {
     fonts.ready.then(() => {
       if (!disposed) schedule();
     });
@@ -93,12 +82,11 @@ export function createReflowObserver(
   };
 }
 
-/** Scoped, debounced `MutationObserver` on `root`: a mutation burst flushes one `callback` once the DOM is quiet for {@link MUTATION_DEBOUNCE_MS}. Leak-free `Disconnect`; inert off-DOM. */
 export function createMutationWatcher(
   root: Element | Document,
   callback: MutationCallback,
 ): Disconnect {
-  if (typeof MutationObserver === "undefined") return () => {};
+  if (!hasGlobal("MutationObserver")) return () => {};
 
   let disposed = false;
   let timer: ReturnType<typeof setTimeout> | undefined;

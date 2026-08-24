@@ -3,8 +3,6 @@ import type { CSSProperties, PointerEvent } from "react";
 import { GRABBER_SAFETY_STRIP } from "./constants.ts";
 import type { DockPhase, DockSide } from "./useDockDrag.ts";
 
-// Grab handle: a small nub at the tray's top-centre in the bottom layout, on the inner-edge centre when
-// side-docked. Grabbable at rest and while lifting the intact pill; fades out once collapsed.
 export function DockHandle({
   phase,
   side,

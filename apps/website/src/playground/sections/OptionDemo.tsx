@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import type { ShapeType } from "@highlighters/core";
+import type { MarkType } from "@highlighters/core";
 import { AnimatePresence, m } from "framer-motion";
 import { Section } from "../../components/playground/Section.tsx";
 import { Slider } from "../../components/playground/Slider.tsx";
@@ -12,36 +12,71 @@ import { Preview, SnapPreview } from "../Preview.tsx";
 import { StaticQuote } from "../quote-render.tsx";
 import { strategyFor } from "../quote-marks.ts";
 import type { Quote } from "../quotes.ts";
-import { usePlaygroundOptions, colorToHex, type PlaygroundOptions } from "../options-context.tsx";
+import {
+  usePlaygroundOptions,
+  colorToHex,
+  type OptionPath,
+  type OptionPathOf,
+  type PlaygroundOptions,
+  type ValueAtPath,
+} from "../options-context.tsx";
 import { playCircleSound, primeMarkerAudio } from "../../lib/marker-audio.ts";
 import { useSeen } from "../../hooks/useSeen.ts";
 
-function readPath(o: PlaygroundOptions, path: string): unknown {
-  const s = path.split(".");
-  const top = (o as Record<string, unknown>)[s[0]];
-  if (s.length === 1) return top;
-  return top && typeof top === "object" ? (top as Record<string, unknown>)[s[1]] : undefined;
-}
-const getNum = (o: PlaygroundOptions, p: string, d: number): number => {
-  const v = readPath(o, p);
-  return typeof v === "number" ? v : d;
-};
-const getStr = (o: PlaygroundOptions, p: string, d: string): string => {
-  const v = readPath(o, p);
-  return typeof v === "string" ? v : d;
-};
-const getBool = (o: PlaygroundOptions, p: string, d: boolean): boolean => {
-  const v = readPath(o, p);
-  return typeof v === "boolean" ? v : d;
+type OptionReaders<Paths extends OptionPath> = {
+  [P in Paths]?: (o: PlaygroundOptions) => ValueAtPath<P>;
 };
 
+const NUMBER_AT = {
+  opacity: (o) => o.opacity,
+  "tip.angle": (o) => o.tip?.angle,
+  "tip.overshoot": (o) => o.tip?.overshoot,
+  "tip.overshootJitter": (o) => o.tip?.overshootJitter,
+  "ink.flow": (o) => o.ink?.flow,
+  "ink.viscosity": (o) => o.ink?.viscosity,
+  "ink.feathering": (o) => o.ink?.feathering,
+  "ink.streakiness": (o) => o.ink?.streakiness,
+  "ink.dryout": (o) => o.ink?.dryout,
+  "ink.flowFade": (o) => o.ink?.flowFade,
+  "edge.waviness": (o) => o.edge?.waviness,
+  "edge.frequency": (o) => o.edge?.frequency,
+  "edge.roughness": (o) => o.edge?.roughness,
+  "edge.radius": (o) => o.edge?.radius,
+  "paper.absorbency": (o) => o.paper?.absorbency,
+} satisfies OptionReaders<OptionPathOf<number>>;
+
+const TEXT_AT = {
+  markType: (o) => o.markType,
+  "tip.type": (o) => o.tip?.type,
+  "edge.cap": (o) => o.edge?.cap,
+  snap: (o) => o.snap,
+} satisfies OptionReaders<OptionPathOf<string>>;
+
+const FLAG_AT = {
+  stack: (o) => o.stack,
+} satisfies OptionReaders<OptionPathOf<boolean>>;
+
+type SliderPath = keyof typeof NUMBER_AT;
+type PillPath = keyof typeof TEXT_AT;
+type PillValue = NonNullable<ValueAtPath<PillPath>>;
+type TogglePath = keyof typeof FLAG_AT;
+
+const numberAt = (o: PlaygroundOptions, path: SliderPath, fallback: number): number =>
+  NUMBER_AT[path](o) ?? fallback;
+const textAt = (o: PlaygroundOptions, path: PillPath, fallback: PillValue): PillValue =>
+  TEXT_AT[path](o) ?? fallback;
+const flagAt = (o: PlaygroundOptions, path: TogglePath, fallback: boolean): boolean =>
+  FLAG_AT[path](o) ?? fallback;
+
 type Unit = "ratio" | "px" | "deg" | "ms";
-const FORMAT: Record<Unit, (v: number) => string> = {
+const FORMAT = {
   ratio: fmt2,
   px: fmtPx,
   deg: (v) => `${Math.round(v)}°`,
   ms: (v) => `${Math.round(v)} ms`,
-};
+} satisfies Record<Unit, (v: number) => string>;
+
+const MARK_TYPES: readonly MarkType[] = ["highlight", "underline", "overline", "strike-through"];
 
 const TOGGLE_OPTS = [
   { value: "on", label: "On" },
@@ -49,19 +84,16 @@ const TOGGLE_OPTS = [
 ] as const;
 
 interface Base {
-  /** Option code: stable key, also shown in the heading and keying the quote logic. */
-  title: string;
-  /** Plain-English heading, e.g. "Slant angle". */
+  title: OptionPath;
   name: string;
   desc: string;
 }
 type Demo =
-  | (Base & { kind: "slider"; path: string; label: string; def: number; min: number; max: number; step: number; unit: Unit; floor?: number })
-  | (Base & { kind: "pills"; path: string; aria: string; def: string; opts: ReadonlyArray<{ value: string; label: string }>; shape?: boolean })
-  | (Base & { kind: "toggle"; path: string; aria: string; def: boolean })
+  | (Base & { kind: "slider"; path: SliderPath; label: string; def: number; min: number; max: number; step: number; unit: Unit; floor?: number })
+  | (Base & { kind: "pills"; path: PillPath; aria: string; def: PillValue; opts: ReadonlyArray<{ value: PillValue; label: string }>; markKind?: boolean })
+  | (Base & { kind: "toggle"; path: TogglePath; aria: string; def: boolean })
   | (Base & { kind: "color" });
 
-// The six highlighter inks, warm -> cool.
 const SWATCH_COLORS = [
   { id: "yellow", label: "Yellow", hex: "#f7d054" },
   { id: "orange", label: "Orange", hex: "#f4b460" },
@@ -72,12 +104,11 @@ const SWATCH_COLORS = [
 ];
 const SWATCH_CHIPS = SWATCH_COLORS.map((c) => ({
   ...c,
-  // Stable per-swatch seed so each blob keeps its own scribble across renders.
   seed: [...c.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7),
 }));
 
 const BLOB_PX = 33;
-const LASSO_PX = 64; // larger than the blob so the lasso rings it with a gap
+const LASSO_PX = 64;
 const LASSO_WRAP = "pointer-events-none absolute top-1/2 left-1/2";
 const LASSO_WRAP_STYLE = { width: LASSO_PX, height: LASSO_PX, x: "-50%", y: "-50%" };
 const LASSO_EXIT = { opacity: 0, transition: { duration: 0.12 } };
@@ -85,13 +116,9 @@ const LASSO_EXIT = { opacity: 0, transition: { duration: 0.12 } };
 function SwatchPicker() {
   const { options, set } = usePlaygroundOptions();
   const color = options.color;
-  // Shared colour is a hex, so match swatches by resolved hex (dock and picker ring the same swatch).
   const activeHex = useMemo(() => colorToHex(color, "#f7d054"), [color]).toLowerCase();
-  // Bump per pick so the lasso re-draws. Deterministic seed (not Math.random) for strict-mode double-invokes.
   const [lassoSeed, setLassoSeed] = useState(() => SWATCH_CHIPS[0].seed * 31);
-  // Draw the ring over the length of the (random) pop that plays with it; undefined = the lasso's own pace.
   const [lassoDrawMs, setLassoDrawMs] = useState<number | undefined>(undefined);
-  // Keyboard-focused swatch (not the selected one): ringed with a faded preview lasso, not a focus outline.
   const [focused, setFocused] = useState<string | null>(null);
 
   return (
@@ -111,7 +138,6 @@ function SwatchPicker() {
             role="radio"
             aria-checked={selected}
             aria-label={label}
-            // Preview only on :focus-visible, never a mouse click. The faded lasso is the focus indicator.
             onFocus={(e) => {
               if (e.currentTarget.matches(":focus-visible")) setFocused(id);
             }}
@@ -134,7 +160,6 @@ function SwatchPicker() {
                   </m.span>
                 ) : isPreview ? (
                   <m.span key={`preview-${id}`} className={LASSO_WRAP} style={LASSO_WRAP_STYLE} initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={LASSO_EXIT}>
-                    {/* Preview the exact ring Enter will draw (lassoSeed + 1), distinct from the selected one. */}
                     <ScribbleLasso seed={lassoSeed + 1} size={LASSO_PX} draw={false} />
                   </m.span>
                 ) : null}
@@ -147,11 +172,10 @@ function SwatchPicker() {
   );
 }
 
-// Discrete controls render as a scribble-underline legend.
 function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle" }> }) {
-  const { options, set, setShape } = usePlaygroundOptions();
+  const { options, set, setMarkType } = usePlaygroundOptions();
   if (demo.kind === "toggle") {
-    const on = getBool(options, demo.path, demo.def);
+    const on = flagAt(options, demo.path, demo.def);
     return (
       <ScribbleLegend
         ariaLabel={demo.aria}
@@ -161,21 +185,27 @@ function LegendControl({ demo }: { demo: Extract<Demo, { kind: "pills" | "toggle
       />
     );
   }
-  const value = getStr(options, demo.path, demo.def);
+  const value = textAt(options, demo.path, demo.def);
+  const choose = (next: string) => {
+    const picked = demo.opts.find((opt) => opt.value === next);
+    if (picked) set(demo.path, picked.value);
+  };
+  const chooseMarkType = (next: string) => {
+    const picked = MARK_TYPES.find((markType) => markType === next);
+    if (picked) setMarkType(picked);
+  };
   return (
     <ScribbleLegend
       ariaLabel={demo.aria}
       options={demo.opts}
       value={value}
-      onChange={demo.shape ? (v) => setShape(v as ShapeType) : (v) => set(demo.path, v)}
+      onChange={demo.markKind ? chooseMarkType : choose}
     />
   );
 }
 
-// A slider whose fill is a scribble, drawn/undrawn as the value moves.
 function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" }> }) {
   const { options, set } = usePlaygroundOptions();
-  // Fresh seed per slider so each scribble is unique.
   const [seed] = useState(() => Math.floor(Math.random() * 1e9));
   const onNum = useCallback(
     (v: number, fromDrag?: boolean) => set(demo.path, v, fromDrag),
@@ -185,7 +215,7 @@ function ScribbleSliderControl({ demo }: { demo: Extract<Demo, { kind: "slider" 
     <div className="px-5 py-4">
       <Slider
         label={demo.label}
-        value={getNum(options, demo.path, demo.def)}
+        value={numberAt(options, demo.path, demo.def)}
         min={demo.min}
         max={demo.max}
         step={demo.step}
@@ -207,8 +237,6 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
         title={
           <>
             {demo.name}{" "}
-            {/* leading-none: this smaller inline span inherits the 24px line-height and would
-                otherwise inflate the h2 line box to 26px, drifting every section 2px off the grid. */}
             <span className="text-[0.8em] leading-none font-normal text-text-secondary">
               ({demo.title})
             </span>
@@ -217,8 +245,6 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
         description={demo.desc}
       >
         <PaperCard>
-          {/* StaticQuote reserves Preview's exact height so the card never resizes when marks mount
-              (a resize would re-raster the paper/scribble SVGs). */}
           {quote == null ? (
             <div className="flex-1" style={{ minHeight: 216 }} aria-hidden />
           ) : !seen ? (
@@ -245,9 +271,8 @@ export function OptionDemo({ demo, quote }: { demo: Demo; quote?: Quote }) {
   );
 }
 
-// Every option, one demo each, in build order. `desc` is user-facing copy, not a code comment.
 export const OPTION_DEMOS: Demo[] = [
-  { kind: "pills", title: "markType", name: "Mark type", aria: "Mark kind", path: "markType", def: "highlight", shape: true, opts: [{ value: "highlight", label: "Highlight" }, { value: "underline", label: "Underline" }, { value: "overline", label: "Overline" }, { value: "strike-through", label: "Strike" }], desc: "The kind of mark: a highlight band, an under or overline, or a strikethrough. (shape is a synonym.)" },
+  { kind: "pills", title: "markType", name: "Mark type", aria: "Mark kind", path: "markType", def: "highlight", markKind: true, opts: [{ value: "highlight", label: "Highlight" }, { value: "underline", label: "Underline" }, { value: "overline", label: "Overline" }, { value: "strike-through", label: "Strike" }], desc: "The kind of mark: a highlight band, an under or overline, or a strikethrough." },
   { kind: "color", title: "color", name: "Colour", desc: "The ink hue. Pick a canonical highlighter swatch, a clean { palette, swatch } reference. Defaults to fluorescent yellow." },
   { kind: "slider", title: "opacity", name: "Opacity", label: "Opacity", path: "opacity", def: 0.5, min: 0, max: 1, step: 0.01, unit: "ratio", desc: "Overall ink alpha. Lower lets more of the text read through the band." },
   { kind: "toggle", title: "blendMode", name: "Overlap optics", aria: "Stack", path: "stack", def: true, desc: "How overlaps composite. On = multiply: two passes darken where they cross, like real translucent ink. Off = normal: same colour overlaps merge flat." },

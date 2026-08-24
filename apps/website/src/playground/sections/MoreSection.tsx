@@ -2,7 +2,6 @@ import { Section } from "../../components/playground/Section.tsx";
 
 const DOCS_URL = "https://github.com/JaceThings/Highlighters/wiki/Options-Reference";
 
-// API names, set apart from the muted body by the darker primary ink (no monospace, no bold).
 const Term = ({ children }: { children: string }) => (
   <span className="text-text-primary">{children}</span>
 );
@@ -31,7 +30,6 @@ export function MoreSection() {
           className="w-fit text-[14px] leading-[24px] font-medium tracking-[-0.25px] text-text-primary underline underline-offset-2 hover:opacity-70"
         >
           See every option in the reference
-          {/* SVG arrow: the Inter subset has no U+2192, a text arrow would render in the fallback font. */}
           <svg
             aria-hidden="true"
             viewBox="0 0 12 12"

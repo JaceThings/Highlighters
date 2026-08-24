@@ -11,7 +11,10 @@ import {
   CapsuleKnob,
 } from "./capsuleSlider.tsx";
 
-// SVG checkerboard (crisp at any DPR) avoids the diagonal seam a gradient checker leaves.
+interface InkStyle extends CSSProperties {
+  "--ink": string;
+}
+
 const CELL = TRACK_H / 3;
 const checkerboard = {
   backgroundImage: `url("${checkerUrl}")`,
@@ -19,7 +22,6 @@ const checkerboard = {
   backgroundRepeat: "repeat",
 };
 
-/** Opacity slider: ink ramp over a transparency checker, clipped to the capsule. */
 export function OpacitySlider({
   inkColor,
   value,
@@ -32,6 +34,11 @@ export function OpacitySlider({
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useCapsuleDrag({ trackRef, value, min: 0, max: 1, onChange });
   const pct = Math.round(value * 100);
+  const trackStyle: InkStyle = {
+    backgroundImage: "linear-gradient(to right, color-mix(in oklab, var(--ink) 0%, transparent), var(--ink))",
+    "--ink": inkColor,
+    transition: `--ink ${INK_FADE_MS}ms ease`,
+  };
 
   const resetOpacity = useCallback(() => {
     if (Math.abs(value - DEFAULT_OPACITY) < 0.001) return;
@@ -43,7 +50,6 @@ export function OpacitySlider({
       : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    // Shift = 10% (coarse step), else 5%.
     const step = e.shiftKey ? 0.1 : 0.05;
     drag.glideTo(clamp(value + dir * step, 0, 1));
   };
@@ -71,16 +77,7 @@ export function OpacitySlider({
       style={{ height: TRACK_H }}
     >
       <div aria-hidden className="absolute inset-0" style={{ ...capsuleMask, ...checkerboard }}>
-        {/* Ramp built from the registered --ink colour so a colour change fades (transition: --ink)
-            instead of snapping; a background-image gradient can't be transitioned directly. */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: "linear-gradient(to right, color-mix(in oklab, var(--ink) 0%, transparent), var(--ink))",
-            ["--ink"]: inkColor,
-            transition: `--ink ${INK_FADE_MS}ms ease`,
-          } as CSSProperties}
-        />
+        <div className="absolute inset-0" style={trackStyle} />
       </div>
       <CapsuleKnob left={knobLeftPercent(value, 0, 1)} />
     </div>

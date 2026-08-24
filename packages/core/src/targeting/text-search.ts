@@ -1,46 +1,42 @@
-/**
- * Text-query targeting: a `Range` per match of a string/`RegExp` under a root, including matches that
- * span inline element boundaries (e.g. `foo<em>bar</em>baz`). The walk concatenates text nodes into
- * one flat string, recording each character's source node + offset, then maps matches back onto the nodes.
- */
-
 import {
   FILTER_ACCEPT,
   FILTER_REJECT,
+  SHOW_TEXT,
   hasDomWithRange,
   isInNonRenderedSubtree,
-  SHOW_TEXT,
+  nextTextNode,
 } from "../internal/dom.js";
 
-/** A single character's provenance: the owning text node and its in-node index. */
 interface CharSlot {
   node: Text;
   offset: number;
 }
 
-/** Flat string of all text under `root`, plus a parallel index mapping each character to its source node + in-node offset. */
-function collectText(root: Node): { text: string; slots: CharSlot[] } {
+interface CollectedText {
+  text: string;
+  slots: CharSlot[];
+}
+
+function collectText(root: Node): CollectedText {
   const slots: CharSlot[] = [];
   let text = "";
 
-  // Skip non-rendered subtrees so a query never matches CSS/JS source or straddles into adjacent visible text.
   const walker = document.createTreeWalker(root, SHOW_TEXT, {
     acceptNode: (n) => (isInNonRenderedSubtree(n) ? FILTER_REJECT : FILTER_ACCEPT),
   });
-  let node = walker.nextNode() as Text | null;
+  let node = nextTextNode(walker);
   while (node) {
     const value = node.data;
     for (let i = 0; i < value.length; i++) {
       slots.push({ node, offset: i });
     }
     text += value;
-    node = walker.nextNode() as Text | null;
+    node = nextTextNode(walker);
   }
 
   return { text, slots };
 }
 
-/** Range covering the half-open span `[start, end)` of the flat text. */
 function rangeForSpan(slots: CharSlot[], start: number, end: number): Range {
   const range = document.createRange();
   const startSlot = slots[start];
@@ -50,12 +46,6 @@ function rangeForSpan(slots: CharSlot[], start: number, end: number): Range {
   return range;
 }
 
-/**
- * Find every match of `query` within `root`, one `Range` per match.
- * - `string`: literal, case-sensitive, non-overlapping.
- * - `RegExp`: scanned globally on a copy; case follows the `i` flag; zero-width matches skipped.
- * Never throws.
- */
 export function findTextRanges(
   root: Element | Document,
   query: string | RegExp,
@@ -67,20 +57,19 @@ export function findTextRanges(
 
   const ranges: Range[] = [];
 
-  if (typeof query === "string") {
+  if (!(query instanceof RegExp)) {
     if (query.length === 0) return [];
     let from = 0;
     for (;;) {
       const index = text.indexOf(query, from);
       if (index === -1) break;
       ranges.push(rangeForSpan(slots, index, index + query.length));
-      from = index + query.length; // advance past this match
+      from = index + query.length;
     }
     return ranges;
   }
 
-  // Strip the sticky `y` flag first: under `y`, `exec` only matches at `lastIndex`, so adding `g` can't
-  // override it and the scan would stop at the first gap, silently under-matching.
+  // Sticky `y` wins over `g`; drop it so the scan can walk the whole string.
   const base = query.flags.replace("y", "");
   const flags = base.includes("g") ? base : base + "g";
   const re = new RegExp(query.source, flags);
@@ -88,7 +77,6 @@ export function findTextRanges(
   while ((match = re.exec(text)) !== null) {
     const matched = match[0];
     if (matched.length === 0) {
-      // Zero-width match: nudge lastIndex to avoid an infinite loop.
       re.lastIndex += 1;
       continue;
     }

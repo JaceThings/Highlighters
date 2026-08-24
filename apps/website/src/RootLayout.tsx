@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { LazyMotion, MotionConfig } from "framer-motion";
-
-// Lazy-load animation features so the initial bundle ships only the light `m` components.
-const loadMotionFeatures = () => import("./lib/motion-features.ts").then((m) => m.default);
 import { Dock } from "./components/dock/Dock.tsx";
 import { MobileDock } from "./components/dock/MobileDock.tsx";
 import { FocusRingOverlay } from "./components/FocusRingOverlay.tsx";
@@ -16,8 +13,10 @@ import { DockEntranceContext } from "./dock-entrance.tsx";
 import { useIsTouchDevice } from "./hooks/useIsTouchDevice.ts";
 import { useDockTier } from "./hooks/useDockTier.ts";
 import { primeMarkerAudio } from "./lib/marker-audio.ts";
+import { BROWSER } from "./lib/browser-env.ts";
 
-// The agentation dev-feedback toolbar, dev only.
+const loadMotionFeatures = () => import("./lib/motion-features.ts").then((m) => m.default);
+
 function DevAgentation() {
   const [Toolbar, setToolbar] = useState<ComponentType | null>(null);
   useEffect(() => {
@@ -29,7 +28,6 @@ function DevAgentation() {
   return Toolbar ? <Toolbar /> : null;
 }
 
-// DialKit panel for tuning marker outlines, dev only (dynamic so dialkit never ships). Opt in with `?dials`.
 function DevOutlineDials() {
   const [Dials, setDials] = useState<ComponentType | null>(null);
   useEffect(() => {
@@ -42,15 +40,10 @@ function DevOutlineDials() {
   return Dials ? <Dials /> : null;
 }
 
-// The persistent app shell. Overlays + dock sit outside PageFade so they never re-animate between pages.
 export function RootLayout() {
-  // The marker demo is pointer-driven, so the dock is dropped on touch; MobileNotice explains why.
   const isTouch = useIsTouchDevice();
-  // On a narrow desktop window the full tray won't fit, so fall back to the compact MobileDock pill.
   const { showPens } = useDockTier();
-  // On touch, the trimmed MobileDock appears once MobileNotice is dismissed (or immediately on a return visit).
   const [mobileDockShown, setMobileDockShown] = useState(isNoticeDismissed);
-  // The dock holds its entrance until the page signals; the timer is the fallback for routes with no cascade.
   const [dockReady, setDockReady] = useState(false);
   const signalReady = useCallback(() => setDockReady(true), []);
   const dockEntrance = useMemo(() => ({ ready: dockReady, signalReady }), [dockReady, signalReady]);
@@ -59,9 +52,6 @@ export function RootLayout() {
     return () => clearTimeout(t);
   }, []);
 
-  // Decode every marker sound on first interaction or post-load idle, whichever lands first, so the
-  // first press is instant; the engine singleton carries buffers across nav. The idle path waits for
-  // window load: browser idle before load fires mid-critical-path, racing the full clip set against LCP.
   useEffect(() => {
     let primed = false;
     const events = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel"] as const;
@@ -74,7 +64,7 @@ export function RootLayout() {
       primeMarkerAudio();
     }
     events.forEach((e) => window.addEventListener(e, prime, opts));
-    const hasIdle = typeof window.requestIdleCallback === "function";
+    const hasIdle = BROWSER.hasIdleCallback;
     let id: number | undefined;
     const armIdle = () => {
       if (primed) return;
@@ -95,7 +85,6 @@ export function RootLayout() {
   return (
     <MotionConfig reducedMotion="user">
       <LazyMotion features={loadMotionFeatures} strict>
-        {/* Dock + live marker share one selection style, so picking a swatch or pen restyles in real time. */}
         <SelectionStyleProvider>
           <DockEntranceContext.Provider value={dockEntrance}>
             <Layout>

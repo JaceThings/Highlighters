@@ -7,8 +7,6 @@ import type { PenTip } from "../../selection-style.tsx";
 
 const rectCenter = (r: DOMRect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
-// Carried-pen slot offset from tray centre. Measure the row/column (not the inset-0 layer): both carry
-// the collapse freeze transform, so the difference cancels it on release.
 export function useSlotOffset({ horizontal, penBox, tray }: DockRefs, pen: PenTip) {
   return useCallback(
     (target: DockTarget) => {
@@ -23,7 +21,6 @@ export function useSlotOffset({ horizontal, penBox, tray }: DockRefs, pen: PenTi
         const pc = rectCenter(sel.getBoundingClientRect());
         return { x: pc.x - tc.x, y: pc.y - tc.y };
       }
-      // Side preview lags row rotation in React; derive slot from the pen-box centre + along-row offset.
       const box = penBox.current;
       if (!box) return { x: 0, y: 0 };
       const bc = rectCenter(box.getBoundingClientRect());
@@ -34,7 +31,6 @@ export function useSlotOffset({ horizontal, penBox, tray }: DockRefs, pen: PenTi
   );
 }
 
-/** Read the dock content stacks' natural sizes + viewport (synchronous layout read). */
 export function readDockSizes({ horizontal, vertical }: DockRefs): DockSizes {
   const h = horizontal.current;
   const v = vertical.current;
@@ -45,7 +41,6 @@ export function readDockSizes({ horizontal, vertical }: DockRefs): DockSizes {
   };
 }
 
-/** Sync layout sizes into the drag hook (ResizeObserver + rAF + fonts.ready). */
 export function useDockMeasure(
   refs: DockRefs,
   syncSizes: (sizes: DockSizes) => void,
@@ -56,7 +51,7 @@ export function useDockMeasure(
 
   useLayoutEffect(() => {
     let raf = 0;
-    let disposed = false; // fonts.ready can resolve after unmount
+    let disposed = false;
     const schedule = () => {
       if (disposed || raf) return;
       raf = requestAnimationFrame(() => {

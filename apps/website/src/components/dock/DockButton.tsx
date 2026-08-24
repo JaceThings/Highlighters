@@ -9,7 +9,6 @@ const FOLLOW_URL = "https://ja.mt";
 const CLASSES =
   "flex size-[42px] shrink-0 items-center justify-center rounded-full bg-[#efeeed] text-[#7e756c] transition-[background-color,transform] duration-200 ease-out-quint hover:bg-[#e6e4e1] active:scale-[0.96]";
 
-/** Tool-tray button: `to` -> router Link, `href` -> external anchor, else a plain button, all one style. */
 function DockButton({
   children,
   label,
@@ -23,7 +22,6 @@ function DockButton({
   active?: boolean;
   href?: string;
   to?: "/" | "/docs";
-  /** Played on click (route links skip it when already active); primed on hover. */
   clickSound?: () => void;
 }) {
   const glyph = (
@@ -46,7 +44,7 @@ function DockButton({
         className={CLASSES}
         onPointerEnter={primeMarkerAudio}
         onClick={() => {
-          if (!active) clickSound?.(); // already here -> no navigation, no sound
+          if (!active) clickSound?.();
         }}
       >
         {glyph}
@@ -85,7 +83,6 @@ function DockButton({
   );
 }
 
-/** Home / Docs route buttons, shared by the desktop and mobile docks. */
 export function DockNav({ pathname, className }: { pathname: string; className?: string }) {
   return (
     <nav className={`flex items-center gap-[12px] ${className ?? ""}`}>
@@ -99,7 +96,6 @@ export function DockNav({ pathname, className }: { pathname: string; className?:
   );
 }
 
-/** GitHub / follow external-link buttons, shared by the desktop and mobile docks. */
 export function DockLinks({ className }: { className?: string }) {
   return (
     <div className={`flex items-center gap-[12px] ${className ?? ""}`}>

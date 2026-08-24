@@ -10,19 +10,8 @@ import {
 import { useHighlight } from "./use-highlight.js";
 import type { HighlightOptions } from "@highlighters/core";
 
-/**
- * Highlights its slot content with a decorative overlay mark.
- *
- * @example
- * ```vue
- * <Highlight :options="{ color: { palette: 'fluorescent', swatch: 'pink' } }">
- *   Highlight this
- * </Highlight>
- * ```
- */
 export const Highlight = defineComponent({
   name: "Highlight",
-  // Attrs are spread onto the rendered element explicitly below.
   inheritAttrs: false,
   props: {
     as: {

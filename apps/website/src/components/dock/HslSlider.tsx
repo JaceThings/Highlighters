@@ -8,7 +8,6 @@ import {
   CapsuleKnob,
 } from "./capsuleSlider.tsx";
 
-/** One HSL channel: a gradient ramp clipped to the capsule, with a draggable knob filled with the current colour. */
 export function HslSlider({
   label,
   value,
@@ -24,9 +23,7 @@ export function HslSlider({
   min: number;
   max: number;
   step: number;
-  /** CSS background painting the channel across the track, left = min, right = max. */
   gradient: string;
-  /** Picked colour, shown inside the knob's white ring. */
   knobColor: string;
   onChange: (next: number) => void;
 }) {
@@ -38,7 +35,6 @@ export function HslSlider({
       : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
     if (!dir) return;
     e.preventDefault();
-    // Shift = 10x step (coarse stride).
     const s = e.shiftKey ? step * 10 : step;
     drag.glideTo(clamp(value + dir * s, min, max));
   };

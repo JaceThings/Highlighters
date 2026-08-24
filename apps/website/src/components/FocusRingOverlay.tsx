@@ -10,10 +10,6 @@ import {
 import { generatePath } from "@lisse/core";
 import { useNavModality } from "../hooks/useNavModality.ts";
 
-// Persistent squircle ring on the focused `[data-focus-ring]`. Springs between targets within a
-// `[data-focus-section]`, cross-dissolves across groups. In page coords so it stays glued through
-// scroll. Hidden when modality flips to mouse.
-
 const RING_SELECTOR = "[data-focus-ring]";
 const SECTION_SELECTOR = "[data-focus-section]";
 const SPRING = { stiffness: 1100, damping: 60, mass: 0.4 };
@@ -46,13 +42,11 @@ export function FocusRingOverlay({
   const radS = useSpring(rad, SPRING);
   const opacity = useMotionValue(0);
 
-  const d = useTransform([wS, hS, radS], ([wv, hv, rv]) => {
-    const ww = Math.max(0, wv as number);
-    const hh = Math.max(0, hv as number);
+  const d = useTransform([wS, hS, radS], ([wv, hv, rv]: number[]) => {
+    const ww = Math.max(0, wv);
+    const hh = Math.max(0, hv);
     if (ww === 0 || hh === 0) return "";
-    const r = Math.min(Math.max(0, rv as number), Math.min(ww, hh) / 2);
-    // At max radius (circle/capsule) there's no straight edge for smoothing to bridge: it would
-    // warp the arc, so drop it there and keep it for true squircles.
+    const r = Math.min(Math.max(0, rv), Math.min(ww, hh) / 2);
     const sm = r >= Math.min(ww, hh) / 2 - 0.5 ? 0 : smoothing;
     return generatePath(ww, hh, { radius: r, smoothing: sm });
   });
@@ -67,16 +61,12 @@ export function FocusRingOverlay({
     type Rect = { nx: number; ny: number; nw: number; nh: number; nr: number };
     let pendingTarget: Rect | null = null;
 
-    // Per-element outset via `data-focus-inset-x` / `-y` (px) lets text-only links widen the ring without changing layout.
     const measure = (el: HTMLElement): Rect => {
       const r = el.getBoundingClientRect();
       const insetX = Number(el.dataset.focusInsetX) || offsetX;
       const insetY = Number(el.dataset.focusInsetY) || offsetY;
       const nw = r.width + insetX * 2;
       const nh = r.height + insetY * 2;
-      // Per-element corner radius via `data-focus-radius`: "full" = circle/capsule (computed
-      // border-radius can't be trusted), a number overrides in px, absent = default squircle.
-      // Inset added to stay concentric, capped at half so the ring never self-intersects.
       const max = Math.min(nw, nh) / 2;
       const inset = Math.min(insetX, insetY);
       const hint = el.dataset.focusRadius;
@@ -95,7 +85,6 @@ export function FocusRingOverlay({
       };
     };
 
-    // Jump springs alongside raw values so they don't interpolate from the previous position.
     const snap = ({ nx, ny, nw, nh, nr }: Rect) => {
       xS.jump(nx); yS.jump(ny); wS.jump(nw); hS.jump(nh); radS.jump(nr);
       x.set(nx); y.set(ny); w.set(nw); h.set(nh); rad.set(nr);
@@ -113,7 +102,6 @@ export function FocusRingOverlay({
     const getSection = (el: HTMLElement | null): string | null =>
       el?.closest(SECTION_SELECTOR)?.getAttribute("data-focus-section") ?? null;
 
-    // Poll only while a ring is visible (see `follow`); idle pages schedule no rAF.
     let rafId = 0;
     const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
     let reduced = mql.matches;
@@ -138,16 +126,14 @@ export function FocusRingOverlay({
     };
 
     const onFocusIn = (e: FocusEvent) => {
-      const t = (e.target as HTMLElement | null)?.closest(RING_SELECTOR) as HTMLElement | null;
+      const t = e.target instanceof Element ? e.target.closest<HTMLElement>(RING_SELECTOR) : null;
       if (!t) return;
-      // A click flips modality to mouse; this focusin must hide the ring, not strand it at the prior keyboard position.
       if (!navKeyboard.current) {
         hide();
         return;
       }
       const dest = measure(t);
       if (fadingOut) {
-        // Coalesce: the in-flight onComplete snaps to the most recent.
         pendingTarget = dest;
         targetRef.current = t;
         return;
@@ -166,7 +152,6 @@ export function FocusRingOverlay({
         getSection(targetRef.current) !== getSection(t);
 
       if (crossingSections) {
-        // Fade out, snap while invisible, fade back in: no long-distance slide between groups.
         targetRef.current = t;
         fadingOut = true;
         pendingTarget = dest;
@@ -191,16 +176,13 @@ export function FocusRingOverlay({
     };
 
     const onFocusOut = () => {
-      // Defer one frame so a synchronous Tab move lands its focusin before we decide whether to hide.
       requestAnimationFrame(() => {
-        const active = document.activeElement as HTMLElement | null;
+        const active = document.activeElement;
         if (active?.closest(RING_SELECTOR)) return;
         hide();
       });
     };
 
-    // The link never fades, but an ancestor m.span can (route exit). Any ancestor below opacity 1
-    // means we're animating out: fade the ring instead of tracking the moving target.
     const isMidExit = (el: HTMLElement): boolean => {
       let node: HTMLElement | null = el;
       while (node && node !== document.body) {
@@ -211,10 +193,6 @@ export function FocusRingOverlay({
       return false;
     };
 
-    // Targets can move externally (footer slides on route change); the poll re-feeds raw values so
-    // springs follow. Bail on removed/mid-exit elements: getBoundingClientRect on a detached node
-    // returns the zero-rect and the ring snaps to the viewport origin. Runs only while visible so an
-    // idle page schedules no recurring rAF.
     function follow() {
       rafId = 0;
       if (!visible.current) return;
@@ -229,7 +207,6 @@ export function FocusRingOverlay({
       rafId = requestAnimationFrame(follow);
     }
 
-    // Reduced motion: never poll; focus events still position the ring via snap/slide.
     const onMotionPref = () => {
       reduced = mql.matches;
       if (reduced) stopFollow();

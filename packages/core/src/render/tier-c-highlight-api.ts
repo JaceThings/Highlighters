@@ -1,22 +1,10 @@
-/**
- * Tier C renderer: the CSS Custom Highlight API (`::highlight()`). The maximally-safe tier.
- *
- * Registers the mark's `Range`s with `CSS.highlights` and paints them via a generated `::highlight()`
- * rule: zero overlay DOM, native multiline, find-in-page/selection unaffected, text nodes untouched.
- * The trade-off is fidelity (flat colour only), but colour and coverage still match the other tiers.
- *
- * Each instance owns one named `Highlight` registration and one CSS rule in a shared `<style>`.
- * `unmount()` deregisters and removes its rule, leaving the document pristine.
- */
-
 import type { Renderer, RenderContext } from "../types.js";
+import { hasGlobal } from "../internal/dom.js";
 
-/** Monotonic id source so concurrent marks never collide on a highlight name. */
 let highlightSeq = 0;
 
 const STYLE_ID = "highlighters-highlight-api-styles";
 
-/** Lazily create (or return) the single shared `<style>` for all `::highlight()` rules. */
 function getSharedStyle(doc: Document): HTMLStyleElement {
   const existing = doc.getElementById(STYLE_ID);
   if (existing instanceof HTMLStyleElement) return existing;
@@ -27,16 +15,14 @@ function getSharedStyle(doc: Document): HTMLStyleElement {
   return style;
 }
 
-/** Whether the Custom Highlight API is usable here; guarded for SSR/old engines. */
 function highlightApiAvailable(): boolean {
   return (
-    typeof CSS !== "undefined" &&
+    hasGlobal("CSS") &&
     "highlights" in CSS &&
-    typeof Highlight !== "undefined"
+    hasGlobal("Highlight")
   );
 }
 
-/** Create a Tier C renderer (`tier: "highlight-api"`): one shared-stylesheet rule keyed by a unique highlight name, plus a `Highlight` over the ranges. */
 export function createHighlightApiRenderer(): Renderer {
   const name = `highlighters-${++highlightSeq}`;
   let highlight: Highlight | null = null;
@@ -45,13 +31,10 @@ export function createHighlightApiRenderer(): Renderer {
 
   function ruleFor(context: RenderContext): string {
     const { options } = context;
-    // `::highlight()` exposes no opacity/blend, so fold opacity into the fill via `color-mix`; blend mode is dropped.
     const alpha = Math.max(0, Math.min(1, options.opacity));
-    // `options.color` lands in raw stylesheet rule text, so guard against CSS injection: `CSS.supports`
-    // accepts only a bare colour and rejects anything crafted to close `color-mix()` and inject rules.
     const raw = String(options.color);
     const color =
-      typeof CSS !== "undefined" && CSS.supports?.("color", raw) ? raw : "transparent";
+      hasGlobal("CSS") && CSS.supports?.("color", raw) ? raw : "transparent";
     const fill = `color-mix(in srgb, ${color} ${Math.round(alpha * 100)}%, transparent)`;
     const decls = [`background-color: ${fill}`, `color: inherit`];
     return `::highlight(${name}) { ${decls.join("; ")}; }`;
@@ -72,17 +55,15 @@ export function createHighlightApiRenderer(): Renderer {
   function writeRule(context: RenderContext): void {
     const doc =
       context.container.ownerDocument ??
-      (typeof document !== "undefined" ? document : null);
+      (hasGlobal("document") ? document : null);
     if (!doc) return;
     styleEl ??= getSharedStyle(doc);
     ruleText = ruleFor(context);
     rewriteOwnRule();
   }
 
-  /** Replace this renderer's rule in the shared sheet without disturbing others. */
   function rewriteOwnRule(): void {
     if (!styleEl) return;
-    // Strip only this renderer's rule (others stay byte-intact), then append the fresh one. `name` is regex-escaped.
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const ownRule = new RegExp(`\\s*::highlight\\(${escaped}\\)\\s*\\{[^}]*\\}`, "g");
     const base = (styleEl.textContent ?? "").replace(ownRule, "").trim();
@@ -102,7 +83,6 @@ export function createHighlightApiRenderer(): Renderer {
       writeRule(context);
     },
 
-    // No overlay DOM (paints via ::highlight()), so there's no wrapper to draw on.
     bandFor: (): HTMLElement | null => null,
 
     unmount(): void {
@@ -113,7 +93,6 @@ export function createHighlightApiRenderer(): Renderer {
       if (styleEl) {
         ruleText = "";
         rewriteOwnRule();
-        // Drop the node entirely once the sheet is empty, so we leave no trace.
         if (!styleEl.textContent || styleEl.textContent.trim() === "") {
           styleEl.remove();
         }

@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -26,11 +25,6 @@ import type {
   ResolvedOptions,
 } from "../src/types.js";
 
-// ---------------------------------------------------------------------------
-// Test fixtures
-// ---------------------------------------------------------------------------
-
-/** A capability snapshot with everything supported and no preferences set. */
 function fullEnv(overrides: Partial<RenderEnvironment> = {}): RenderEnvironment {
   return {
     supportsSvgFilters: true,
@@ -44,14 +38,11 @@ function fullEnv(overrides: Partial<RenderEnvironment> = {}): RenderEnvironment 
   };
 }
 
-/** A minimal MarkGeometry stub for renderer/animation tests. */
 function geometry(seed: number): MarkGeometry {
   return {
     box: { x: 0, y: seed, width: 100, height: 20 },
     seed,
     clipPath: "path('M0 0 H100 V20 H0 Z')",
-    // Front-truncated clip: an empty path when closed, the full clip at full width,
-    // and a distinct truncated string in between - enough to drive the draw-on.
     clipAtFront: (front: number) =>
       front <= 0
         ? 'path("M 0 0 Z")'
@@ -84,23 +75,34 @@ function resolved(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions {
   return { ...resolveOptions(), ...overrides };
 }
 
-/** A DOMRect-ish for stubbing Range.getClientRects in happy-dom. */
 function dr(left: number, top: number, width: number, height: number): DOMRect {
-  return { x: left, y: top, width, height, left, top, right: left + width, bottom: top + height, toJSON: () => ({}) } as DOMRect;
+  return new DOMRect(left, top, width, height);
 }
+
+class TestRectList extends Array<DOMRect> implements DOMRectList {
+  item(index: number): DOMRect | null {
+    return this[index] ?? null;
+  }
+}
+
 function domRectList(rects: DOMRect[]): DOMRectList {
-  const list = {
-    length: rects.length,
-    item: (i: number) => rects[i] ?? null,
-    [Symbol.iterator]: () => rects[Symbol.iterator](),
-  } as unknown as DOMRectList & Record<number, DOMRect>;
-  for (let i = 0; i < rects.length; i++) list[i] = rects[i];
+  const list = new TestRectList();
+  list.push(...rects);
   return list;
 }
 
-// ---------------------------------------------------------------------------
-// Tier selection + auto-degrade (R27)
-// ---------------------------------------------------------------------------
+function htmlElement(el: Element | null | undefined): HTMLElement {
+  if (!(el instanceof HTMLElement)) throw new Error("expected an HTMLElement");
+  return el;
+}
+
+function htmlChildren(parent: ParentNode): HTMLElement[] {
+  return Array.from(parent.children).filter((el) => el instanceof HTMLElement);
+}
+
+function htmlQueryAll(parent: ParentNode, selector: string): HTMLElement[] {
+  return Array.from(parent.querySelectorAll(selector)).filter((el) => el instanceof HTMLElement);
+}
 
 describe("selectTier", () => {
   it("selects the realistic SVG tier under auto when everything is supported", () => {
@@ -145,14 +147,10 @@ describe("detectEnvironment", () => {
   it("returns a snapshot with the default degrade threshold", () => {
     const env = detectEnvironment();
     expect(env.degradeThreshold).toBe(DEFAULT_DEGRADE_THRESHOLD);
-    expect(typeof env.prefersReducedMotion).toBe("boolean");
-    expect(typeof env.coarsePointer).toBe("boolean");
+    expect([true, false]).toContain(env.prefersReducedMotion);
+    expect([true, false]).toContain(env.coarsePointer);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Overlay container: aria-hidden + non-interactive (R30 / V13)
-// ---------------------------------------------------------------------------
 
 describe("createOverlayContainer", () => {
   let host: HTMLElement;
@@ -183,15 +181,10 @@ describe("createOverlayContainer", () => {
   });
 
   it("teardown removes an emptied container but spares one still holding marks", () => {
-    // The container is shared by every mark on a host; each mark's renderer.unmount
-    // removes its OWN nodes before teardown. An emptied container is stripped so the
-    // last mark out leaves the DOM pristine (R9)...
     const container = createOverlayContainer(host);
     teardownContainer(container);
     expect(host.querySelector("[data-highlighters-overlay]")).toBeNull();
 
-    // ...but a container still holding another mark's nodes is left intact, so
-    // removing one mark never tears down its neighbours.
     const shared = createOverlayContainer(host);
     shared.appendChild(document.createElement("span"));
     teardownContainer(shared);
@@ -199,10 +192,6 @@ describe("createOverlayContainer", () => {
     expect(shared.childNodes.length).toBe(1);
   });
 });
-
-// ---------------------------------------------------------------------------
-// NodePool: identity-keyed pooling (A14 §6 / R22d)
-// ---------------------------------------------------------------------------
 
 describe("NodePool", () => {
   it("keys nodes by identity and keeps survivors across reconciliation", () => {
@@ -231,10 +220,6 @@ describe("NodePool", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Renderers: mount/update/unmount leave no residue, nodes aria-hidden (V4/V13)
-// ---------------------------------------------------------------------------
-
 describe("createCssRenderer", () => {
   let host: HTMLElement;
 
@@ -255,17 +240,13 @@ describe("createCssRenderer", () => {
     };
     renderer.mount(context);
 
-    // One positioned wrapper per line is mounted as a direct child of the
-    // container; the wrapper carries the box position and NO geometry clip so the
-    // draw-on can wipe it open without scaling.
-    const wrappers = Array.from(container.children) as HTMLElement[];
+    const wrappers = htmlChildren(container);
     expect(wrappers.length).toBe(2);
     for (const wrapper of wrappers) {
       expect(wrapper.getAttribute("aria-hidden")).toBe("true");
       expect(wrapper.style.position).toBe("absolute");
       expect(wrapper.style.clipPath).toBe("");
-      // Each wrapper holds exactly one painted band child with the multiply optic.
-      const band = wrapper.firstElementChild as HTMLElement;
+      const band = htmlElement(wrapper.firstElementChild);
       expect(band).not.toBeNull();
       expect(band.getAttribute("aria-hidden")).toBe("true");
       expect(band.style.mixBlendMode).toBe("multiply");
@@ -274,8 +255,6 @@ describe("createCssRenderer", () => {
   });
 
   it("builds the absolute-px pool gradient with min/max clamps (A14 §3)", () => {
-    // The clamp keeps a short mark from over-pooling: stops at 2px,
-    // min(10px,40%), max(100%-10px,60%), 100%-2px.
     const css = poolGradientToCss(geometry(0).pool);
     expect(css).toContain("linear-gradient(85deg");
     expect(css).toContain("2px");
@@ -285,7 +264,6 @@ describe("createCssRenderer", () => {
   });
 
   it("renders a speed gradient as N px-positioned core stops (no min/max clamps)", () => {
-    // A live-speed PoolGradient (coreStopsPositionsPx present) → the px-stop path.
     const speedPool = {
       angle: 85,
       startInsetPx: 2,
@@ -311,10 +289,8 @@ describe("createCssRenderer", () => {
     expect(css).toContain("16px");
     expect(css).toContain("240px");
     expect(css).toContain("calc(100% - 2px)");
-    // The speed path uses pre-computed px, never the legacy min()/max() clamps.
     expect(css).not.toContain("min(10px");
     expect(css).not.toContain("max(calc");
-    // Relative-alpha normalization (color-mix to the brightest stop) still applies.
     expect(css).toContain("color-mix(in srgb");
   });
 
@@ -322,12 +298,10 @@ describe("createCssRenderer", () => {
     const renderer = createCssRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(0), geometry(20)], ranges: [] });
-    // Two wrappers (the per-line wipe surfaces) are mounted as direct children.
     expect(container.children.length).toBe(2);
     const firstWrapper = container.firstElementChild;
     const firstBand = firstWrapper?.firstElementChild;
 
-    // Drop the second line; the first must keep its exact wrapper + band subtree.
     renderer.update({ container, options: resolved(), lines: [geometry(0)], ranges: [] });
     expect(container.children.length).toBe(1);
     expect(container.firstElementChild).toBe(firstWrapper);
@@ -347,20 +321,16 @@ describe("createCssRenderer", () => {
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0), geometry(20)], ranges: [] });
 
-    // A sibling escape layer is created on the host, with normal blend (not the container's multiply).
-    const layer = Array.from(host.children).find(
-      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
-    ) as HTMLElement | undefined;
+    const layer = htmlChildren(host).find(
+      (el) => el !== container && el.style.mixBlendMode === "normal",
+    );
     expect(layer).toBeDefined();
     expect(layer!.style.isolation).toBe("isolate");
-    // The wrappers ride the escape layer, leaving the multiply container empty.
     expect(container.children.length).toBe(0);
     expect(layer!.children.length).toBe(2);
-    // The band itself keeps the ink's own blend (multiply), so a self-overlap still darkens.
-    const bandBlends = Array.from(layer!.querySelectorAll("div")).map((n) => (n as HTMLElement).style.mixBlendMode);
+    const bandBlends = htmlQueryAll(layer!, "div").map((n) => n.style.mixBlendMode);
     expect(bandBlends).toContain("multiply");
 
-    // Teardown drops the escape layer too.
     renderer.unmount();
     expect(host.contains(layer!)).toBe(false);
   });
@@ -369,16 +339,14 @@ describe("createCssRenderer", () => {
     const renderer = createCssRenderer();
     const container = createOverlayContainer(host);
     const escapeLayers = () =>
-      Array.from(host.children).filter((el) => el !== container) as HTMLElement[];
+      htmlChildren(host).filter((el) => el !== container);
 
-    // screen -> true must re-blend the surviving layer, not keep the stale screen blend.
     renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["screen"]);
     renderer.update({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["normal"]);
     expect(container.children.length).toBe(0);
 
-    // vivid off must drop the layer entirely and move the band back into the multiply container.
     renderer.update({ container, options: resolved({ vivid: false }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().length).toBe(0);
     expect(container.children.length).toBe(1);
@@ -418,17 +386,14 @@ describe("createSvgRenderer", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(40)], ranges: [] });
-    // The direct child is the wipe wrapper: positioned at the box, NO geometry
-    // clip (so the draw-on inset never stretches the shape).
-    const wrapper = container.firstElementChild as HTMLElement;
+    const wrapper = htmlElement(container.firstElementChild);
     expect(wrapper.style.position).toBe("absolute");
     expect(wrapper.style.clipPath).toBe("");
-    // The ink node lives inside the wrapper and carries the shape clip + mask.
-    const ink = wrapper.lastElementChild as HTMLElement;
+    const ink = htmlElement(wrapper.lastElementChild);
     expect(ink.style.clipPath).toContain("path(");
-    expect(ink.style.maskPosition).toBe("-10px -5px");
-    expect(ink.style.maskSize).toBe("256px 64px");
-    expect(ink.style.maskRepeat).toBe("repeat");
+    expect(ink.style.getPropertyValue("mask-position")).toBe("-10px -5px");
+    expect(ink.style.getPropertyValue("mask-size")).toBe("256px 64px");
+    expect(ink.style.getPropertyValue("mask-repeat")).toBe("repeat");
   });
 
   it("adds an additive (screen) glow node only when glow is enabled (R16)", () => {
@@ -438,8 +403,8 @@ describe("createSvgRenderer", () => {
       glow: { enabled: true, intensity: 0.5, spread: 4, color: "#ffff66" },
     });
     renderer.mount({ container, options: glowOpts, lines: [geometry(0)], ranges: [] });
-    const screenNodes = Array.from(container.querySelectorAll("div")).filter(
-      (n) => (n as HTMLElement).style.mixBlendMode === "screen",
+    const screenNodes = htmlQueryAll(container, "div").filter(
+      (n) => n.style.mixBlendMode === "screen",
     );
     expect(screenNodes.length).toBe(1);
   });
@@ -449,16 +414,14 @@ describe("createSvgRenderer", () => {
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
 
-    const layer = Array.from(host.children).find(
-      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "normal",
-    ) as HTMLElement | undefined;
+    const layer = htmlChildren(host).find(
+      (el) => el !== container && el.style.mixBlendMode === "normal",
+    );
     expect(layer).toBeDefined();
     expect(layer!.style.isolation).toBe("isolate");
-    // The per-line wrapper (and its ink node) live on the escape layer, not the multiply container.
     expect(container.children.length).toBe(0);
     expect(layer!.querySelector("div")).not.toBeNull();
-    // The ink keeps multiply on the escape layer, so a self-overlap still darkens.
-    const inkBlends = Array.from(layer!.querySelectorAll("div")).map((n) => (n as HTMLElement).style.mixBlendMode);
+    const inkBlends = htmlQueryAll(layer!, "div").map((n) => n.style.mixBlendMode);
     expect(inkBlends).toContain("multiply");
 
     renderer.unmount();
@@ -470,9 +433,9 @@ describe("createSvgRenderer", () => {
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
 
-    const layer = Array.from(host.children).find(
-      (el) => el !== container && (el as HTMLElement).style.mixBlendMode === "screen",
-    ) as HTMLElement | undefined;
+    const layer = htmlChildren(host).find(
+      (el) => el !== container && el.style.mixBlendMode === "screen",
+    );
     expect(layer).toBeDefined();
     expect(layer!.style.isolation).toBe("isolate");
     expect(container.children.length).toBe(0);
@@ -484,16 +447,14 @@ describe("createSvgRenderer", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);
     const escapeLayers = () =>
-      Array.from(host.children).filter((el) => el !== container) as HTMLElement[];
+      htmlChildren(host).filter((el) => el !== container);
 
-    // screen -> true must re-blend the surviving layer, not keep the stale screen blend.
     renderer.mount({ container, options: resolved({ vivid: "screen" }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["screen"]);
     renderer.update({ container, options: resolved({ vivid: true }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().map((l) => l.style.mixBlendMode)).toEqual(["normal"]);
     expect(container.children.length).toBe(0);
 
-    // vivid off must drop the layer entirely and move the band back into the multiply container.
     renderer.update({ container, options: resolved({ vivid: false }), lines: [geometry(0)], ranges: [] });
     expect(escapeLayers().length).toBe(0);
     expect(container.children.length).toBe(1);
@@ -502,16 +463,9 @@ describe("createSvgRenderer", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Animation: reduced-motion forces instant; draw-on stagger; in-view (R23-R25)
-// ---------------------------------------------------------------------------
-
 describe("applyDrawOn", () => {
   let host: HTMLElement;
   let container: HTMLElement;
-  // Per-seed wrapper lookup, exactly like a renderer's `bandFor`: the draw-on finds
-  // a line's wrapper by its stable seed, NOT by index into the (possibly shared)
-  // container - so marks sharing a container never animate each other's bands.
   let bands: Map<number, HTMLElement>;
   const bandFor = (seed: number): HTMLElement | null => bands.get(seed) ?? null;
 
@@ -520,10 +474,6 @@ describe("applyDrawOn", () => {
     document.body.appendChild(host);
     container = createOverlayContainer(host);
     bands = new Map();
-    // Mirror the renderer's structure: each direct child is a WRAPPER holding a
-    // clip-bearing ink. The renderer owns the ink's full geometry clip; applyDrawOn
-    // grows the WRAPPER's clip-path front frame to frame (revealing the subtree),
-    // then restores the full clip. The two never write the same element's clip.
     for (const seed of [0, 20]) {
       const wrapper = document.createElement("div");
       const ink = document.createElement("div");
@@ -539,13 +489,12 @@ describe("applyDrawOn", () => {
   });
 
   const anim = resolved().animation;
-  const FULL = geometry(0).clipPath; // the settled clip the stub returns at full front
-  const wrapperOf = (i: number) => Array.from(container.children)[i] as HTMLElement;
-  const inkOf = (i: number) => wrapperOf(i).firstElementChild as HTMLElement;
+  const FULL = geometry(0).clipPath;
+  const wrapperOf = (i: number) => htmlChildren(container)[i];
+  const inkOf = (i: number) => htmlElement(wrapperOf(i).firstElementChild);
 
   it("shows the full clip instantly under prefers-reduced-motion (R25)", () => {
     const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], anim, fullEnv({ prefersReducedMotion: true }));
-    // Instant = the full settled clip on the wrapper, no animation.
     expect(wrapperOf(0).style.clipPath).toBe(FULL);
     expect(wrapperOf(1).style.clipPath).toBe(FULL);
     disconnect();
@@ -560,19 +509,15 @@ describe("applyDrawOn", () => {
     vi.useFakeTimers();
     const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], { ...anim, draw: true, trigger: "immediate", direction: "left-to-right", stagger: 50, duration: 200 }, fullEnv());
     const wrapper = wrapperOf(0);
-    // play() runs synchronously: the line is parked CLOSED (an empty front clip) -
-    // revealed by growing the clip, never by a mask, opacity fade, or transform.
     expect(wrapper.style.clipPath).toContain("M 0 0 Z");
-    expect(wrapper.style.maskImage ?? "").toBe("");
+    expect(wrapper.style.getPropertyValue("mask-image")).toBe("");
     expect(wrapper.style.opacity).toBe("");
     expect(wrapper.style.transform).toBe("");
-    // Advance partway: the clip is a TRUNCATED band - non-empty, not yet full.
     vi.advanceTimersByTime(90);
     const mid = wrapper.style.clipPath;
     expect(mid).toContain("path(");
     expect(mid).not.toContain("M 0 0 Z");
     expect(mid).not.toBe(FULL);
-    // Advance past duration + stagger: the full settled clip is restored.
     vi.advanceTimersByTime(500);
     expect(wrapper.style.clipPath).toBe(FULL);
     disconnect();
@@ -582,30 +527,20 @@ describe("applyDrawOn", () => {
     vi.useFakeTimers();
     const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
     vi.advanceTimersByTime(90);
-    // The draw lives on the wrapper; the ink child's clip (the renderer's geometry)
-    // is untouched by the animation throughout.
     expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
     expect(inkOf(0).style.clipPath).toBe(FULL);
     disconnect();
   });
 
   it("survives a reflow that resets the ink clip mid-draw - no flash to full, no restart", () => {
-    // The exact regression: a reflow re-runs renderer.update(), which rewrites the
-    // ink child's clip to FULL. Because the draw clips the WRAPPER (not the ink),
-    // the front is preserved and the band keeps drawing instead of flashing full.
     vi.useFakeTimers();
     const handle = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
     vi.advanceTimersByTime(90);
     const beforeFront = wrapperOf(0).style.clipPath;
     expect(beforeFront).not.toBe(FULL);
-    // Simulate renderer.update on reflow: the ink child is reset to its full clip…
     inkOf(0).style.clipPath = FULL;
-    // …and the draw is retargeted onto the (unchanged) geometry.
     handle.retarget([geometry(0)]);
-    // The wrapper's front clip is still truncated - the visible band did NOT snap to
-    // full. (A flash-to-full would mean the wrapper read FULL here.)
     expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
-    // The next frame keeps advancing from where it was, then settles - one draw.
     vi.advanceTimersByTime(40);
     expect(wrapperOf(0).style.clipPath).toContain("path(");
     vi.advanceTimersByTime(200);
@@ -617,12 +552,9 @@ describe("applyDrawOn", () => {
     vi.useFakeTimers();
     const handle = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
     const wrapper = wrapperOf(0);
-    // Mid-draw on the ORIGINAL (width-100) geometry.
     vi.advanceTimersByTime(60);
     expect(wrapper.style.clipPath).toContain("path(");
     expect(wrapper.style.clipPath).not.toContain("H200");
-    // A reflow corrects the geometry to width 200 (a late font load widened the
-    // line). Retarget the still-running draw-on onto it.
     const wide = {
       ...geometry(0),
       clipPath: "path('M0 0 H200 V20 H0 Z')",
@@ -630,7 +562,6 @@ describe("applyDrawOn", () => {
         f <= 0 ? 'path("M 0 0 Z")' : f >= 200 ? "path('M0 0 H200 V20 H0 Z')" : `path('M0 0 H${f.toFixed(1)} V20 H0 Z')`,
     };
     handle.retarget([wide]);
-    // Finish: it settles to the WIDE full clip, not the stale narrow one.
     vi.advanceTimersByTime(400);
     expect(wrapper.style.clipPath).toBe("path('M0 0 H200 V20 H0 Z')");
     handle();
@@ -647,16 +578,11 @@ describe("applyDrawOn", () => {
   });
 
   it("starts the front at minFront (tip touchdown), never below - no start-of-draw pause", () => {
-    // The draw maps progress 0→1 onto front [minFront → width]. With a chisel-like
-    // minFront of 30, the FIRST drawn frame must already be at ≥30 (the band touches
-    // down at its tip and drags) - not a sub-tip value that build() would clamp,
-    // which is what made the band pop then sit frozen.
     vi.useFakeTimers();
     const seed = 0;
     const line: MarkGeometry = {
       ...geometry(seed),
       minFront: 30,
-      // Echo the requested front so the test can read exactly what was drawn.
       clipAtFront: (f: number) => (f <= 0 ? 'path("M 0 0 Z")' : `path('M0 0 H${f.toFixed(1)} V20 H0 Z')`),
     };
     const readFront = (): number => {
@@ -664,12 +590,9 @@ describe("applyDrawOn", () => {
       return m ? Number(m[1]) : NaN;
     };
     const disconnect = applyDrawOn(container, bandFor, [line], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
-    // Early in the draw: the band has already touched down at its tip (≥ minFront),
-    // never a sub-tip front that build() would clamp into a frozen plateau.
     vi.advanceTimersByTime(50);
     const early = readFront();
     expect(early).toBeGreaterThanOrEqual(30);
-    // Later: it has dragged forward (no plateau, no freeze at the touchdown width).
     vi.advanceTimersByTime(60);
     const later = readFront();
     expect(later).toBeGreaterThan(early);
@@ -677,74 +600,57 @@ describe("applyDrawOn", () => {
   });
 
   it("wicks the onset in (wrapper opacity ramps up), then clears opacity at settle", () => {
-    // The touchdown fades in like ink seeping into paper, instead of hard-popping.
-    // Opacity rides the WRAPPER (the container carries the page-facing multiply), and
-    // is cleared at settle so the rested mark forms no lingering stacking context.
     vi.useFakeTimers();
     const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 1000 }, fullEnv());
     vi.advanceTimersByTime(40);
     const op = wrapperOf(0).style.opacity;
-    expect(op).not.toBe(""); // actively fading in during the onset
+    expect(op).not.toBe("");
     expect(Number(op)).toBeGreaterThanOrEqual(0);
     expect(Number(op)).toBeLessThan(1);
-    // After the draw settles, opacity is cleared (full, no isolated group at rest).
     vi.advanceTimersByTime(1200);
     expect(wrapperOf(0).style.opacity).toBe("");
     disconnect();
   });
 
   it("only touches its OWN seed's band, never a sibling mark sharing the container", () => {
-    // The root cause of "draws twice": several marks share ONE overlay container,
-    // so wrappers for unrelated marks are siblings. A draw-on for line seed 0 must
-    // animate ONLY the seed-0 wrapper - never the seed-20 wrapper that belongs to a
-    // different mark (which would let N marks all clobber one band).
     vi.useFakeTimers();
-    const sibling = wrapperOf(1); // the seed-20 band; this draw-on must not touch it
+    const sibling = wrapperOf(1);
     expect(sibling.style.clipPath).toBe("");
     const disconnect = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "immediate", stagger: 0, duration: 200 }, fullEnv());
     vi.advanceTimersByTime(90);
-    expect(wrapperOf(0).style.clipPath).toContain("path("); // our band IS drawing
-    expect(sibling.style.clipPath).toBe(""); // the other mark's band is untouched
+    expect(wrapperOf(0).style.clipPath).toContain("path(");
+    expect(sibling.style.clipPath).toBe("");
     vi.advanceTimersByTime(300);
     expect(wrapperOf(0).style.clipPath).toBe(FULL);
-    expect(sibling.style.clipPath).toBe(""); // still untouched after settle
+    expect(sibling.style.clipPath).toBe("");
     disconnect();
   });
 
   it("an armed in-view mark stays parked closed across a reflow (no pre-view flash)", () => {
-    // A reflow that lands BEFORE an in-view mark enters view must not reveal it -
-    // otherwise it flashes fully-drawn, then restarts when it finally intersects.
     class FakeIO {
       constructor(public cb: (e: { isIntersecting: boolean }[]) => void) {}
       observe() {}
       disconnect() {}
     }
-    const prev = (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
-    (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = FakeIO;
+    vi.stubGlobal("IntersectionObserver", FakeIO);
     try {
       const handle = applyDrawOn(container, bandFor, [geometry(0)], { ...anim, draw: true, trigger: "in-view", duration: 200 }, fullEnv());
-      // Armed, not yet intersected → parked closed (empty front clip).
       expect(wrapperOf(0).style.clipPath).toContain("M 0 0 Z");
-      // A reflow lands before view: retarget must keep it closed, not show full.
       handle.retarget([geometry(0)]);
       expect(wrapperOf(0).style.clipPath).toContain("M 0 0 Z");
       expect(wrapperOf(0).style.clipPath).not.toBe(FULL);
       handle();
     } finally {
-      (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = prev;
+      vi.unstubAllGlobals();
     }
   });
 });
 
 describe("prefersReducedMotion", () => {
   it("returns a boolean and does not throw", () => {
-    expect(typeof prefersReducedMotion()).toBe("boolean");
+    expect([true, false]).toContain(prefersReducedMotion());
   });
 });
-
-// ---------------------------------------------------------------------------
-// Mark handle lifecycle: leaves zero residue, observers disconnected (V4)
-// ---------------------------------------------------------------------------
 
 describe("createMarkHandle", () => {
   let host: HTMLElement;
@@ -755,7 +661,6 @@ describe("createMarkHandle", () => {
   });
   afterEach(() => host.remove());
 
-  /** A stub renderer that records mount/update/unmount calls. */
   function stubRenderer(): Renderer & { calls: string[] } {
     const calls: string[] = [];
     return {
@@ -824,7 +729,6 @@ describe("createMarkHandle", () => {
     handle.show();
     handle.update({});
     expect(handle.isShowing()).toBe(false);
-    // Only one unmount despite the second remove() and post-remove update().
     expect(renderer.calls.filter((c) => c === "unmount").length).toBe(1);
   });
 
@@ -841,14 +745,12 @@ describe("createMarkHandle", () => {
       replay,
       rebuild: (opts) => ({ container, options: opts, lines: [], ranges: [] }),
     });
-    // The initial entrance runs via applyDrawOn directly, so creating the handle
-    // does not replay; only an explicit re-show does.
     expect(replay).not.toHaveBeenCalled();
     handle.hide();
     handle.show();
     expect(replay).toHaveBeenCalledTimes(1);
     handle.remove();
-    handle.show(); // post-remove no-op
+    handle.show();
     expect(replay).toHaveBeenCalledTimes(1);
   });
 
@@ -892,10 +794,6 @@ describe("createMarkHandle", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Public highlight() integration: text untouched, aria-hidden, lifecycle (V13/V4)
-// ---------------------------------------------------------------------------
-
 describe("highlight", () => {
   let target: HTMLElement;
 
@@ -907,6 +805,15 @@ describe("highlight", () => {
   afterEach(() => {
     target.remove();
     document.getElementById("highlighters-shared-defs")?.remove();
+  });
+
+  it("measures each range once (no extra computeAnchor layout walk)", () => {
+    const spy = vi.spyOn(Range.prototype, "getClientRects");
+    const handle = highlight(target, { animation: { draw: false } });
+    const calls = spy.mock.calls.length;
+    handle.remove();
+    spy.mockRestore();
+    expect(calls).toBe(1);
   });
 
   it("does not alter the underlying text (R29 / V13)", () => {
@@ -922,7 +829,7 @@ describe("highlight", () => {
     const overlay = document.body.querySelector("[data-highlighters-overlay]");
     if (overlay) {
       expect(overlay.getAttribute("aria-hidden")).toBe("true");
-      expect((overlay as HTMLElement).style.pointerEvents).toBe("none");
+      expect(htmlElement(overlay).style.pointerEvents).toBe("none");
       for (const child of Array.from(overlay.children)) {
         expect(child.getAttribute("aria-hidden")).toBe("true");
       }
@@ -951,23 +858,18 @@ describe("highlight", () => {
   });
 
   it("an explicit seed still gives each visual line its OWN wrapper (no collapse)", () => {
-    // Two stacked line rects + an explicit seed. Pre-fix every line got the same
-    // seed, collapsing the seed-keyed pool to one wrapper (only the last line
-    // painted); now each line keeps a distinct deterministic seed.
     const twoLines = domRectList([dr(10, 100, 200, 18), dr(10, 124, 200, 18)]);
     const spy = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(twoLines);
     try {
       const handle = highlight(target, { seed: 42, renderer: "css", animation: { draw: false } });
       const overlay = document.body.querySelector("[data-highlighters-overlay]")!;
       expect(overlay.children.length).toBe(2);
-      const clipsA = Array.from(overlay.children).map((w) => (w as HTMLElement).style.clipPath);
-      // Distinct seeds → distinct wave geometry per line (not two identical clips).
+      const clipsA = htmlChildren(overlay).map((w) => w.style.clipPath);
       expect(clipsA[0]).not.toBe(clipsA[1]);
       handle.remove();
-      // Determinism: same seed + same layout → byte-identical per-line geometry.
       const handle2 = highlight(target, { seed: 42, renderer: "css", animation: { draw: false } });
       const overlay2 = document.body.querySelector("[data-highlighters-overlay]")!;
-      const clipsB = Array.from(overlay2.children).map((w) => (w as HTMLElement).style.clipPath);
+      const clipsB = htmlChildren(overlay2).map((w) => w.style.clipPath);
       expect(clipsB).toEqual(clipsA);
       handle2.remove();
     } finally {
@@ -976,9 +878,6 @@ describe("highlight", () => {
   });
 
   it("removing one mark spares a sibling sharing the body container (R9)", () => {
-    // Two marks on different targets both resolve their host to <body>, so they share
-    // one overlay container (createOverlayContainer reuses it). Removing the first must
-    // not tear the container - and the second's mark - down with it.
     const other = document.createElement("p");
     other.textContent = "A second highlighted line.";
     document.body.appendChild(other);
@@ -988,15 +887,13 @@ describe("highlight", () => {
       const h1 = highlight(target, { renderer: "css", animation: { draw: false } });
       const h2 = highlight(other, { renderer: "css", animation: { draw: false } });
       const overlay = document.body.querySelector("[data-highlighters-overlay]")!;
-      expect(overlay.children.length).toBe(2); // one wrapper from each mark
+      expect(overlay.children.length).toBe(2);
 
       h1.remove();
-      // The shared container and h2's mark survive; only h1's wrapper is gone.
       expect(document.body.querySelector("[data-highlighters-overlay]")).toBe(overlay);
       expect(overlay.children.length).toBe(1);
 
       h2.remove();
-      // Last mark out: the emptied container is stripped, leaving the DOM pristine.
       expect(document.body.querySelector("[data-highlighters-overlay]")).toBeNull();
     } finally {
       spy.mockRestore();
@@ -1014,14 +911,13 @@ describe("highlight", () => {
     try {
       const handle = highlight(target, { renderer: "css", animation: { draw: false } });
       const overlay = () =>
-        document.body.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+        htmlElement(document.body.querySelector("[data-highlighters-overlay]")!.children[0]);
       expect(overlay().style.top).toBe("98px");
 
       spy.mockReturnValue(domRectList([dr(10, 180, 200, 18)]));
       window.dispatchEvent(new Event("resize"));
       await flushRaf();
 
-      // Re-query: a reflow that shifts the line seed swaps the pooled wrapper node.
       expect(overlay().style.top).toBe("178px");
       handle.remove();
     } finally {
@@ -1030,9 +926,6 @@ describe("highlight", () => {
   });
 
   it("update() reshaping the mark refreshes the draw-on wrapper clip (no stale crop)", () => {
-    // The draw-on clips the WRAPPER to the mark shape; the ink child carries the same
-    // geometry. An option change that reshapes the mark (a tip swap) must re-point the
-    // draw-on, else the wrapper keeps the OLD shape's clip and crops the new one.
     const oneLine = domRectList([dr(10, 100, 200, 18)]);
     const spy = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(oneLine);
     try {
@@ -1041,12 +934,12 @@ describe("highlight", () => {
         animation: { draw: false },
         tip: { type: "chisel", angle: 16 },
       });
-      const wrapper = document.body.querySelector("[data-highlighters-overlay]")!
-        .children[0] as HTMLElement;
+      const wrapper = htmlElement(
+        document.body.querySelector("[data-highlighters-overlay]")!.children[0],
+      );
       const slantedClip = wrapper.style.clipPath;
-      expect(slantedClip).not.toBe(""); // the settled draw-on left a full clip on the wrapper
+      expect(slantedClip).not.toBe("");
 
-      // Reshape in place: slanted chisel -> bullet. The wrapper clip must follow.
       handle.update({ tip: { type: "bullet", angle: 0 } });
       expect(wrapper.style.clipPath).not.toBe(slantedClip);
       handle.remove();
@@ -1055,16 +948,11 @@ describe("highlight", () => {
     }
   });
 
-  // -------------------------------------------------------------------------
-  // Static-mark measurement cache: ink-only update() forces zero layout reads
-  // -------------------------------------------------------------------------
-
   it("serves ink-only update()s from the measurement cache: zero forced layout reads", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
     const origin = vi.spyOn(Element.prototype, "getBoundingClientRect");
     try {
       const handle = highlight(target, { renderer: "css", animation: { draw: false } });
-      // Mount performs the single measurement pass.
       const rectReads = rects.mock.calls.length;
       const originReads = origin.mock.calls.length;
       expect(rectReads).toBeGreaterThan(0);
@@ -1073,7 +961,6 @@ describe("highlight", () => {
       handle.update({ color: "#ff0000" });
       handle.update({ opacity: 0.4 });
 
-      // Both updates re-synthesized geometry from the cached rects: no layout touched.
       expect(rects.mock.calls.length).toBe(rectReads);
       expect(origin.mock.calls.length).toBe(originReads);
       handle.remove();
@@ -1088,7 +975,7 @@ describe("highlight", () => {
     const origin = vi.spyOn(Element.prototype, "getBoundingClientRect");
     try {
       const handle = highlight(target, { renderer: "css", animation: { draw: false } });
-      handle.update({ opacity: 0.4 }); // cached: pins the post-mount baseline
+      handle.update({ opacity: 0.4 });
       const rectReads = rects.mock.calls.length;
       const originReads = origin.mock.calls.length;
 
@@ -1096,14 +983,12 @@ describe("highlight", () => {
       window.dispatchEvent(new Event("resize"));
       await flushRaf();
 
-      // The reflow re-render measured the moved layout instead of reusing the cache.
       expect(rects.mock.calls.length).toBeGreaterThan(rectReads);
       expect(origin.mock.calls.length).toBeGreaterThan(originReads);
       const overlay = () =>
-        document.body.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+        htmlElement(document.body.querySelector("[data-highlighters-overlay]")!.children[0]);
       expect(overlay().style.top).toBe("178px");
 
-      // The reflow refilled the cache: a following ink update reads no layout and keeps the corrected position.
       const reflowedReads = rects.mock.calls.length;
       handle.update({ color: "#ff0000" });
       expect(rects.mock.calls.length).toBe(reflowedReads);
@@ -1119,7 +1004,6 @@ describe("highlight", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
     const origin = vi.spyOn(Element.prototype, "getBoundingClientRect");
     try {
-      // An element target resolves snap to "line".
       const handle = highlight(target, { renderer: "css", animation: { draw: false } });
       const rectReads = rects.mock.calls.length;
       const originReads = origin.mock.calls.length;
@@ -1128,7 +1012,6 @@ describe("highlight", () => {
       expect(rects.mock.calls.length).toBeGreaterThan(rectReads);
       expect(origin.mock.calls.length).toBeGreaterThan(originReads);
 
-      // Same resolved snap again: back on the cache.
       const snapReads = rects.mock.calls.length;
       handle.update({ snap: "none" });
       expect(rects.mock.calls.length).toBe(snapReads);
@@ -1144,13 +1027,16 @@ describe("highlight", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects").mockReturnValue(twoLines);
     try {
       const readGeometry = () =>
-        Array.from(document.body.querySelector("[data-highlighters-overlay]")!.children).map((w) => {
-          const el = w as HTMLElement;
-          return [el.style.top, el.style.left, el.style.width, el.style.height, el.style.clipPath];
-        });
+        htmlChildren(document.body.querySelector("[data-highlighters-overlay]")!).map((el) => [
+          el.style.top,
+          el.style.left,
+          el.style.width,
+          el.style.height,
+          el.style.clipPath,
+        ]);
 
       const handle = highlight(target, { renderer: "css", animation: { draw: false } });
-      handle.update({ tip: { type: "bullet", angle: 0 } }); // reshapes from the cached rects
+      handle.update({ tip: { type: "bullet", angle: 0 } });
       const cached = readGeometry();
       handle.remove();
 
@@ -1182,9 +1068,16 @@ describe("highlight", () => {
   });
 });
 
+function selectWithin(el: HTMLElement, anchorOffset: number, focusOffset: number): void {
+  const text = el.firstChild;
+  if (!(text instanceof Text)) throw new Error("expected the target to start with a text node");
+  const selection = document.getSelection()!;
+  selection.removeAllRanges();
+  selection.setBaseAndExtent(text, anchorOffset, text, focusOffset);
+}
+
 describe("highlightSelection reflow", () => {
   let target: HTMLElement;
-  let mockRange: Range;
   let article: HTMLElement;
 
   beforeEach(() => {
@@ -1194,11 +1087,10 @@ describe("highlightSelection reflow", () => {
     target.textContent = "Selected text here";
     article.appendChild(target);
     document.body.appendChild(article);
-    mockRange = document.createRange();
-    mockRange.selectNodeContents(target);
   });
 
   afterEach(() => {
+    document.getSelection()?.removeAllRanges();
     article.remove();
     document.getElementById("highlighters-shared-defs")?.remove();
     vi.restoreAllMocks();
@@ -1207,16 +1099,7 @@ describe("highlightSelection reflow", () => {
   it("mounts the overlay on the selection anchor, not document.body", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects");
     rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
-    const mockSelection = {
-      isCollapsed: false,
-      rangeCount: 1,
-      getRangeAt: () => mockRange.cloneRange(),
-      anchorNode: target.firstChild,
-      focusNode: target.firstChild,
-      anchorOffset: 0,
-      focusOffset: 5,
-    };
-    vi.spyOn(document, "getSelection").mockReturnValue(mockSelection as unknown as Selection);
+    selectWithin(target, 0, 5);
     const handle = highlightSelection({ renderer: "css", animation: { draw: false } });
     expect(article.querySelector("[data-highlighters-overlay]")).not.toBeNull();
     expect(document.body.querySelector(":scope > [data-highlighters-overlay]")).toBeNull();
@@ -1232,20 +1115,11 @@ describe("highlightSelection reflow", () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects");
     rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
 
-    const mockSelection = {
-      isCollapsed: false,
-      rangeCount: 1,
-      getRangeAt: () => mockRange.cloneRange(),
-      anchorNode: target.firstChild,
-      focusNode: target.firstChild,
-      anchorOffset: 0,
-      focusOffset: 5,
-    };
-    vi.spyOn(document, "getSelection").mockReturnValue(mockSelection as unknown as Selection);
+    selectWithin(target, 0, 5);
 
     const handle = highlightSelection({ renderer: "css", animation: { draw: false } });
     const overlay = () =>
-      article.querySelector("[data-highlighters-overlay]")!.children[0] as HTMLElement;
+      htmlElement(article.querySelector("[data-highlighters-overlay]")!.children[0]);
     expect(overlay().style.top).toBe("98px");
 
     rects.mockReturnValue(domRectList([dr(10, 180, 200, 18)]));
@@ -1272,16 +1146,11 @@ describe("Tier C (Custom Highlight API)", () => {
     const css = document.getElementById("highlighters-highlight-api-styles")?.textContent ?? "";
     expect(css).toContain("color-mix");
     expect(css).toContain("50%");
-    // Not a bare, fully-opaque fill.
     expect(css).not.toContain("background-color: #ff0000;");
     renderer.unmount();
     host.remove();
   });
 });
-
-// ---------------------------------------------------------------------------
-// group(): choreography over multiple handles (R10)
-// ---------------------------------------------------------------------------
 
 describe("group", () => {
   it("shows, hides, and removes all member handles", () => {

@@ -8,29 +8,24 @@ import {
 } from "react";
 import type { HighlightOptions, MarkType } from "@highlighters/core";
 
-// The dock's three pens, one per core nib type; shared with SelectionMarker.
 export type PenTip = "slant" | "round" | "fine";
 
-// The live, user-chosen selection style the dock controls.
 export interface SelectionStyle {
   color: string;
   pen: PenTip;
-  /** The active pen's opacity (`opacityByPen[pen]`). */
   opacity: number;
-  /** Per-pen ink opacity: each marker keeps its own. */
   opacityByPen: Record<PenTip, number>;
   markType: MarkType;
 }
 
-// Matches the dock's default swatch so dock and paint agree from frame one.
 export const DEFAULT_INK = "#6f584c";
-export const DEFAULT_OPACITY = 0.58; // keep in sync with BASE_SELECTION_OPTIONS
+export const DEFAULT_OPACITY = 0.58;
 export const DEFAULT_MARK_TYPE: MarkType = "highlight";
-const DEFAULT_OPACITY_BY_PEN: Record<PenTip, number> = {
+const DEFAULT_OPACITY_BY_PEN = {
   slant: DEFAULT_OPACITY,
   round: DEFAULT_OPACITY,
   fine: DEFAULT_OPACITY,
-};
+} satisfies Record<PenTip, number>;
 
 interface SelectionStyleContextValue {
   style: SelectionStyle;
@@ -44,14 +39,12 @@ const SelectionStyleContext = createContext<SelectionStyleContextValue | null>(
   null,
 );
 
-/** Holds the dock's selection style so it drives the live SelectionMarker. */
 export function SelectionStyleProvider({ children }: { children: ReactNode }) {
   const [color, setColor] = useState(DEFAULT_INK);
   const [pen, setPen] = useState<PenTip>("slant");
   const [opacityByPen, setOpacityByPen] =
     useState<Record<PenTip, number>>(DEFAULT_OPACITY_BY_PEN);
   const [markType, setMarkType] = useState<MarkType>(DEFAULT_MARK_TYPE);
-  // The slider edits the active pen's opacity, leaving others untouched.
   const setOpacity = useCallback(
     (next: number) => setOpacityByPen((m) => ({ ...m, [pen]: next })),
     [pen],
@@ -83,13 +76,10 @@ export function useSelectionStyle(): SelectionStyleContextValue {
   return ctx;
 }
 
-// Every line end overshoots the text by 7-10px (8.5 +/- 1.5), ends seeded separately.
 const END_SWING = { overshoot: 8.5, overshootJitter: 1.5 } as const;
 
-// The broad nib every pen shares.
 const NIB = { width: 24, thickness: 16, ...END_SWING } as const;
 
-// Map a dock pen to its core nib: slant = chisel (per-line jitter), round = bullet, fine = fine point.
 export function penToTip(pen: PenTip): Pick<HighlightOptions, "tip"> {
   switch (pen) {
     case "round":
@@ -102,8 +92,6 @@ export function penToTip(pen: PenTip): Pick<HighlightOptions, "tip"> {
   }
 }
 
-// The colour/nib-independent house style, shared by SelectionMarker and the popover previews so
-// previews paint exactly what gets used; the dock layers colour, tip, opacity, and markType on top.
 export const BASE_SELECTION_OPTIONS: HighlightOptions = {
   markType: "highlight",
   opacity: DEFAULT_OPACITY,

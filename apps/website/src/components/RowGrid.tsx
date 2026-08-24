@@ -1,9 +1,5 @@
 import { Children, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 
-// A single-column CSS grid on a 24px baseline. Each child is wrapped in a grid cell that a
-// ResizeObserver snaps to a whole number of 24px rows (grid-row: span N), so the column always lands
-// on the ruled 24px grid whatever the content height, no per-block height math. The rows register with
-// the ruled-paper background because Layout's top padding puts the content on the same phase.
 const ROW = 24;
 
 export function RowGrid({
@@ -20,28 +16,26 @@ export function RowGrid({
   useLayoutEffect(() => {
     const grid = ref.current;
     if (!grid) return;
-    // -0.5 absorbs sub-pixel rendering so an exact multiple stays N rows, a real overflow gets N+1.
     const snap = (el: HTMLElement, h: number) => {
       el.style.gridRow = `span ${Math.max(1, Math.ceil((h - 0.5) / ROW))}`;
     };
     const ro = new ResizeObserver((entries) => {
       for (const e of entries) {
-        const h = e.borderBoxSize?.[0]?.blockSize ?? (e.target as HTMLElement).getBoundingClientRect().height;
-        snap(e.target as HTMLElement, h);
+        const cell = e.target;
+        if (!(cell instanceof HTMLElement)) continue;
+        const h = e.borderBoxSize?.[0]?.blockSize ?? cell.getBoundingClientRect().height;
+        snap(cell, h);
       }
     });
-    // Read every height first, then write spans + observe, so the pass never interleaves reads and
-    // writes (no forced relayout per cell).
     const sync = () => {
-      const cells = Array.from(grid.children) as HTMLElement[];
+      const cells = Array.from(grid.children).filter((el) => el instanceof HTMLElement);
       const heights = cells.map((el) => el.getBoundingClientRect().height);
       cells.forEach((el, i) => {
         snap(el, heights[i]);
-        ro.observe(el); // observing an already-observed cell is a no-op
+        ro.observe(el);
       });
     };
-    sync(); // initial pass runs pre-paint, so no flash
-    // Re-sync when cells are added/removed; the ResizeObserver already covers size changes.
+    sync();
     const mo = new MutationObserver(sync);
     mo.observe(grid, { childList: true });
     return () => {

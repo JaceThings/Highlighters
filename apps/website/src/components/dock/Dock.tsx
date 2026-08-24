@@ -19,7 +19,6 @@ import { useDockDrag } from "./useDockDrag.ts";
 import type { DockRefs } from "./dockRefs.ts";
 import { DOCK_H, ROW_W, ROW_H } from "./constants.ts";
 
-// Start fully below the viewport so the tray rises in from the bottom.
 const ENTER_FROM = DOCK_H + 96;
 
 const ENTRANCE = {
@@ -27,13 +26,10 @@ const ENTRANCE = {
   shown: { y: 0, scale: 1, opacity: 1, filter: "blur(0px)" },
 } as const;
 
-/** The tool tray. The outer layer is pointer-events:none so only the capsule is interactive. */
 export function Dock() {
   const { style, setColor, setPen, setOpacity, setMarkType } = useSelectionStyle();
-  // Hold the entrance until the page's text cascade has landed.
   const { ready } = useDockEntrance();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  // Each stack measures against its own axis so bottom<->side morphs never read a stale height/width.
   const widthTier = useDockTier("width");
   const heightTier = useDockTier("height");
   const skipEntrance = useSkipDockEntrance();
@@ -51,7 +47,6 @@ export function Dock() {
   };
 
   const getSlotOffset = useSlotOffset(refs, style.pen);
-  // Popover close is wired into drag-start after useDockPopover runs; ref avoids a TDZ on showColors.
   const closePopoverRef = useRef<() => void>(() => {});
   const dock = useDockDrag({
     onDragStart: () => closePopoverRef.current(),
@@ -74,15 +69,12 @@ export function Dock() {
     handleSelectColor,
   } = useDockPopover({ trayRef: refs.tray, color: style.color, setColor, showColors: activeTier.showColors });
   closePopoverRef.current = closePopover;
-  // Live side `preview` wins over committed `side` so cross-side drags flip orientation immediately.
   const shownSide = preview === "left" || preview === "right" ? preview : side;
   const handleVisible = !collapsed;
   const penColor = oklchToCss(hexToOklch(style.color));
-  // Pens lie sideways with nibs pointing inward, toward the canvas (left dock -> +90, right -> -90).
   const penDeg = shownSide === "right" ? -90 : 90;
   const handleSide = shownSide === "left" || shownSide === "right" ? shownSide : null;
 
-  // Switching to a different pen closes the popover (it belongs to the prior pen).
   const handleSelectPen = useCallback(
     (pen: PenTip) => {
       setPen(pen);
@@ -91,7 +83,6 @@ export function Dock() {
     [setPen, closePopover],
   );
 
-  // Identical wiring for the pen row + palette in both layouts, bundled so the two can't drift apart.
   const markerRowProps = {
     color: style.color,
     selected: style.pen,
@@ -158,7 +149,6 @@ export function Dock() {
               </div>
             </div>
 
-            {/* Side layout: nav → pens → colours → links; spacing mirrors the bottom capsule rotated 90°. */}
             <div
               ref={refs.verticalLayer}
               inert={phase !== "side"}
@@ -219,8 +209,8 @@ export function Dock() {
               offsetY={geometry.markerOffsetY}
               reveal={geometry.markerReveal}
               opacity={geometry.markerOpacity}
-              shapeWidth={geometry.width}
-              shapeHeight={geometry.height}
+              dockWidth={geometry.width}
+              dockHeight={geometry.height}
             />
           </div>
 
