@@ -1,6 +1,6 @@
 {
   "name": "@highlighters/react",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "React hook and component for realistic highlighter marks",
   "author": "Jace Attard <hi@ja.mt> (https://ja.mt)",
   "license": "MIT",
