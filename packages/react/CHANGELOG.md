@@ -1,5 +1,12 @@
 # @highlighters/react
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [643fb25]
+  - @highlighters/core@2.0.0
+
 ## 1.2.0
 
 ### Patch Changes
