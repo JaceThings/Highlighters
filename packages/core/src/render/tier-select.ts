@@ -48,13 +48,12 @@ export function detectEnvironment(): RenderEnvironment {
     cssSupports("clip-path", "path('M0 0')") ||
     cssSupports("clip-path", "inset(0)") ||
     cssSupports("-webkit-clip-path", "inset(0)");
-  const mask = cssSupports("mask-image", "none") || cssSupports("-webkit-mask-image", "none");
   const clone =
     cssSupports("box-decoration-break", "clone") ||
     cssSupports("-webkit-box-decoration-break", "clone");
 
   return {
-    supportsSvgFilters: clip && mask && hasGlobal("SVGFETurbulenceElement"),
+    supportsSvgFilters: clip && hasGlobal("SVGFETurbulenceElement"),
     supportsCssBlend: cssSupports("mix-blend-mode", "multiply") && clone,
     supportsHighlightApi: detectHighlightApi(),
     prefersReducedMotion: mediaMatches("(prefers-reduced-motion: reduce)"),

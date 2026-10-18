@@ -140,10 +140,6 @@ export function createSvgRenderer(): Renderer {
       setStyleOnce(inkEl, "background-image", poolGradientToCss(line.pool, inkColor));
       setStyleOnce(inkEl, "background-repeat", "no-repeat");
       setVendorPrefixed(inkEl, "clip-path", line.clipPath);
-      setVendorPrefixed(inkEl, "mask-image", `url("${line.noiseTile.dataUrl}")`);
-      setVendorPrefixed(inkEl, "mask-repeat", "repeat");
-      setVendorPrefixed(inkEl, "mask-position", `${line.maskOffset.x}px ${line.maskOffset.y}px`);
-      setVendorPrefixed(inkEl, "mask-size", `${line.noiseTile.width}px ${line.noiseTile.height}px`);
       setStyleOnce(inkEl, "filter", filter);
     };
   });

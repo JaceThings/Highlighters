@@ -3,14 +3,11 @@ import type {
   LineRect,
   LineSpeedProfile,
   MarkGeometry,
-  MaskOffset,
-  NoiseTile,
   ResolvedOptions,
 } from "../types.js";
 import { clamp } from "../internal/math.js";
 import { buildClipPath, chiselSlant, minVisibleFront } from "./clip-path.js";
 import { buildEdge } from "./edges.js";
-import { buildNoiseTile } from "./noise-tile.js";
 import { buildPoolGradient, type PoolOptions } from "./pool.js";
 import { hashJitter } from "./rng.js";
 
@@ -21,17 +18,6 @@ const SEED_RIGHT_OVER = 11;
 const SEED_TOP_EDGE = 200;
 const SEED_BOTTOM_EDGE = 300;
 const SEED_ANGLE = 400;
-
-const MASK_X_MULT = 37;
-const MASK_Y_MULT = 13;
-const NOISE_TILE_W = 1024;
-const NOISE_TILE_H = 64;
-const MASK_OFFSET_X = 96;
-const MASK_OFFSET_Y = 16;
-
-function mod(n: number, m: number): number {
-  return ((n % m) + m) % m;
-}
 
 function resolveBand(
   markType: ResolvedOptions["markType"],
@@ -97,28 +83,7 @@ export function buildMarkGeometry(
   const clipPath = clipAtFront(box.width);
 
   const sp = speedProfile;
-  const m = sp ? sp.meanNorm : 0;
   const sens = speed.sensitivity;
-  const baseDryout = ink.dryout + ink.viscosity * 0.2;
-  const baseStreak = ink.streakiness;
-  const baseFeather = ink.feathering + paper.absorbency * 0.25;
-  const noiseTile: NoiseTile = buildNoiseTile({
-    width: NOISE_TILE_W,
-    height: NOISE_TILE_H,
-    seed,
-    streakiness: sp
-      ? clamp(baseStreak + speed.streakBoost * sens * m * Math.max(0, 1 - baseStreak), 0, 1)
-      : baseStreak,
-    feathering: sp ? Math.max(0, baseFeather * (1 - speed.featherReduce * sens * m)) : baseFeather,
-    dryout: sp
-      ? clamp(baseDryout + speed.dryoutBoost * sens * m * Math.max(0, 1 - baseDryout), 0, 1)
-      : baseDryout,
-  });
-  const maskOffset: MaskOffset = {
-    x: -mod(seed * MASK_X_MULT, MASK_OFFSET_X),
-    y: -mod(seed * MASK_Y_MULT, MASK_OFFSET_Y),
-  };
-
   const poolInput: PoolOptions = {
     lengthPx: box.width,
     startEndBuildup: ink.startEndBuildup,
@@ -144,8 +109,6 @@ export function buildMarkGeometry(
     minFront: Math.min(minVisibleFront(slantTip, edge.cap, box.width, box.height, edge.radius), box.width),
     topEdge,
     bottomEdge,
-    noiseTile,
-    maskOffset,
     pool,
   };
 }

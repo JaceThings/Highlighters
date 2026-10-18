@@ -53,8 +53,6 @@ function geometry(seed: number): MarkGeometry {
     minFront: 0,
     topEdge: [],
     bottomEdge: [],
-    noiseTile: { dataUrl: "data:image/svg+xml,<svg/>", width: 256, height: 64 },
-    maskOffset: { x: -10, y: -5 },
     pool: {
       angle: 85,
       startInsetPx: 2,
@@ -382,7 +380,7 @@ describe("createSvgRenderer", () => {
     hostB.remove();
   });
 
-  it("applies the absolute-px clip-path and offset-sampled mask to the ink inside the wrapper (A14)", () => {
+  it("applies the absolute-px clip-path to the ink inside the wrapper, not the wrapper (A14)", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(40)], ranges: [] });
@@ -391,9 +389,6 @@ describe("createSvgRenderer", () => {
     expect(wrapper.style.clipPath).toBe("");
     const ink = htmlElement(wrapper.lastElementChild);
     expect(ink.style.clipPath).toContain("path(");
-    expect(ink.style.getPropertyValue("mask-position")).toBe("-10px -5px");
-    expect(ink.style.getPropertyValue("mask-size")).toBe("256px 64px");
-    expect(ink.style.getPropertyValue("mask-repeat")).toBe("repeat");
   });
 
   it("adds an additive (screen) glow node only when glow is enabled (R16)", () => {
@@ -505,12 +500,11 @@ describe("applyDrawOn", () => {
     expect(wrapperOf(0).style.clipPath).toBe(FULL);
   });
 
-  it("grows the wrapper's clip-path front, then restores the full clip (no mask/opacity/scale)", () => {
+  it("grows the wrapper's clip-path front, then restores the full clip (no opacity/scale)", () => {
     vi.useFakeTimers();
     const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], { ...anim, draw: true, trigger: "immediate", direction: "left-to-right", stagger: 50, duration: 200 }, fullEnv());
     const wrapper = wrapperOf(0);
     expect(wrapper.style.clipPath).toContain("M 0 0 Z");
-    expect(wrapper.style.getPropertyValue("mask-image")).toBe("");
     expect(wrapper.style.opacity).toBe("");
     expect(wrapper.style.transform).toBe("");
     vi.advanceTimersByTime(90);

@@ -27,7 +27,7 @@ export function setStyleOnce(el: HTMLElement, prop: string, value: string): void
   if (changed(el, prop, value)) el.style.setProperty(prop, value);
 }
 
-export type VendorProperty = "clip-path" | "mask-image" | "mask-repeat" | "mask-position" | "mask-size";
+export type VendorProperty = "clip-path";
 
 export function setVendorPrefixed(el: HTMLElement, prop: VendorProperty, value: string): void {
   if (!changed(el, prop, value)) return;
