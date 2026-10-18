@@ -423,6 +423,16 @@ describe("mergeRectsByLine / computeAnchor / rangesToLineRects", () => {
     expect(anchor.left).toBe(30);
   });
 
+  it("rangesToLineRects gives side-by-side lines distinct seeds", () => {
+    const body = setBody(`<p>two cells</p>`);
+    const range = document.createRange();
+    range.selectNodeContents(body.querySelector("p")!);
+    vi.spyOn(range, "getClientRects").mockReturnValue(domRectList([rect(20, 100, 80, 20), rect(200, 100, 80, 20)]));
+
+    const seeds = rangesToLineRects([range], undefined, 100).map((l) => l.seed);
+    expect(seeds).toEqual([0, 1]);
+  });
+
   it("rangesToLineRects emits stable seeds and isFirst/isLast flags", () => {
     const body = setBody(`<p>two lines</p>`);
     const range = document.createRange();

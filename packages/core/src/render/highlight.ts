@@ -1,4 +1,5 @@
 import type {
+  Disconnect,
   GroupHandle,
   HighlightOptions,
   LineRect,
@@ -7,6 +8,7 @@ import type {
   MarkHandle,
   RenderContext,
   Renderer,
+  RendererTier,
   ResolvedOptions,
   SnapMode,
   Target,
@@ -21,7 +23,7 @@ import { rangesToLineRects } from "../targeting/line-rects.js";
 import { SelectionVelocityTracker } from "../targeting/velocity.js";
 import { findSelectionAnchor } from "../targeting/anchor.js";
 import { createMutationWatcher, createReflowObserver } from "../targeting/observers.js";
-import { createOverlayContainer, teardownContainer } from "./renderer.js";
+import { createOverlayContainer, ensurePositioned, teardownContainer } from "./renderer.js";
 import { detectEnvironment, selectTier } from "./tier-select.js";
 import { createSvgRenderer } from "./tier-a-svg.js";
 import { createCssRenderer } from "./tier-b-css.js";
@@ -30,70 +32,51 @@ import { applyDrawOn } from "./animation.js";
 import { createMarkHandle } from "./mark-handle.js";
 import { hasDom, hasGlobal } from "../internal/dom.js";
 
-function inertHandle(): MarkHandle {
-  return {
-    show() {},
-    hide() {},
-    update() {},
-    remove() {},
-    isShowing() {
-      return false;
-    },
-    tier: "css",
-  };
-}
+const INERT_HANDLE: MarkHandle = {
+  tier: "css",
+  show() {},
+  hide() {},
+  update() {},
+  remove() {},
+  isShowing: () => false,
+};
 
-function rendererForTier(tier: ReturnType<typeof selectTier>): Renderer {
-  switch (tier) {
-    case "svg":
-      return createSvgRenderer();
-    case "highlight-api":
-      return createHighlightApiRenderer();
-    case "css":
-    default:
-      return createCssRenderer();
-  }
-}
+const RENDERERS: Record<RendererTier, () => Renderer> = {
+  svg: createSvgRenderer,
+  css: createCssRenderer,
+  "highlight-api": createHighlightApiRenderer,
+};
 
 function defaultSnap(target: Target): SnapMode {
   if (!(target instanceof Object) || target instanceof Element) return "line";
   if (hasGlobal("Range") && target instanceof Range) return "word";
   if (hasGlobal("Selection") && target instanceof Selection) return "word";
-  if ("text" in target) return "word";
-  return "line";
+  return "text" in target ? "word" : "line";
 }
 
 function snapRanges(ranges: Range[], mode: SnapMode): Range[] {
-  if (mode === "none") return ranges;
-  return ranges.map((r) => snapRangeToBounds(r, mode));
+  return mode === "none" ? ranges : ranges.map((r) => snapRangeToBounds(r, mode));
 }
 
-function elementsFromRanges(ranges: Range[]): Element[] {
-  const seen = new Set<Element>();
-  const add = (node: Node | null) => {
-    if (!node) return;
-    const el = node instanceof Element ? node : node.parentElement;
-    if (el) seen.add(el);
-  };
+function elementOf(node: Node): Element | null {
+  return node instanceof Element ? node : node.parentElement;
+}
+
+function reflowTargets(host: HTMLElement, ranges: Range[]): Element[] {
+  const seen = new Set<Element>([host]);
   for (const range of ranges) {
-    add(range.startContainer);
-    add(range.endContainer);
-    add(range.commonAncestorContainer);
+    for (const node of [range.startContainer, range.endContainer, range.commonAncestorContainer]) {
+      const el = elementOf(node);
+      if (el) seen.add(el);
+    }
   }
   return [...seen];
 }
 
-function reflowTargetsFor(host: HTMLElement, ranges: Range[]): Element[] {
-  return [...new Set<Element>([host, ...elementsFromRanges(ranges)])];
-}
-
 function hostFor(ranges: Range[]): HTMLElement | null {
   for (const range of ranges) {
-    const node = range.commonAncestorContainer;
-    const el = node instanceof Element ? node : node.parentElement;
-    if (el) {
-      return el.ownerDocument.body ?? el.ownerDocument.documentElement;
-    }
+    const el = elementOf(range.commonAncestorContainer);
+    if (el) return el.ownerDocument.body ?? el.ownerDocument.documentElement;
   }
   return null;
 }
@@ -138,42 +121,36 @@ function isSelectionBackward(selection: Selection): boolean {
   const { anchorNode, focusNode } = selection;
   if (selection.isCollapsed || !anchorNode || !focusNode) return false;
   if (anchorNode === focusNode) return selection.focusOffset < selection.anchorOffset;
-  const relation = anchorNode.compareDocumentPosition(focusNode);
-  return (relation & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
+  return (anchorNode.compareDocumentPosition(focusNode) & Node.DOCUMENT_POSITION_PRECEDING) !== 0;
 }
 
 function mountMark(
   ranges: Range[],
   userOptions: HighlightOptions,
   resolved: ResolvedOptions,
-  extraCleanup: (() => void)[] = [],
-  hostOverride?: HTMLElement | null,
+  host: HTMLElement | null = hostFor(ranges),
   rangeSource?: () => Range[],
+  cleanup: Disconnect[] = [],
 ): MarkHandle {
-  const host = hostOverride ?? hostFor(ranges);
-  if (!host) return inertHandle();
+  if (!host) return INERT_HANDLE;
 
   const container = createOverlayContainer(host);
   const env = detectEnvironment();
-
   let activeRanges = ranges;
-
   let cached: { snap: SnapMode; lines: LineRect[] } | null = null;
 
   const buildContext = (opts: ResolvedOptions): RenderContext => {
     if (cached === null || cached.snap !== opts.snap) {
       cached = { snap: opts.snap, lines: measureLines(snapRanges(activeRanges, opts.snap), container) };
     }
-    const lines = linesToGeometry(cached.lines, opts);
-    return { container, options: opts, lines, ranges: activeRanges };
+    return { container, options: opts, lines: linesToGeometry(cached.lines, opts), ranges: activeRanges };
   };
 
   const initialContext = buildContext(resolved);
-  const tier = selectTier(resolved.renderer, env, initialContext.lines.length);
-  const renderer = rendererForTier(tier);
+  const renderer = RENDERERS[selectTier(resolved.renderer, env, initialContext.lines.length)]();
   renderer.mount(initialContext);
 
-  const animDisconnect = applyDrawOn(
+  const anim = applyDrawOn(
     container,
     (seed) => renderer.bandFor(seed),
     initialContext.lines,
@@ -181,23 +158,22 @@ function mountMark(
     env,
   );
 
-  const reflow = createReflowObserver(reflowTargetsFor(host, activeRanges), () => {
+  const reflow = createReflowObserver(reflowTargets(host, activeRanges), () => {
     cached = null;
     const ctx = buildContext(resolved);
     renderer.update(ctx);
-    animDisconnect.retarget(ctx.lines);
+    anim.retarget(ctx.lines);
   });
 
   return createMarkHandle({
-    ranges,
     options: resolved,
     userOptions,
     renderer,
     container,
     reflow,
-    cleanup: [animDisconnect, ...extraCleanup],
-    replay: () => animDisconnect.replay(),
-    retarget: (lines) => animDisconnect.retarget(lines),
+    cleanup: [anim, ...cleanup],
+    replay: anim.replay,
+    retarget: anim.retarget,
     rebuild: (opts) => {
       Object.assign(resolved, opts);
       if (rangeSource) {
@@ -214,114 +190,63 @@ export function highlight(
   options?: HighlightOptions,
   host?: HTMLElement | null,
 ): MarkHandle {
-  if (!hasDom()) return inertHandle();
+  if (!hasDom()) return INERT_HANDLE;
 
-  const userOptions: HighlightOptions = {
-    snap: defaultSnap(target),
-    ...options,
-  };
+  const userOptions: HighlightOptions = { snap: defaultSnap(target), ...options };
   const resolved = resolveOptions(userOptions);
   const ranges = toRanges(target);
-  if (ranges.length === 0) return inertHandle();
+  if (ranges.length === 0) return INERT_HANDLE;
 
-  return mountMark(ranges, userOptions, resolved, [], host ?? undefined);
+  return mountMark(ranges, userOptions, resolved, host ?? undefined);
 }
 
 export function highlightAll(options?: HighlightOptions): MarkHandle {
-  if (!hasDom()) return inertHandle();
+  if (!hasDom()) return INERT_HANDLE;
 
   const root = document.body ?? document.documentElement;
   const userOptions: HighlightOptions = { snap: "line", ...options };
   const resolved = resolveOptions(userOptions);
 
   const collect = (): Range[] => {
-    const pageRanges = collectPageRanges({ root });
-    const declaredRanges: Range[] = [];
-    for (const el of root.querySelectorAll("[data-highlight]")) {
-      declaredRanges.push(...toRanges(el));
-    }
-    return [...pageRanges, ...declaredRanges];
+    const ranges = collectPageRanges({ root });
+    for (const el of root.querySelectorAll("[data-highlight]")) ranges.push(...toRanges(el));
+    return ranges;
   };
 
-  const ranges = collect();
-  if (ranges.length === 0) {
-    const host = root instanceof HTMLElement ? root : document.body;
-    if (!host) return inertHandle();
-    const handle = mountMark([], userOptions, resolved, [], host, collect);
-    return wrapWithWatcher(handle, root);
-  }
-
-  const handle = mountMark(ranges, userOptions, resolved, [], undefined, collect);
-  return wrapWithWatcher(handle, root);
+  let handle: MarkHandle;
+  const watcher = createMutationWatcher(root, () => handle.update({}));
+  handle = mountMark(collect(), userOptions, resolved, root, collect, [watcher]);
+  return handle;
 }
 
-function wrapWithWatcher(
-  handle: MarkHandle,
-  root: Element | Document,
-): MarkHandle {
-  const watcher = createMutationWatcher(root, () => {
-    handle.update({});
-  });
-
-  const baseRemove = handle.remove.bind(handle);
-  return {
-    get tier() {
-      return handle.tier;
-    },
-    show: handle.show.bind(handle),
-    hide: handle.hide.bind(handle),
-    isShowing: handle.isShowing.bind(handle),
-    update: handle.update.bind(handle),
-    remove(): void {
-      watcher();
-      baseRemove();
-    },
-  };
-}
+const CLEAR_FADE_MS = 200;
 
 export function highlightSelection(options?: HighlightOptions): MarkHandle {
-  if (!hasDom()) return inertHandle();
+  if (!hasDom()) return INERT_HANDLE;
 
   const env = detectEnvironment();
-  if (env.coarsePointer) return inertHandle();
+  if (env.coarsePointer) return INERT_HANDLE;
 
   let userOptions: HighlightOptions = { snap: "word", ...options };
   let resolved = resolveOptions(userOptions);
   let currentHost: HTMLElement | null = null;
   let container: HTMLElement | null = null;
-  let reflowDisconnect: () => void = () => {};
+  let reflowDisconnect: Disconnect = () => {};
   let renderer: Renderer | null = null;
   let currentRanges: Range[] = [];
+  let rafId = 0;
+  let clearTimer: ReturnType<typeof setTimeout> | null = null;
 
   const ensureAnchor = (anchor: HTMLElement): boolean => {
     if (anchor === currentHost && container) return false;
-    if (!container) {
-      container = createOverlayContainer(anchor);
-      currentHost = anchor;
-      return true;
-    }
-    if (anchor !== currentHost) {
-      const view = anchor.ownerDocument.defaultView;
-      if (view && view.getComputedStyle(anchor).position === "static") {
-        anchor.style.position = "relative";
-      }
+    if (container) {
+      ensurePositioned(anchor);
       anchor.appendChild(container);
-      currentHost = anchor;
-      return true;
+    } else {
+      container = createOverlayContainer(anchor);
     }
-    return false;
-  };
-
-  const armReflow = (anchor: HTMLElement, ranges: Range[]): void => {
-    reflowDisconnect();
-    reflowDisconnect = createReflowObserver(reflowTargetsFor(anchor, ranges), () => {
-      if (currentRanges.length === 0) return;
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = 0;
-      }
-      renderSelection();
-    });
+    currentHost = anchor;
+    return true;
   };
 
   const tracker = env.prefersReducedMotion ? null : new SelectionVelocityTracker();
@@ -332,7 +257,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     tracker?.reset();
   };
   const endDrag = (): void => {
-    flushRender();
+    if (rafId) renderNow();
     dragging = false;
   };
   if (tracker) {
@@ -342,20 +267,16 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     window.addEventListener("blur", endDrag);
   }
 
-  const rebuild = (
-    ranges: Range[],
-    flowReversed: boolean,
-    origin?: DOMRect,
-  ): RenderContext => {
+  const rebuild = (ranges: Range[], flowReversed: boolean, origin?: DOMRect): RenderContext => {
     const snapped = snapRanges(ranges, resolved.snap);
-    const speedOn = tracker !== null && resolved.speed.enabled && dragging;
-    const profileFor = speedOn
-      ? (local: LineRect): LineSpeedProfile | undefined =>
-          tracker!.profileForLine(
-            { top: local.top, height: local.height, left: local.left, width: local.width },
-            resolved.speed,
-          )
-      : undefined;
+    const profileFor =
+      tracker && resolved.speed.enabled && dragging
+        ? (local: LineRect): LineSpeedProfile | undefined =>
+            tracker.profileForLine(
+              { top: local.top, height: local.height, left: local.left, width: local.width },
+              resolved.speed,
+            )
+        : undefined;
     const lines = linesToGeometry(
       measureLines(snapped, container!, origin, currentHost ?? undefined),
       resolved,
@@ -365,32 +286,25 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     return { container: container!, options: resolved, lines, ranges };
   };
 
-  const CLEAR_FADE_MS = 200;
-  let clearTimer: ReturnType<typeof setTimeout> | null = null;
-  const cancelClearFade = (): void => {
-    if (clearTimer !== null) {
-      clearTimeout(clearTimer);
-      clearTimer = null;
-    }
-    if (container) {
-      container.style.transition = "";
-      container.style.opacity = "";
+  const fadeTargets = (): HTMLElement[] => {
+    const targets: HTMLElement[] = [];
+    if (container) targets.push(container);
+    if (renderer?.layer) targets.push(renderer.layer);
+    return targets;
+  };
+  const resetFade = (targets: HTMLElement[]): void => {
+    for (const el of targets) {
+      el.style.transition = "";
+      el.style.opacity = "";
     }
   };
 
   const sample = (): void => {
-    if (!tracker || !dragging || !resolved.speed.enabled) return;
-    if (!container) return;
+    if (!tracker || !dragging || !resolved.speed.enabled || !container) return;
     const selection = document.getSelection();
     if (!selection || selection.isCollapsed) return;
     const origin = container.getBoundingClientRect();
-    tracker.recordSample(
-      selection,
-      origin.left,
-      origin.top,
-      performance.now(),
-      resolved.speed.smoothing,
-    );
+    tracker.recordSample(selection, origin.left, origin.top, performance.now(), resolved.speed.smoothing);
   };
 
   const renderSelection = (): void => {
@@ -399,64 +313,64 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     let flowReversed = false;
     if (selection && !selection.isCollapsed) {
       flowReversed = isSelectionBackward(selection);
-      for (let i = 0; i < selection.rangeCount; i++) {
-        ranges.push(selection.getRangeAt(i).cloneRange());
-      }
+      for (let i = 0; i < selection.rangeCount; i++) ranges.push(selection.getRangeAt(i).cloneRange());
     }
     const painted = excludeMarkedSubtrees(ranges);
-
     const cleared = painted.length === 0 && currentRanges.length > 0;
     currentRanges = painted;
+
     if (cleared && resolved.fadeOnClear && renderer && !env.prefersReducedMotion) {
-      container!.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
-      container!.style.opacity = "0";
+      const targets = fadeTargets();
+      for (const el of targets) {
+        el.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
+        el.style.opacity = "0";
+      }
       clearTimer = setTimeout(() => {
         clearTimer = null;
         if (!container) return;
         renderer?.update(rebuild([], false));
-        container.style.transition = "";
-        container.style.opacity = "";
+        resetFade(targets);
       }, CLEAR_FADE_MS);
       return;
     }
-    cancelClearFade();
+    if (clearTimer !== null) {
+      clearTimeout(clearTimer);
+      clearTimer = null;
+    }
+    resetFade(fadeTargets());
 
     if (painted.length > 0) {
       const anchor = findSelectionAnchor(painted[0].commonAncestorContainer);
-      if (ensureAnchor(anchor)) armReflow(anchor, painted);
+      if (ensureAnchor(anchor)) {
+        reflowDisconnect();
+        reflowDisconnect = createReflowObserver(reflowTargets(anchor, painted), () => {
+          if (currentRanges.length > 0) renderNow();
+        });
+      }
     }
-
     if (!container) return;
 
-    const origin = container.getBoundingClientRect();
-    const context = rebuild(painted, flowReversed, origin);
-    if (!renderer) {
-      const tier = selectTier(resolved.renderer, env, context.lines.length);
-      renderer = rendererForTier(tier);
-      renderer.mount(context);
-    } else {
+    const context = rebuild(painted, flowReversed, container.getBoundingClientRect());
+    if (renderer) {
       renderer.update(context);
+    } else {
+      renderer = RENDERERS[selectTier(resolved.renderer, env, context.lines.length)]();
+      renderer.mount(context);
     }
   };
 
-  let rafId = 0;
-  const scheduleRender = (): void => {
+  const renderNow = (): void => {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    renderSelection();
+  };
+  const onSelectionChange = (): void => {
+    sample();
     if (rafId) return;
     rafId = requestAnimationFrame(() => {
       rafId = 0;
       renderSelection();
     });
-  };
-  const flushRender = (): void => {
-    if (!rafId) return;
-    cancelAnimationFrame(rafId);
-    rafId = 0;
-    renderSelection();
-  };
-
-  const onSelectionChange = (): void => {
-    sample();
-    scheduleRender();
   };
   document.addEventListener("selectionchange", onSelectionChange);
   renderSelection();
@@ -484,11 +398,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
       if (removed) return;
       userOptions = mergeOptions(userOptions, opts);
       resolved = resolveOptions(userOptions);
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = 0;
-      }
-      renderSelection();
+      renderNow();
     },
     remove(): void {
       if (removed) return;

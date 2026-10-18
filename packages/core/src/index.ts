@@ -7,7 +7,6 @@ export { PALETTES, getPalette, resolveSwatch, defaultSwatch } from "./config/pal
 export { buildMarkGeometry } from "./geometry/mark-space.js";
 export { buildClipPath } from "./geometry/clip-path.js";
 export { buildEdge } from "./geometry/edges.js";
-export { buildNoiseTile, buildNoiseTileDataUrl } from "./geometry/noise-tile.js";
 export { buildPoolGradient } from "./geometry/pool.js";
 export { hashJitter, hashU32, mulberry } from "./geometry/rng.js";
 export { snapRangeToBounds } from "./geometry/snap.js";
@@ -63,8 +62,6 @@ export type {
   Anchor,
   EdgeVertex,
   PoolGradient,
-  NoiseTile,
-  MaskOffset,
   MarkGeometry,
   PageTarget,
   TextTarget,

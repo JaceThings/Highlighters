@@ -1,14 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { LineRect, ResolvedOptions } from "../src/types.js";
 import { hashJitter, hashU32, mulberry } from "../src/geometry/rng.js";
 import { buildEdge } from "../src/geometry/edges.js";
 import { buildClipPath, type ClipPathOptions } from "../src/geometry/clip-path.js";
 import { buildPoolGradient } from "../src/geometry/pool.js";
-import {
-  buildNoiseTile,
-  buildNoiseTileDataUrl,
-  type NoiseTileOptions,
-} from "../src/geometry/noise-tile.js";
 import { buildMarkGeometry } from "../src/geometry/mark-space.js";
 import { snapRangeToBounds } from "../src/geometry/snap.js";
 
@@ -592,119 +587,6 @@ describe("buildPoolGradient", () => {
   });
 });
 
-describe("buildNoiseTile / buildNoiseTileDataUrl", () => {
-  async function coldBuild(opts: NoiseTileOptions): Promise<string> {
-    vi.resetModules();
-    return (await import("../src/geometry/noise-tile.js")).buildNoiseTileDataUrl(opts);
-  }
-
-  it("emits a base64 data URL with two stitched feTurbulence layers", () => {
-    const url = buildNoiseTileDataUrl({ seed: 5, streakiness: 0.5, feathering: 0.4 });
-    expect(url.startsWith("data:image/svg+xml;base64,")).toBe(true);
-    const svg = Buffer.from(url.split(",")[1], "base64").toString("utf8");
-    expect((svg.match(/feTurbulence/g) ?? []).length).toBe(2);
-    expect((svg.match(/stitchTiles="stitch"/g) ?? []).length).toBe(2);
-    expect(svg).toContain('baseFrequency="0.04 0.34"');
-    expect(svg).toContain('baseFrequency="0.012"');
-  });
-
-  it("defaults to a fixed 256x64 px tile (never percentage-sized)", () => {
-    const tile = buildNoiseTile({ seed: 1, streakiness: 0.5, feathering: 0.5 });
-    expect(tile.width).toBe(256);
-    expect(tile.height).toBe(64);
-    const svg = Buffer.from(tile.dataUrl.split(",")[1], "base64").toString("utf8");
-    expect(svg).toContain('<svg xmlns="http://www.w3.org/2000/svg" width="256" height="64">');
-    expect(svg).toContain('<rect width="256" height="64"');
-    expect(svg).not.toMatch(/<(svg|rect)[^>]*=("|')\d+%/);
-  });
-
-  it("is deterministic from the seed (byte-identical strings)", () => {
-    const a = buildNoiseTileDataUrl({ seed: 9, streakiness: 0.6, feathering: 0.3 });
-    const b = buildNoiseTileDataUrl({ seed: 9, streakiness: 0.6, feathering: 0.3 });
-    expect(a).toBe(b);
-  });
-
-  it("different seeds produce different tile seeds (distinct grain)", () => {
-    const a = buildNoiseTileDataUrl({ seed: 1, streakiness: 0.5, feathering: 0.5 });
-    const b = buildNoiseTileDataUrl({ seed: 2, streakiness: 0.5, feathering: 0.5 });
-    expect(a).not.toBe(b);
-  });
-
-  it("does not depend on the DOM btoa global", () => {
-    const original = globalThis.btoa;
-    try {
-      Reflect.deleteProperty(globalThis, "btoa");
-      const url = buildNoiseTileDataUrl({ seed: 3, streakiness: 0.5, feathering: 0.5 });
-      expect(url.startsWith("data:image/svg+xml;base64,")).toBe(true);
-    } finally {
-      globalThis.btoa = original;
-    }
-  });
-
-  it("quantizes the knobs to 0.02 buckets - same-bucket inputs share one cache entry", () => {
-    const a = buildNoiseTileDataUrl({ seed: 41, streakiness: 0.491, feathering: 0.299, dryout: 0.105 });
-    const imul = vi.spyOn(Math, "imul");
-    try {
-      const b = buildNoiseTileDataUrl({ seed: 41, streakiness: 0.509, feathering: 0.301, dryout: 0.095 });
-      expect(b).toBe(a);
-      expect(imul).not.toHaveBeenCalled();
-      buildNoiseTileDataUrl({ seed: 410001, streakiness: 0.491, feathering: 0.299, dryout: 0.105 });
-      expect(imul).toHaveBeenCalled();
-    } finally {
-      imul.mockRestore();
-    }
-  });
-
-  it("quantizes the emitted tile, not just the cache key - off-bucket knobs build the bucket-aligned bytes", async () => {
-    const offBucket = await coldBuild({ seed: 41, streakiness: 0.491, feathering: 0.299, dryout: 0.105 });
-    const aligned = await coldBuild({ seed: 41, streakiness: 0.5, feathering: 0.3, dryout: 0.1 });
-    expect(offBucket).toBe(aligned);
-  });
-
-  it("inputs in distinct 0.02 buckets produce distinct tiles, per knob", () => {
-    const base = { seed: 42, streakiness: 0.5, feathering: 0.3, dryout: 0.1 };
-    const ref = buildNoiseTileDataUrl(base);
-    expect(buildNoiseTileDataUrl({ ...base, streakiness: 0.52 })).not.toBe(ref);
-    expect(buildNoiseTileDataUrl({ ...base, feathering: 0.32 })).not.toBe(ref);
-    expect(buildNoiseTileDataUrl({ ...base, dryout: 0.12 })).not.toBe(ref);
-  });
-
-  it("is deterministic across cache instances (cold caches build byte-identical strings)", async () => {
-    const opts = { seed: 43, streakiness: 0.513, feathering: 0.297, dryout: 0.101 };
-    expect(await coldBuild(opts)).toBe(await coldBuild(opts));
-  });
-
-  it("a cache hit re-promotes its entry, so it survives an oldest-half eviction cycle", () => {
-    const knobs = { streakiness: 0.34, feathering: 0.42, dryout: 0.1 };
-    const hot = { seed: 700001, ...knobs };
-    const cold = { seed: 700002, ...knobs };
-    buildNoiseTileDataUrl(hot);
-    buildNoiseTileDataUrl(cold);
-    const imul = vi.spyOn(Math, "imul");
-    try {
-      for (let i = 0; i < 600; i++) {
-        buildNoiseTileDataUrl({ seed: 800000 + i, ...knobs });
-        if (i % 100 === 99) {
-          const calls = imul.mock.calls.length;
-          buildNoiseTileDataUrl(hot);
-          expect(imul.mock.calls.length).toBe(calls);
-        }
-      }
-      const calls = imul.mock.calls.length;
-      buildNoiseTileDataUrl(cold);
-      expect(imul.mock.calls.length).toBeGreaterThan(calls);
-    } finally {
-      imul.mockRestore();
-    }
-  });
-
-  it("does not quantize the seed - sub-0.02 seed deltas that hash apart still differ", () => {
-    const a = buildNoiseTileDataUrl({ seed: 4.999, streakiness: 0.5, feathering: 0.3 });
-    const b = buildNoiseTileDataUrl({ seed: 5.001, streakiness: 0.5, feathering: 0.3 });
-    expect(a).not.toBe(b);
-  });
-});
-
 describe("buildClipPath front truncation", () => {
   const tip = {
     type: "chisel", width: 12, thickness: 3, angle: 8, overshoot: 0, overshootJitter: 0, angleJitter: 0,
@@ -746,7 +628,6 @@ describe("buildMarkGeometry", () => {
     expect(aData).toEqual(bData);
     expect(aFront(50)).toBe(bFront(50));
     expect(a.clipPath).toBe(b.clipPath);
-    expect(a.noiseTile.dataUrl).toBe(b.noiseTile.dataUrl);
   });
 
   it("carries the supplied seed through to the geometry", () => {
@@ -764,19 +645,6 @@ describe("buildMarkGeometry", () => {
     expect(g.clipPath.startsWith(mid.slice(0, 12))).toBe(true);
   });
 
-  it("samples the mask by per-seed offset (never scaled), capped so the repeat seam clears the band", () => {
-    const seed = 1729;
-    const g = buildMarkGeometry(makeLineRect({ seed }), makeOptions(), seed);
-    const again = buildMarkGeometry(makeLineRect({ seed }), makeOptions(), seed);
-    expect(g.maskOffset.x).toBe(again.maskOffset.x);
-    expect(g.maskOffset.y).toBe(again.maskOffset.y);
-    expect(g.maskOffset.x).toBeGreaterThan(-g.noiseTile.width);
-    expect(g.maskOffset.x).toBeLessThanOrEqual(0);
-    expect(g.maskOffset.y).toBeGreaterThan(-g.noiseTile.height);
-    expect(g.maskOffset.y).toBeLessThanOrEqual(0);
-    expect(g.noiseTile.width + g.maskOffset.x).toBeGreaterThan(800);
-  });
-
   it("V9e - same logical mark at two widths shares wavelength, grain & pool px", () => {
     const opts = makeOptions();
     const seed = 555;
@@ -790,11 +658,6 @@ describe("buildMarkGeometry", () => {
       opts,
       seed,
     );
-
-    expect(wide.noiseTile.dataUrl).toBe(narrow.noiseTile.dataUrl);
-    expect(wide.noiseTile.width).toBe(narrow.noiseTile.width);
-    expect(wide.noiseTile.height).toBe(narrow.noiseTile.height);
-    expect(wide.maskOffset).toEqual(narrow.maskOffset);
 
     const spacing = (verts: { x: number }[]) =>
       verts.length >= 2 ? verts[1].x - verts[0].x : null;

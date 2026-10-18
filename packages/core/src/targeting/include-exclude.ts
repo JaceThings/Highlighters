@@ -5,30 +5,28 @@ import {
   SHOW_TEXT,
   hasDomWithRange,
   isInNonRenderedSubtree,
-  isTextNode,
   nextTextNode,
 } from "../internal/dom.js";
 
-const EXCLUDE_ATTR = "data-highlight-exclude";
+const EXCLUDE_SELECTOR = "[data-highlight-exclude]";
 
 function elementOf(node: Node): Element | null {
   return node instanceof Element ? node : node.parentElement;
 }
 
-export function isExcluded(node: Node, excludeSelectors: string[]): boolean {
-  const el = elementOf(node);
-  if (!el) return false;
-
-  if (el.closest(`[${EXCLUDE_ATTR}]`)) return true;
-
-  for (const selector of excludeSelectors) {
-    if (!selector) continue;
+function matchesAny(el: Element, selectors: string[]): boolean {
+  for (const selector of selectors) {
     try {
-      if (el.closest(selector)) return true;
+      if (selector && el.closest(selector)) return true;
     } catch {
     }
   }
   return false;
+}
+
+export function isExcluded(node: Node, excludeSelectors: string[]): boolean {
+  const el = elementOf(node);
+  return !!el && (!!el.closest(EXCLUDE_SELECTOR) || matchesAny(el, excludeSelectors));
 }
 
 export function excludeMarkedSubtrees(ranges: Range[]): Range[] {
@@ -37,11 +35,12 @@ export function excludeMarkedSubtrees(ranges: Range[]): Range[] {
   for (const range of ranges) {
     if (range.collapsed) continue;
     const root = elementOf(range.commonAncestorContainer);
-    if (root?.closest(`[${EXCLUDE_ATTR}]`)) continue;
-    const all = root ? Array.from(root.querySelectorAll(`[${EXCLUDE_ATTR}]`)) : [];
-    const hits = all.filter(
-      (el) => range.intersectsNode(el) && !el.parentElement?.closest(`[${EXCLUDE_ATTR}]`),
-    );
+    if (root?.closest(EXCLUDE_SELECTOR)) continue;
+    const hits = root
+      ? Array.from(root.querySelectorAll(EXCLUDE_SELECTOR)).filter(
+          (el) => range.intersectsNode(el) && !el.parentElement?.closest(EXCLUDE_SELECTOR),
+        )
+      : [];
     if (hits.length === 0) {
       out.push(range);
       continue;
@@ -58,20 +57,6 @@ export function excludeMarkedSubtrees(ranges: Range[]): Range[] {
   return out;
 }
 
-function isIncluded(node: Node, includeSelectors: string[]): boolean {
-  if (includeSelectors.length === 0) return true;
-  const el = elementOf(node);
-  if (!el) return false;
-  for (const selector of includeSelectors) {
-    if (!selector) continue;
-    try {
-      if (el.closest(selector)) return true;
-    } catch {
-    }
-  }
-  return false;
-}
-
 export function collectPageRanges(target: PageTarget): Range[] {
   if (!hasDomWithRange()) return [];
 
@@ -83,30 +68,25 @@ export function collectPageRanges(target: PageTarget): Range[] {
 
   const walker = document.createTreeWalker(root, SHOW_TEXT, {
     acceptNode(node) {
-      if (!isTextNode(node)) return FILTER_REJECT;
-      const text = node;
-      if (text.data.trim().length === 0) return FILTER_REJECT;
-      if (isInNonRenderedSubtree(text)) return FILTER_REJECT;
+      const text = node as Text;
+      if (text.data.trim().length === 0 || isInNonRenderedSubtree(text)) return FILTER_REJECT;
       if (isExcluded(text, exclude)) return FILTER_REJECT;
-      if (!isIncluded(text, include)) return FILTER_REJECT;
+      if (include.length > 0 && !matchesAny(text.parentElement!, include)) return FILTER_REJECT;
       return FILTER_ACCEPT;
     },
   });
 
   const ranges: Range[] = [];
-  let node = nextTextNode(walker);
-  while (node) {
+  for (let node = nextTextNode(walker); node; node = nextTextNode(walker)) {
     const data = node.data;
-    const start = data.length - data.replace(/^\s+/, "").length;
-    const end = data.replace(/\s+$/, "").length;
+    const start = data.length - data.trimStart().length;
+    const end = data.trimEnd().length;
     if (end > start) {
       const range = document.createRange();
       range.setStart(node, start);
       range.setEnd(node, end);
       ranges.push(range);
     }
-    node = nextTextNode(walker);
   }
-
   return ranges;
 }

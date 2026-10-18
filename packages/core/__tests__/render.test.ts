@@ -10,7 +10,7 @@ import {
   createOverlayContainer,
   teardownContainer,
 } from "../src/render/renderer.js";
-import { applyDrawOn, prefersReducedMotion } from "../src/render/animation.js";
+import { applyDrawOn } from "../src/render/animation.js";
 import { createCssRenderer, poolGradientToCss } from "../src/render/tier-b-css.js";
 import { createSvgRenderer } from "../src/render/tier-a-svg.js";
 import { createHighlightApiRenderer } from "../src/render/tier-c-highlight-api.js";
@@ -53,8 +53,6 @@ function geometry(seed: number): MarkGeometry {
     minFront: 0,
     topEdge: [],
     bottomEdge: [],
-    noiseTile: { dataUrl: "data:image/svg+xml,<svg/>", width: 256, height: 64 },
-    maskOffset: { x: -10, y: -5 },
     pool: {
       angle: 85,
       startInsetPx: 2,
@@ -205,7 +203,7 @@ describe("NodePool", () => {
     pool.retain(new Set([1]), (n) => disposed.push(n));
 
     expect(pool.get(1)).toBe(a);
-    expect(pool.has(2)).toBe(false);
+    expect(pool.get(2)).toBeUndefined();
     expect(disposed).toEqual([b]);
   });
 
@@ -215,7 +213,7 @@ describe("NodePool", () => {
     pool.set(2, document.createElement("div"));
     const disposed: HTMLElement[] = [];
     pool.clear((n) => disposed.push(n));
-    expect(pool.size).toBe(0);
+    expect(pool.get(1)).toBeUndefined();
     expect(disposed.length).toBe(2);
   });
 });
@@ -382,7 +380,7 @@ describe("createSvgRenderer", () => {
     hostB.remove();
   });
 
-  it("applies the absolute-px clip-path and offset-sampled mask to the ink inside the wrapper (A14)", () => {
+  it("applies the absolute-px clip-path to the ink inside the wrapper, not the wrapper (A14)", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);
     renderer.mount({ container, options: resolved(), lines: [geometry(40)], ranges: [] });
@@ -391,9 +389,30 @@ describe("createSvgRenderer", () => {
     expect(wrapper.style.clipPath).toBe("");
     const ink = htmlElement(wrapper.lastElementChild);
     expect(ink.style.clipPath).toContain("path(");
-    expect(ink.style.getPropertyValue("mask-position")).toBe("-10px -5px");
-    expect(ink.style.getPropertyValue("mask-size")).toBe("256px 64px");
-    expect(ink.style.getPropertyValue("mask-repeat")).toBe("repeat");
+  });
+
+  it("drops the SVG filter on Gecko once devicePixelRatio passes 2", () => {
+    const view = host.ownerDocument.defaultView as Window;
+    const win = view as unknown as Record<string, unknown>;
+    const dpr = Object.getOwnPropertyDescriptor(view, "devicePixelRatio");
+    win.mozInnerScreenX = 0;
+    const mountAt = (ratio: number): string => {
+      Object.defineProperty(view, "devicePixelRatio", { value: ratio, configurable: true });
+      const fresh = document.createElement("div");
+      document.body.appendChild(fresh);
+      const container = createOverlayContainer(fresh);
+      createSvgRenderer().mount({ container, options: resolved(), lines: [geometry(0)], ranges: [] });
+      const filter = htmlElement(htmlElement(container.firstElementChild).lastElementChild).style.filter;
+      fresh.remove();
+      return filter;
+    };
+    try {
+      expect(mountAt(2)).toContain("url(");
+      expect(mountAt(3)).toBe("");
+    } finally {
+      delete win.mozInnerScreenX;
+      if (dpr) Object.defineProperty(view, "devicePixelRatio", dpr);
+    }
   });
 
   it("adds an additive (screen) glow node only when glow is enabled (R16)", () => {
@@ -505,12 +524,11 @@ describe("applyDrawOn", () => {
     expect(wrapperOf(0).style.clipPath).toBe(FULL);
   });
 
-  it("grows the wrapper's clip-path front, then restores the full clip (no mask/opacity/scale)", () => {
+  it("grows the wrapper's clip-path front, then restores the full clip (no opacity/scale)", () => {
     vi.useFakeTimers();
     const disconnect = applyDrawOn(container, bandFor, [geometry(0), geometry(20)], { ...anim, draw: true, trigger: "immediate", direction: "left-to-right", stagger: 50, duration: 200 }, fullEnv());
     const wrapper = wrapperOf(0);
     expect(wrapper.style.clipPath).toContain("M 0 0 Z");
-    expect(wrapper.style.getPropertyValue("mask-image")).toBe("");
     expect(wrapper.style.opacity).toBe("");
     expect(wrapper.style.transform).toBe("");
     vi.advanceTimersByTime(90);
@@ -646,12 +664,6 @@ describe("applyDrawOn", () => {
   });
 });
 
-describe("prefersReducedMotion", () => {
-  it("returns a boolean and does not throw", () => {
-    expect([true, false]).toContain(prefersReducedMotion());
-  });
-});
-
 describe("createMarkHandle", () => {
   let host: HTMLElement;
 
@@ -688,7 +700,6 @@ describe("createMarkHandle", () => {
     let cleanupRun = false;
 
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -716,7 +727,6 @@ describe("createMarkHandle", () => {
     const container = createOverlayContainer(host);
     const renderer = stubRenderer();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -737,7 +747,6 @@ describe("createMarkHandle", () => {
     const renderer = stubRenderer();
     const replay = vi.fn();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -758,7 +767,6 @@ describe("createMarkHandle", () => {
     const container = createOverlayContainer(host);
     const renderer = stubRenderer();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -780,7 +788,6 @@ describe("createMarkHandle", () => {
     const container = createOverlayContainer(host);
     const renderer = stubRenderer();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -805,6 +812,35 @@ describe("highlight", () => {
   afterEach(() => {
     target.remove();
     document.getElementById("highlighters-shared-defs")?.remove();
+  });
+
+  it("paints every line that shares a top edge", () => {
+    const spy = vi.spyOn(Range.prototype, "getClientRects");
+    spy.mockReturnValue(domRectList([dr(10, 100, 80, 18), dr(200, 100, 80, 18)]));
+    try {
+      const handle = highlight(target, { renderer: "css", animation: { draw: false } });
+      expect(document.body.querySelector("[data-highlighters-overlay]")!.children.length).toBe(2);
+      handle.remove();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("highlightAll ignores its own overlay mutations", async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(Range.prototype, "getClientRects");
+    spy.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    try {
+      target.innerHTML = "The <span data-highlight>quick</span> fox";
+      const handle = highlightAll({ renderer: "css", animation: { draw: false } });
+      const calls = spy.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(200);
+      expect(spy.mock.calls.length).toBe(calls);
+      handle.remove();
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it("measures each range once (no extra computeAnchor layout walk)", () => {
@@ -1128,6 +1164,51 @@ describe("highlightSelection reflow", () => {
 
     expect(overlay().style.top).toBe("178px");
     handle.remove();
+  });
+
+  it("fadeOnClear fades the escape layer that actually holds the bands", async () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects");
+    rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    selectWithin(target, 0, 5);
+
+    const handle = highlightSelection({ renderer: "css", vivid: true, fadeOnClear: true, animation: { draw: false } });
+    const container = htmlElement(article.querySelector("[data-highlighters-overlay]"));
+    const layer = htmlChildren(article).find((el) => el !== container && el !== target);
+    expect(layer).toBeDefined();
+    expect(layer!.children.length).toBe(1);
+
+    document.getSelection()!.removeAllRanges();
+    document.dispatchEvent(new Event("selectionchange"));
+    await flushRaf();
+
+    expect(container.style.opacity).toBe("0");
+    expect(layer!.style.opacity).toBe("0");
+    handle.remove();
+  });
+
+  it("moves the escape layer with the overlay when the selection anchor changes", async () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects");
+    rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    const other = document.createElement("section");
+    other.style.position = "relative";
+    const otherTarget = document.createElement("p");
+    otherTarget.textContent = "Another block";
+    other.appendChild(otherTarget);
+    document.body.appendChild(other);
+
+    selectWithin(target, 0, 5);
+    const handle = highlightSelection({ renderer: "css", vivid: true, animation: { draw: false } });
+    selectWithin(otherTarget, 0, 5);
+    document.dispatchEvent(new Event("selectionchange"));
+    await flushRaf();
+
+    const container = htmlElement(other.querySelector("[data-highlighters-overlay]"));
+    const layer = htmlElement(other.querySelector("[data-highlighters-layer]"));
+    expect(container.parentElement).toBe(other);
+    expect(layer.children.length).toBe(1);
+    expect(article.querySelector("[data-highlighters-layer]")).toBeNull();
+    handle.remove();
+    other.remove();
   });
 });
 

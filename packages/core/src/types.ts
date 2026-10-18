@@ -288,17 +288,6 @@ export interface PoolGradient {
   layerScale?: number;
 }
 
-export interface NoiseTile {
-  dataUrl: string;
-  width: number;
-  height: number;
-}
-
-export interface MaskOffset {
-  x: number;
-  y: number;
-}
-
 export interface MarkGeometry {
   box: Box;
   seed: number;
@@ -308,8 +297,6 @@ export interface MarkGeometry {
   minFront: number;
   topEdge: EdgeVertex[];
   bottomEdge: EdgeVertex[];
-  noiseTile: NoiseTile;
-  maskOffset: MaskOffset;
   pool: PoolGradient;
 }
 
@@ -360,6 +347,7 @@ export interface RenderEnvironment {
 
 export interface Renderer {
   readonly tier: RendererTier;
+  readonly layer?: HTMLElement | null;
   mount(context: RenderContext): void;
   update(context: RenderContext): void;
   unmount(): void;

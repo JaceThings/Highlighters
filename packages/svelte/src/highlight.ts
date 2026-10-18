@@ -7,7 +7,7 @@ export interface HighlightAction {
 }
 
 export function highlight(node: Element, options?: HighlightOptions): HighlightAction {
-  let handle: MarkHandle = coreHighlight(node, options);
+  const handle: MarkHandle = coreHighlight(node, options);
 
   return {
     update(next?: HighlightOptions): void {

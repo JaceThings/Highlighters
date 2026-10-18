@@ -4,7 +4,6 @@ import {
   buildClipPath,
   buildEdge,
   buildMarkGeometry,
-  buildNoiseTile,
   resolveOptions,
 } from "../packages/core/dist/index.js";
 
@@ -32,7 +31,7 @@ function row({ name, n, ms, us }) {
   return `${name.padEnd(42)} ${String(n).padStart(8)}  ${ms.toFixed(1).padStart(8)} ms  ${us.toFixed(3).padStart(8)} µs/op`;
 }
 
-const geoCached = bench("buildMarkGeometry (same seed, cache hit)", 5000, () =>
+const geoCached = bench("buildMarkGeometry (same seed)", 5000, () =>
   buildMarkGeometry(line, opts, line.seed),
 );
 
@@ -58,28 +57,6 @@ const edge = bench("buildEdge (~20 verts)", 20000, () =>
   }),
 );
 
-const tileHit = bench("buildNoiseTile (cache hit)", 20000, () =>
-  buildNoiseTile({
-    width: 1024,
-    height: 64,
-    seed: 1729,
-    streakiness: 0.25,
-    feathering: 0.275,
-    dryout: 0.2,
-  }),
-);
-
-const tileMiss = bench("buildNoiseTile (unique seed)", 400, (i) =>
-  buildNoiseTile({
-    width: 1024,
-    height: 64,
-    seed: 50_000 + i,
-    streakiness: 0.25,
-    feathering: 0.275,
-    dryout: 0.2,
-  }),
-);
-
 const clipDirect = bench("buildClipPath (wavy, full front)", 8000, () =>
   buildClipPath({
     box: g.box,
@@ -91,11 +68,11 @@ const clipDirect = bench("buildClipPath (wavy, full front)", 8000, () =>
   }),
 );
 
-const results = [geoCached, geoFresh, clipFull, clipAnim, clipDirect, edge, tileHit, tileMiss];
+const results = [geoCached, geoFresh, clipFull, clipAnim, clipDirect, edge];
 
 console.log("Highlighters geometry bench");
 console.log(`${"case".padEnd(42)} ${"iters".padStart(8)}  ${"total".padStart(11)}  ${"per-op".padStart(12)}`);
 for (const r of results) console.log(row(r));
 console.log(
-  `\nclipPath length: ${g.clipPath.length}  verts: ${g.topEdge.length}+${g.bottomEdge.length}  tile: ${g.noiseTile.dataUrl.length} chars`,
+  `\nclipPath length: ${g.clipPath.length}  verts: ${g.topEdge.length}+${g.bottomEdge.length}`,
 );
