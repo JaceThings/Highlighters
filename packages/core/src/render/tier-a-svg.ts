@@ -244,6 +244,9 @@ export function createSvgRenderer(): Renderer {
 
   return {
     tier: "svg",
+    get layer() {
+      return blendLayer;
+    },
     mount: render,
     update: render,
     bandFor: (seed: number): HTMLElement | null => wrapperPool.get(seed) ?? null,

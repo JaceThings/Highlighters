@@ -107,6 +107,9 @@ export function createCssRenderer(): Renderer {
 
   return {
     tier: "css",
+    get layer() {
+      return blendLayer;
+    },
     mount: render,
     update: render,
     bandFor: (seed: number): HTMLElement | null => wrapperPool.get(seed) ?? null,

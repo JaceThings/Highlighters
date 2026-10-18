@@ -367,15 +367,24 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
 
   const CLEAR_FADE_MS = 200;
   let clearTimer: ReturnType<typeof setTimeout> | null = null;
+  const fadeTargets = (): HTMLElement[] => {
+    const targets: HTMLElement[] = [];
+    if (container) targets.push(container);
+    if (renderer?.layer) targets.push(renderer.layer);
+    return targets;
+  };
+  const resetFade = (targets: HTMLElement[]): void => {
+    for (const el of targets) {
+      el.style.transition = "";
+      el.style.opacity = "";
+    }
+  };
   const cancelClearFade = (): void => {
     if (clearTimer !== null) {
       clearTimeout(clearTimer);
       clearTimer = null;
     }
-    if (container) {
-      container.style.transition = "";
-      container.style.opacity = "";
-    }
+    resetFade(fadeTargets());
   };
 
   const sample = (): void => {
@@ -408,14 +417,16 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
     const cleared = painted.length === 0 && currentRanges.length > 0;
     currentRanges = painted;
     if (cleared && resolved.fadeOnClear && renderer && !env.prefersReducedMotion) {
-      container!.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
-      container!.style.opacity = "0";
+      const targets = fadeTargets();
+      for (const el of targets) {
+        el.style.transition = `opacity ${CLEAR_FADE_MS}ms ease-out`;
+        el.style.opacity = "0";
+      }
       clearTimer = setTimeout(() => {
         clearTimer = null;
         if (!container) return;
         renderer?.update(rebuild([], false));
-        container.style.transition = "";
-        container.style.opacity = "";
+        resetFade(targets);
       }, CLEAR_FADE_MS);
       return;
     }

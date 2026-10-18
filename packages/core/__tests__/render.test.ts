@@ -1129,6 +1129,26 @@ describe("highlightSelection reflow", () => {
     expect(overlay().style.top).toBe("178px");
     handle.remove();
   });
+
+  it("fadeOnClear fades the escape layer that actually holds the bands", async () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects");
+    rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    selectWithin(target, 0, 5);
+
+    const handle = highlightSelection({ renderer: "css", vivid: true, fadeOnClear: true, animation: { draw: false } });
+    const container = htmlElement(article.querySelector("[data-highlighters-overlay]"));
+    const layer = htmlChildren(article).find((el) => el !== container && el !== target);
+    expect(layer).toBeDefined();
+    expect(layer!.children.length).toBe(1);
+
+    document.getSelection()!.removeAllRanges();
+    document.dispatchEvent(new Event("selectionchange"));
+    await flushRaf();
+
+    expect(container.style.opacity).toBe("0");
+    expect(layer!.style.opacity).toBe("0");
+    handle.remove();
+  });
 });
 
 describe("Tier C (Custom Highlight API)", () => {

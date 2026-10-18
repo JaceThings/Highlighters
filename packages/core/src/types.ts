@@ -360,6 +360,7 @@ export interface RenderEnvironment {
 
 export interface Renderer {
   readonly tier: RendererTier;
+  readonly layer?: HTMLElement | null;
   mount(context: RenderContext): void;
   update(context: RenderContext): void;
   unmount(): void;
