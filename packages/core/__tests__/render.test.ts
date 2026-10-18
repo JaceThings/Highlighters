@@ -391,6 +391,30 @@ describe("createSvgRenderer", () => {
     expect(ink.style.clipPath).toContain("path(");
   });
 
+  it("drops the SVG filter on Gecko once devicePixelRatio passes 2", () => {
+    const view = host.ownerDocument.defaultView as Window;
+    const win = view as unknown as Record<string, unknown>;
+    const dpr = Object.getOwnPropertyDescriptor(view, "devicePixelRatio");
+    win.mozInnerScreenX = 0;
+    const mountAt = (ratio: number): string => {
+      Object.defineProperty(view, "devicePixelRatio", { value: ratio, configurable: true });
+      const fresh = document.createElement("div");
+      document.body.appendChild(fresh);
+      const container = createOverlayContainer(fresh);
+      createSvgRenderer().mount({ container, options: resolved(), lines: [geometry(0)], ranges: [] });
+      const filter = htmlElement(htmlElement(container.firstElementChild).lastElementChild).style.filter;
+      fresh.remove();
+      return filter;
+    };
+    try {
+      expect(mountAt(2)).toContain("url(");
+      expect(mountAt(3)).toBe("");
+    } finally {
+      delete win.mozInnerScreenX;
+      if (dpr) Object.defineProperty(view, "devicePixelRatio", dpr);
+    }
+  });
+
   it("adds an additive (screen) glow node only when glow is enabled (R16)", () => {
     const renderer = createSvgRenderer();
     const container = createOverlayContainer(host);

@@ -113,6 +113,9 @@ export function createSvgRenderer(): Renderer {
     const { ink, glow } = options;
     const filterParams = resolveEdgeFilter(options);
     const filter = filterParams ? `url(#${ensureEdgeFilter(doc, filterParams)})` : "";
+    // Gecko rasterizes SVG filters in software at device resolution, so zoomed retina paints crawl.
+    const view = doc.defaultView;
+    const gecko = view !== null && "mozInnerScreenX" in view;
     const flowGain = 1 + 0.35 * (clamp(ink.flow, 0, 1) - clamp(ink.viscosity, 0, 1));
     const glowOpacity = String(round3(clamp(glow.intensity * 0.82, 0, 1)));
 
@@ -140,7 +143,7 @@ export function createSvgRenderer(): Renderer {
       setStyleOnce(inkEl, "background-image", poolGradientToCss(line.pool, inkColor));
       setStyleOnce(inkEl, "background-repeat", "no-repeat");
       setVendorPrefixed(inkEl, "clip-path", line.clipPath);
-      setStyleOnce(inkEl, "filter", filter);
+      setStyleOnce(inkEl, "filter", gecko && (view?.devicePixelRatio ?? 1) > 2 ? "" : filter);
     };
   });
 }
