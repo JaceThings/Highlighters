@@ -10,7 +10,7 @@ import {
   createOverlayContainer,
   teardownContainer,
 } from "../src/render/renderer.js";
-import { applyDrawOn, prefersReducedMotion } from "../src/render/animation.js";
+import { applyDrawOn } from "../src/render/animation.js";
 import { createCssRenderer, poolGradientToCss } from "../src/render/tier-b-css.js";
 import { createSvgRenderer } from "../src/render/tier-a-svg.js";
 import { createHighlightApiRenderer } from "../src/render/tier-c-highlight-api.js";
@@ -205,7 +205,7 @@ describe("NodePool", () => {
     pool.retain(new Set([1]), (n) => disposed.push(n));
 
     expect(pool.get(1)).toBe(a);
-    expect(pool.has(2)).toBe(false);
+    expect(pool.get(2)).toBeUndefined();
     expect(disposed).toEqual([b]);
   });
 
@@ -215,7 +215,7 @@ describe("NodePool", () => {
     pool.set(2, document.createElement("div"));
     const disposed: HTMLElement[] = [];
     pool.clear((n) => disposed.push(n));
-    expect(pool.size).toBe(0);
+    expect(pool.get(1)).toBeUndefined();
     expect(disposed.length).toBe(2);
   });
 });
@@ -646,12 +646,6 @@ describe("applyDrawOn", () => {
   });
 });
 
-describe("prefersReducedMotion", () => {
-  it("returns a boolean and does not throw", () => {
-    expect([true, false]).toContain(prefersReducedMotion());
-  });
-});
-
 describe("createMarkHandle", () => {
   let host: HTMLElement;
 
@@ -688,7 +682,6 @@ describe("createMarkHandle", () => {
     let cleanupRun = false;
 
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -716,7 +709,6 @@ describe("createMarkHandle", () => {
     const container = createOverlayContainer(host);
     const renderer = stubRenderer();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -737,7 +729,6 @@ describe("createMarkHandle", () => {
     const renderer = stubRenderer();
     const replay = vi.fn();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -758,7 +749,6 @@ describe("createMarkHandle", () => {
     const container = createOverlayContainer(host);
     const renderer = stubRenderer();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,
@@ -780,7 +770,6 @@ describe("createMarkHandle", () => {
     const container = createOverlayContainer(host);
     const renderer = stubRenderer();
     const handle = createMarkHandle({
-      ranges: [],
       options: resolved(),
       renderer,
       container,

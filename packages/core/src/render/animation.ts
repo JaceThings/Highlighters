@@ -6,27 +6,14 @@ import type {
 } from "../types.js";
 import { hasGlobal } from "../internal/dom.js";
 
-export function prefersReducedMotion(): boolean {
-  if (!hasGlobal("window") || !("matchMedia" in window)) {
-    return false;
-  }
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
-
 type Easer = (t: number) => number;
 
-const NAMED_EASINGS = {
+const NAMED_EASINGS: Record<string, readonly [number, number, number, number]> = {
   ease: [0.25, 0.1, 0.25, 1],
   "ease-in": [0.42, 0, 1, 1],
   "ease-out": [0, 0, 0.58, 1],
   "ease-in-out": [0.42, 0, 0.58, 1],
-} as const;
-
-type NamedEasing = keyof typeof NAMED_EASINGS;
+};
 
 function cubicBezierEaser(p1x: number, p1y: number, p2x: number, p2y: number): Easer {
   const cx = 3 * p1x;
@@ -53,25 +40,14 @@ function cubicBezierEaser(p1x: number, p1y: number, p2x: number, p2y: number): E
   };
 }
 
-function isNamedEasing(value: string): value is NamedEasing {
-  return value in NAMED_EASINGS;
-}
-
 function parseEasing(easing: ResolvedAnimation["easing"]): Easer {
   if (easing === "linear") return (t) => t;
-  if (isNamedEasing(easing)) {
-    const [x1, y1, x2, y2] = NAMED_EASINGS[easing];
-    return cubicBezierEaser(x1, y1, x2, y2);
-  }
   const m = /cubic-bezier\(([^)]+)\)/.exec(easing);
-  if (m) {
-    const n = m[1].split(",").map((s) => Number(s.trim()));
-    if (n.length === 4 && n.every(Number.isFinite)) {
-      return cubicBezierEaser(n[0], n[1], n[2], n[3]);
-    }
-  }
-  const fallback = NAMED_EASINGS["ease-out"];
-  return cubicBezierEaser(fallback[0], fallback[1], fallback[2], fallback[3]);
+  const parsed = m ? m[1].split(",").map(Number) : null;
+  const pts =
+    NAMED_EASINGS[easing] ??
+    (parsed && parsed.length === 4 && parsed.every(Number.isFinite) ? parsed : NAMED_EASINGS["ease-out"]);
+  return cubicBezierEaser(pts[0], pts[1], pts[2], pts[3]);
 }
 
 function setClip(el: HTMLElement, path: string): void {
@@ -80,11 +56,6 @@ function setClip(el: HTMLElement, path: string): void {
 }
 
 const FADE_IN_MS = 50;
-
-function fadeOpacity(elapsedMs: number, fadeMs: number): string {
-  if (elapsedMs >= fadeMs) return "";
-  return (Math.max(0, elapsedMs) / fadeMs).toFixed(3);
-}
 
 type BandFor = (seed: number) => HTMLElement | null;
 
@@ -99,9 +70,10 @@ interface DrawItem {
 
 function drawItems(bandFor: BandFor, lines: MarkGeometry[], stagger: number): DrawItem[] {
   const items: DrawItem[] = [];
-  lines.forEach((line, i) => {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const node = bandFor(line.seed);
-    if (!node) return;
+    if (!node) continue;
     items.push({
       node,
       full: line.clipPath,
@@ -110,7 +82,7 @@ function drawItems(bandFor: BandFor, lines: MarkGeometry[], stagger: number): Dr
       minFront: line.minFront,
       startMs: i * stagger,
     });
-  });
+  }
   return items;
 }
 
@@ -121,18 +93,14 @@ function showFull(items: DrawItem[]): void {
   }
 }
 
+function primeClosed(items: DrawItem[]): void {
+  for (const it of items) setClip(it.node, it.build(0));
+}
+
 export type DrawOnHandle = Disconnect & {
   retarget: (lines: MarkGeometry[]) => void;
   replay: () => void;
 };
-
-function asHandle(
-  disconnect: Disconnect,
-  retarget: DrawOnHandle["retarget"],
-  replay: DrawOnHandle["replay"],
-): DrawOnHandle {
-  return Object.assign(disconnect, { retarget, replay });
-}
 
 export function applyDrawOn(
   container: HTMLElement,
@@ -141,22 +109,19 @@ export function applyDrawOn(
   animation: ResolvedAnimation,
   env: RenderEnvironment,
 ): DrawOnHandle {
-  if (lines.length === 0) return asHandle(() => {}, () => {}, () => {});
-
   let items = drawItems(bandFor, lines, animation.stagger);
-  if (items.length === 0) return asHandle(() => {}, () => {}, () => {});
-
-  if (
+  const inert =
+    items.length === 0 ||
     env.prefersReducedMotion ||
     !animation.draw ||
-    !hasGlobal("requestAnimationFrame")
-  ) {
+    !hasGlobal("requestAnimationFrame");
+
+  if (inert) {
     showFull(items);
-    return asHandle(
-      () => {},
-      (next) => showFull(drawItems(bandFor, next, animation.stagger)),
-      () => showFull(items),
-    );
+    return Object.assign(() => {}, {
+      retarget: (next: MarkGeometry[]) => showFull(drawItems(bandFor, next, animation.stagger)),
+      replay: () => showFull(items),
+    });
   }
 
   const ease = parseEasing(animation.easing);
@@ -166,10 +131,6 @@ export function applyDrawOn(
   let startTime = 0;
   let observer: IntersectionObserver | null = null;
   let played = false;
-
-  function primeClosed(it: DrawItem): void {
-    setClip(it.node, it.build(0));
-  }
 
   function frame(now: number): void {
     if (startTime === 0) startTime = now;
@@ -186,14 +147,14 @@ export function applyDrawOn(
       const p = t <= 0 ? 0 : ease(t);
       const front = p <= 0 ? 0 : it.minFront + p * (it.width - it.minFront);
       setClip(it.node, it.build(front));
-      it.node.style.opacity = fadeOpacity(elapsed, fadeMs);
+      it.node.style.opacity = elapsed >= fadeMs ? "" : (Math.max(0, elapsed) / fadeMs).toFixed(3);
     }
     raf = done ? 0 : requestAnimationFrame(frame);
   }
 
   function play(): void {
     startTime = 0;
-    for (const it of items) primeClosed(it);
+    primeClosed(items);
     raf = requestAnimationFrame(frame);
   }
 
@@ -203,11 +164,10 @@ export function applyDrawOn(
   }
 
   if (animation.trigger === "in-view" && hasGlobal("IntersectionObserver")) {
-    for (const it of items) primeClosed(it);
+    primeClosed(items);
     observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries.some((e) => e.isIntersecting);
-        if (!visible) return;
+        if (!entries.some((e) => e.isIntersecting)) return;
         if (played && !animation.repeat) return;
         if (animation.repeat) stop();
         played = true;
@@ -225,27 +185,25 @@ export function applyDrawOn(
     play();
   }
 
-  function retarget(next: MarkGeometry[]): void {
-    items = drawItems(bandFor, next, animation.stagger);
-    if (raf !== 0) return;
-    if (played) showFull(items);
-    else for (const it of items) primeClosed(it);
-  }
-
-  function replay(): void {
-    stop();
-    played = true;
-    play();
-  }
-
-  return asHandle(
+  return Object.assign(
     () => {
       stop();
       observer?.disconnect();
       observer = null;
       showFull(items);
     },
-    retarget,
-    replay,
+    {
+      retarget(next: MarkGeometry[]): void {
+        items = drawItems(bandFor, next, animation.stagger);
+        if (raf !== 0) return;
+        if (played) showFull(items);
+        else primeClosed(items);
+      },
+      replay(): void {
+        stop();
+        played = true;
+        play();
+      },
+    },
   );
 }

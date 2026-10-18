@@ -11,7 +11,6 @@ import { mergeOptions, resolveOptions } from "../config/merge.js";
 import { teardownContainer } from "./renderer.js";
 
 export interface MarkHandleInit {
-  ranges: Range[];
   options: ResolvedOptions;
   renderer: Renderer;
   container: HTMLElement;
@@ -26,18 +25,10 @@ export interface MarkHandleInit {
 export function createMarkHandle(init: MarkHandleInit): MarkHandle {
   const { renderer, container, reflow, rebuild, replay, retarget } = init;
   const cleanups = init.cleanup ? [...init.cleanup] : [];
-  let userOptions: HighlightOptions = init.userOptions ? { ...init.userOptions } : {};
+  let userOptions: HighlightOptions = { ...init.userOptions };
   let resolved = init.options;
   let showing = true;
   let removed = false;
-
-  function rerender(): void {
-    if (removed) return;
-    const ctx = rebuild(resolved);
-    renderer.update(ctx);
-    retarget?.(ctx.lines);
-    container.style.visibility = showing ? "" : "hidden";
-  }
 
   return {
     get tier(): RendererTier {
@@ -65,7 +56,10 @@ export function createMarkHandle(init: MarkHandleInit): MarkHandle {
       if (removed) return;
       userOptions = mergeOptions(userOptions, opts);
       resolved = resolveOptions(userOptions);
-      rerender();
+      const ctx = rebuild(resolved);
+      renderer.update(ctx);
+      retarget?.(ctx.lines);
+      container.style.visibility = showing ? "" : "hidden";
     },
 
     remove(): void {

@@ -32,7 +32,7 @@ function row({ name, n, ms, us }) {
   return `${name.padEnd(42)} ${String(n).padStart(8)}  ${ms.toFixed(1).padStart(8)} ms  ${us.toFixed(3).padStart(8)} µs/op`;
 }
 
-const geoCached = bench("buildMarkGeometry (same seed, cache hit)", 5000, () =>
+const geoCached = bench("buildMarkGeometry (same seed)", 5000, () =>
   buildMarkGeometry(line, opts, line.seed),
 );
 

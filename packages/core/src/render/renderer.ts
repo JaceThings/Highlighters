@@ -1,46 +1,45 @@
-import type { BlendMode, Box, RenderContext } from "../types.js";
-
-export type { Renderer, RenderContext } from "../types.js";
+import type {
+  BlendMode,
+  Box,
+  ColorValue,
+  MarkGeometry,
+  RenderContext,
+  Renderer,
+  RendererTier,
+} from "../types.js";
+import { effectiveInk } from "./blend.js";
 
 const OVERLAY_FLAG = "data-highlighters-overlay";
 
 const appliedStyles = new WeakMap<HTMLElement, Record<string, string>>();
 
-function applyOnce(el: HTMLElement, key: string, value: string, apply: () => void): void {
+function changed(el: HTMLElement, prop: string, value: string): boolean {
   let cache = appliedStyles.get(el);
-  if (!cache) {
-    cache = {};
-    appliedStyles.set(el, cache);
-  }
-  if (cache[key] === value) return;
-  cache[key] = value;
-  apply();
-}
-
-export type VendorProperty =
-  | "clip-path"
-  | "mask-image"
-  | "mask-repeat"
-  | "mask-position"
-  | "mask-size";
-
-export function setVendorPrefixed(el: HTMLElement, prop: VendorProperty, value: string): void {
-  applyOnce(el, prop, value, () => {
-    el.style.setProperty(prop, value);
-    el.style.setProperty(`-webkit-${prop}`, value);
-  });
+  if (!cache) appliedStyles.set(el, (cache = {}));
+  if (cache[prop] === value) return false;
+  cache[prop] = value;
+  return true;
 }
 
 export function setStyleOnce(el: HTMLElement, prop: string, value: string): void {
-  applyOnce(el, prop, value, () => {
-    el.style.setProperty(prop, value);
-  });
+  if (changed(el, prop, value)) el.style.setProperty(prop, value);
 }
 
-export function backdropElement(context: RenderContext): Element | null {
-  const node = context.ranges[0]?.commonAncestorContainer;
-  const el = node instanceof Element ? node : (node?.parentElement ?? null);
-  return el ?? context.container.parentElement;
+export type VendorProperty = "clip-path" | "mask-image" | "mask-repeat" | "mask-position" | "mask-size";
+
+export function setVendorPrefixed(el: HTMLElement, prop: VendorProperty, value: string): void {
+  if (!changed(el, prop, value)) return;
+  el.style.setProperty(prop, value);
+  el.style.setProperty(`-webkit-${prop}`, value);
+}
+
+export function fillParent(el: HTMLElement): void {
+  setStyleOnce(el, "position", "absolute");
+  setStyleOnce(el, "left", "0");
+  setStyleOnce(el, "top", "0");
+  setStyleOnce(el, "width", "100%");
+  setStyleOnce(el, "height", "100%");
+  setStyleOnce(el, "pointer-events", "none");
 }
 
 export function applyBoxPosition(el: HTMLElement, box: Box): void {
@@ -51,23 +50,15 @@ export function applyBoxPosition(el: HTMLElement, box: Box): void {
   setStyleOnce(el, "height", `${box.height}px`);
 }
 
-export function createOverlayContainer(host: HTMLElement): HTMLElement {
-  const existing = host.querySelector<HTMLElement>(`:scope > [${OVERLAY_FLAG}]`);
-  if (existing) return existing;
+export function hiddenDiv(doc: Document): HTMLElement {
+  const el = doc.createElement("div");
+  el.setAttribute("aria-hidden", "true");
+  return el;
+}
 
-  const doc = host.ownerDocument;
-  const container = doc.createElement("div");
-  container.setAttribute(OVERLAY_FLAG, "");
-  styleOverlayLayer(container, "multiply");
-
-  const view = doc.defaultView;
-  if (view) {
-    const position = view.getComputedStyle(host).position;
-    if (position === "static") host.style.position = "relative";
-  }
-
-  host.appendChild(container);
-  return container;
+export function ensurePositioned(el: HTMLElement): void {
+  const view = el.ownerDocument.defaultView;
+  if (view && view.getComputedStyle(el).position === "static") el.style.position = "relative";
 }
 
 function styleOverlayLayer(el: HTMLElement, blend: BlendMode): void {
@@ -85,11 +76,20 @@ function styleOverlayLayer(el: HTMLElement, blend: BlendMode): void {
   s.userSelect = "none";
 }
 
-function createBlendLayer(host: Element, blend: BlendMode): HTMLElement {
-  const layer = host.ownerDocument.createElement("div");
-  styleOverlayLayer(layer, blend);
-  host.appendChild(layer);
-  return layer;
+export function createOverlayContainer(host: HTMLElement): HTMLElement {
+  const existing = host.querySelector<HTMLElement>(`:scope > [${OVERLAY_FLAG}]`);
+  if (existing) return existing;
+
+  const container = host.ownerDocument.createElement("div");
+  container.setAttribute(OVERLAY_FLAG, "");
+  styleOverlayLayer(container, "multiply");
+  ensurePositioned(host);
+  host.appendChild(container);
+  return container;
+}
+
+export function teardownContainer(container: HTMLElement): void {
+  if (!container.firstChild) container.remove();
 }
 
 export interface BlendTarget {
@@ -111,20 +111,14 @@ export function resolveBlendTarget(
     return { target: current, layer: current };
   }
   current?.remove();
-  const layer = createBlendLayer(host, layerBlend);
+  const layer = host.ownerDocument.createElement("div");
+  styleOverlayLayer(layer, layerBlend);
+  host.appendChild(layer);
   return { target: layer, layer };
-}
-
-export function teardownContainer(container: HTMLElement): void {
-  if (!container.firstChild) container.remove();
 }
 
 export class NodePool<T extends Node> {
   private readonly nodes = new Map<number, T>();
-
-  get size(): number {
-    return this.nodes.size;
-  }
 
   get(key: number): T | undefined {
     return this.nodes.get(key);
@@ -132,10 +126,6 @@ export class NodePool<T extends Node> {
 
   set(key: number, node: T): void {
     this.nodes.set(key, node);
-  }
-
-  has(key: number): boolean {
-    return this.nodes.has(key);
   }
 
   retain(keep: Set<number>, dispose: (node: T) => void): void {
@@ -151,4 +141,56 @@ export class NodePool<T extends Node> {
     for (const node of this.nodes.values()) dispose(node);
     this.nodes.clear();
   }
+}
+
+export type PaintLine = (wrapper: HTMLElement, line: MarkGeometry) => void;
+
+export function createBandRenderer(
+  tier: RendererTier,
+  beginRender: (context: RenderContext, inkColor: ColorValue | undefined) => PaintLine,
+): Renderer {
+  const wrappers = new NodePool<HTMLElement>();
+  let blendLayer: HTMLElement | null = null;
+
+  function render(context: RenderContext): void {
+    const { container, options } = context;
+    const doc = container.ownerDocument;
+    const node = context.ranges[0]?.commonAncestorContainer;
+    const backdrop =
+      (node instanceof Element ? node : node?.parentElement) ?? container.parentElement;
+    const plan = effectiveInk(options.blendMode, options.color, backdrop, doc, options.vivid);
+    const { target, layer } = resolveBlendTarget(container.parentElement, container, blendLayer, plan.layer);
+    blendLayer = layer;
+    const paint = beginRender(context, plan.color === options.color ? undefined : plan.color);
+
+    const keep = new Set<number>();
+    for (const line of context.lines) {
+      keep.add(line.seed);
+      let wrapper = wrappers.get(line.seed);
+      if (!wrapper) {
+        wrapper = hiddenDiv(doc);
+        wrapper.style.pointerEvents = "none";
+        wrappers.set(line.seed, wrapper);
+      }
+      if (wrapper.parentElement !== target) target.appendChild(wrapper);
+      applyBoxPosition(wrapper, line.box);
+      paint(wrapper, line);
+    }
+    wrappers.retain(keep, (el) => el.remove());
+  }
+
+  return {
+    tier,
+    get layer() {
+      return blendLayer;
+    },
+    mount: render,
+    update: render,
+    bandFor: (seed) => wrappers.get(seed) ?? null,
+    unmount() {
+      wrappers.clear((el) => el.remove());
+      blendLayer?.remove();
+      blendLayer = null;
+    },
+  };
 }
