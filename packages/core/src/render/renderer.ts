@@ -10,6 +10,8 @@ import type {
 import { effectiveInk } from "./blend.js";
 
 const OVERLAY_FLAG = "data-highlighters-overlay";
+const LAYER_FLAG = "data-highlighters-layer";
+export const OWN_NODE_SELECTOR = `[${OVERLAY_FLAG}],[${LAYER_FLAG}]`;
 
 const appliedStyles = new WeakMap<HTMLElement, Record<string, string>>();
 
@@ -108,10 +110,12 @@ export function resolveBlendTarget(
     return { target: container, layer: null };
   }
   if (current && current.style.mixBlendMode === layerBlend) {
+    if (current.parentElement !== host) host.appendChild(current);
     return { target: current, layer: current };
   }
   current?.remove();
   const layer = host.ownerDocument.createElement("div");
+  layer.setAttribute(LAYER_FLAG, "");
   styleOverlayLayer(layer, layerBlend);
   host.appendChild(layer);
   return { target: layer, layer };

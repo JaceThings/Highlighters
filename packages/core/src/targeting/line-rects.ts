@@ -146,13 +146,20 @@ export function rangesToLineRects(
 
   const lines = mergeRectsToBoxes(column);
   const last = lines.length - 1;
-  return lines.map((box, index) => ({
-    left: box.left,
-    top: box.top,
-    width: box.right - box.left,
-    height: box.bottom - box.top,
-    seed: Math.round((box.top - originTop) * SEED_SCALE), // origin, not min-top: upward drags must not re-roll seeds
-    isFirst: index === 0,
-    isLast: index === last,
-  }));
+  const used = new Set<number>();
+  return lines.map((box, index) => {
+    // origin, not min-top: upward drags must not re-roll seeds; side-by-side lines (columns, table cells) share a top so bump until unique
+    let seed = Math.round((box.top - originTop) * SEED_SCALE);
+    while (used.has(seed)) seed++;
+    used.add(seed);
+    return {
+      left: box.left,
+      top: box.top,
+      width: box.right - box.left,
+      height: box.bottom - box.top,
+      seed,
+      isFirst: index === 0,
+      isLast: index === last,
+    };
+  });
 }

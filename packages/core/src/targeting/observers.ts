@@ -1,5 +1,6 @@
 import type { Disconnect, MutationCallback, ReflowCallback } from "../types.js";
 import { hasGlobal } from "../internal/dom.js";
+import { OWN_NODE_SELECTOR } from "../render/renderer.js";
 
 const MUTATION_DEBOUNCE_MS = 50;
 
@@ -58,6 +59,18 @@ export function createReflowObserver(targets: Element[], callback: ReflowCallbac
   };
 }
 
+function isOwnNode(node: Node): boolean {
+  const el = node instanceof Element ? node : node.parentElement;
+  return !!el?.closest(OWN_NODE_SELECTOR);
+}
+
+function isOwnMutation(record: MutationRecord): boolean {
+  if (isOwnNode(record.target)) return true;
+  if (record.type !== "childList") return false;
+  const nodes = [...record.addedNodes, ...record.removedNodes];
+  return nodes.length > 0 && nodes.every(isOwnNode);
+}
+
 export function createMutationWatcher(root: Element | Document, callback: MutationCallback): Disconnect {
   if (!hasGlobal("MutationObserver")) return () => {};
 
@@ -75,7 +88,9 @@ export function createMutationWatcher(root: Element | Document, callback: Mutati
 
   const observer = new MutationObserver((records) => {
     if (disposed) return;
-    pending.push(...records);
+    const foreign = records.filter((r) => !isOwnMutation(r));
+    if (foreign.length === 0) return;
+    pending.push(...foreign);
     if (timer !== undefined) clearTimeout(timer);
     timer = setTimeout(flush, MUTATION_DEBOUNCE_MS);
   });

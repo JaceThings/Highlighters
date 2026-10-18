@@ -796,6 +796,35 @@ describe("highlight", () => {
     document.getElementById("highlighters-shared-defs")?.remove();
   });
 
+  it("paints every line that shares a top edge", () => {
+    const spy = vi.spyOn(Range.prototype, "getClientRects");
+    spy.mockReturnValue(domRectList([dr(10, 100, 80, 18), dr(200, 100, 80, 18)]));
+    try {
+      const handle = highlight(target, { renderer: "css", animation: { draw: false } });
+      expect(document.body.querySelector("[data-highlighters-overlay]")!.children.length).toBe(2);
+      handle.remove();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("highlightAll ignores its own overlay mutations", async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(Range.prototype, "getClientRects");
+    spy.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    try {
+      target.innerHTML = "The <span data-highlight>quick</span> fox";
+      const handle = highlightAll({ renderer: "css", animation: { draw: false } });
+      const calls = spy.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(200);
+      expect(spy.mock.calls.length).toBe(calls);
+      handle.remove();
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("measures each range once (no extra computeAnchor layout walk)", () => {
     const spy = vi.spyOn(Range.prototype, "getClientRects");
     const handle = highlight(target, { animation: { draw: false } });
@@ -1137,6 +1166,31 @@ describe("highlightSelection reflow", () => {
     expect(container.style.opacity).toBe("0");
     expect(layer!.style.opacity).toBe("0");
     handle.remove();
+  });
+
+  it("moves the escape layer with the overlay when the selection anchor changes", async () => {
+    const rects = vi.spyOn(Range.prototype, "getClientRects");
+    rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
+    const other = document.createElement("section");
+    other.style.position = "relative";
+    const otherTarget = document.createElement("p");
+    otherTarget.textContent = "Another block";
+    other.appendChild(otherTarget);
+    document.body.appendChild(other);
+
+    selectWithin(target, 0, 5);
+    const handle = highlightSelection({ renderer: "css", vivid: true, animation: { draw: false } });
+    selectWithin(otherTarget, 0, 5);
+    document.dispatchEvent(new Event("selectionchange"));
+    await flushRaf();
+
+    const container = htmlElement(other.querySelector("[data-highlighters-overlay]"));
+    const layer = htmlElement(other.querySelector("[data-highlighters-layer]"));
+    expect(container.parentElement).toBe(other);
+    expect(layer.children.length).toBe(1);
+    expect(article.querySelector("[data-highlighters-layer]")).toBeNull();
+    handle.remove();
+    other.remove();
   });
 });
 

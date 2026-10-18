@@ -8,12 +8,13 @@ import { hasGlobal } from "../internal/dom.js";
 
 type Easer = (t: number) => number;
 
-const NAMED_EASINGS: Record<string, readonly [number, number, number, number]> = {
-  ease: [0.25, 0.1, 0.25, 1],
-  "ease-in": [0.42, 0, 1, 1],
-  "ease-out": [0, 0, 0.58, 1],
-  "ease-in-out": [0.42, 0, 0.58, 1],
-};
+const EASE_OUT = [0, 0, 0.58, 1];
+const NAMED_EASINGS = new Map<string, number[]>([
+  ["ease", [0.25, 0.1, 0.25, 1]],
+  ["ease-in", [0.42, 0, 1, 1]],
+  ["ease-out", EASE_OUT],
+  ["ease-in-out", [0.42, 0, 0.58, 1]],
+]);
 
 function cubicBezierEaser(p1x: number, p1y: number, p2x: number, p2y: number): Easer {
   const cx = 3 * p1x;
@@ -45,8 +46,8 @@ function parseEasing(easing: ResolvedAnimation["easing"]): Easer {
   const m = /cubic-bezier\(([^)]+)\)/.exec(easing);
   const parsed = m ? m[1].split(",").map(Number) : null;
   const pts =
-    NAMED_EASINGS[easing] ??
-    (parsed && parsed.length === 4 && parsed.every(Number.isFinite) ? parsed : NAMED_EASINGS["ease-out"]);
+    NAMED_EASINGS.get(easing) ??
+    (parsed && parsed.length === 4 && parsed.every(Number.isFinite) ? parsed : EASE_OUT);
   return cubicBezierEaser(pts[0], pts[1], pts[2], pts[3]);
 }
 

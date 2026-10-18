@@ -37,7 +37,7 @@ function resolveColor(
   palette: HighlightOptions["palette"],
   fallback: ColorValue,
 ): ColorValue {
-  if (typeof color === "object") return resolveSwatch(color);
+  if (color && typeof color === "object") return resolveSwatch(color);
   if (color && color.trim() !== "") return color;
   return palette ? defaultSwatch(palette) : fallback;
 }
