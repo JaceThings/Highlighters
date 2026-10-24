@@ -1,5 +1,24 @@
 # @highlighters/core
 
+## 2.1.0
+
+### Minor Changes
+
+- 9c85485: Drop the per-mark noise mask. It resolved to fully opaque alpha in every engine, so it never changed the look, yet Firefox re-rasterized it in software on every paint and zoom. Removes `buildNoiseTile`, `buildNoiseTileDataUrl`, the `NoiseTile` and `MaskOffset` types, and `MarkGeometry.noiseTile` / `maskOffset`.
+
+### Patch Changes
+
+- 9c85485: Bug fixes found while profiling:
+
+  - Lines that share a top edge (table cells, columns, flex rows) now each get their own band; previously they collided on one seed and only the first was painted.
+  - `highlightAll` no longer re-measures the page in response to its own overlay insertions, so mounting is one layout pass instead of two.
+  - `highlightSelection` in vivid mode now moves the blend escape layer along with the overlay when the selection jumps to a different positioned ancestor, instead of leaving stale bands under the old one.
+  - Named easing lookup no longer resolves prototype keys such as `constructor`, and a `null` color from JS callers falls back to the palette instead of throwing.
+
+- 9c85485: Internal cleanup with no API change. The SVG and CSS renderers now share one band reconciliation loop, text search indexes text nodes by cumulative offset instead of allocating a slot per character, and dead environment guards were removed. Core bundle shrinks by about 1 kB brotli.
+- 9c85485: `fadeOnClear` now fades the bands wherever they are painted. When the ink plan puts the bands in a blend escape layer beside the overlay container (vivid mode, or a backdrop that needs a different blend), the fade used to target only the container, so the visible highlight vanished instantly. Renderers now expose the active escape layer as `layer`, and the clear fade transitions both elements.
+- 9c85485: Skip the SVG edge filter in Firefox once devicePixelRatio passes 2 (zooming on a retina display). Gecko rasterizes SVG filters in software at device resolution, which made zoomed highlighting crawl; marks keep their clip shape and pool gradient and only lose the frayed edge while zoomed.
+
 ## 2.0.0
 
 ### Major Changes
