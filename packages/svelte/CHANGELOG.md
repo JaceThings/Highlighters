@@ -1,5 +1,12 @@
 # @highlighters/svelte
 
+## 2.1.1
+
+### Patch Changes
+
+- Updated dependencies [8e2bd43]
+  - @highlighters/core@2.1.1
+
 ## 2.1.0
 
 ### Patch Changes

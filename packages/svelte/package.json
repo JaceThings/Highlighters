@@ -1,6 +1,6 @@
 {
   "name": "@highlighters/svelte",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Svelte action for realistic highlighter marks",
   "author": "Jace Attard <hi@ja.mt> (https://ja.mt)",
   "license": "MIT",
