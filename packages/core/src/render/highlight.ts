@@ -220,12 +220,14 @@ export function highlightAll(options?: HighlightOptions): MarkHandle {
 }
 
 const CLEAR_FADE_MS = 200;
+const activeSelection = new WeakMap<Document, MarkHandle>();
 
 export function highlightSelection(options?: HighlightOptions): MarkHandle {
   if (!hasDom()) return INERT_HANDLE;
 
   const env = detectEnvironment();
   if (env.coarsePointer) return INERT_HANDLE;
+  activeSelection.get(document)?.remove();
 
   let userOptions: HighlightOptions = { snap: "word", ...options };
   let resolved = resolveOptions(userOptions);
@@ -377,7 +379,7 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
 
   let showing = true;
   let removed = false;
-  return {
+  const handle: MarkHandle = {
     get tier() {
       return renderer?.tier ?? "css";
     },
@@ -422,8 +424,11 @@ export function highlightSelection(options?: HighlightOptions): MarkHandle {
         container = null;
         currentHost = null;
       }
+      if (activeSelection.get(document) === handle) activeSelection.delete(document);
     },
   };
+  activeSelection.set(document, handle);
+  return handle;
 }
 
 export function group(handles: MarkHandle[]): GroupHandle {

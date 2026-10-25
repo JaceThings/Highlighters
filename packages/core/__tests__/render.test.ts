@@ -1186,6 +1186,23 @@ describe("highlightSelection reflow", () => {
     handle.remove();
   });
 
+  it("a second highlightSelection on the same document replaces the first", async () => {
+    selectWithin(target, 0, 5);
+    const first = highlightSelection({ renderer: "css", vivid: true, animation: { draw: false } });
+    const second = highlightSelection({ renderer: "css", vivid: true, animation: { draw: false } });
+    document.dispatchEvent(new Event("selectionchange"));
+    await flushRaf();
+
+    expect(first.isShowing()).toBe(false);
+    expect(second.isShowing()).toBe(true);
+    expect(article.querySelectorAll("[data-highlighters-layer]").length).toBe(1);
+
+    first.remove();
+    expect(second.isShowing()).toBe(true);
+    second.remove();
+    expect(article.querySelector("[data-highlighters-overlay]")).toBeNull();
+  });
+
   it("moves the escape layer with the overlay when the selection anchor changes", async () => {
     const rects = vi.spyOn(Range.prototype, "getClientRects");
     rects.mockReturnValue(domRectList([dr(10, 100, 200, 18)]));
